@@ -55,17 +55,31 @@ class Message:
 
     @staticmethod
     def set_default_types(types: List[str]):
-        if Message.default_message_types:
-            return
+        # if Message.default_message_types:
+        #     return
         if types:
-            Message.default_message_types = types
+            for type in types:
+                Message.add_default_type(type)
+            # Message.default_message_types = types
+
+    @staticmethod
+    def add_default_type(type: str) -> None:
+        if type and type not in Message.default_message_types:
+            Message.default_message_types.append(type)
 
     @staticmethod
     def set_default_type_actions(actions: List[str]):
-        if Message.default_message_type_actions:
-            return
+        # if Message.default_message_type_actions:
+        #     return
         if actions:
-            Message.default_message_type_actions = actions
+            for action in actions:
+                Message.add_default_type_action(action)
+            # Message.default_message_type_actions = actions
+
+    @staticmethod
+    def add_default_type_action(action: str) -> None:
+        if action and action not in Message.default_message_type_actions:
+            Message.default_message_type_actions.append(action)
 
     @staticmethod
     def get_type(message, type_list=None):

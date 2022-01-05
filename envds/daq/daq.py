@@ -3,20 +3,27 @@ import sys
 import asyncio
 import logging
 import signal
-from envds.util.util import get_datetime, get_datetime_string, datetime_mod_sec, time_to_next
+from envds.util.util import (
+    get_datetime,
+    get_datetime_string,
+    datetime_mod_sec,
+    time_to_next,
+)
 
 from envds.envds.envds import envdsBase, envdsEvent
 from envds.message.message import Message
 from envds.status.status import Status, StatusEvent
 
+
 class DAQManager(envdsBase):
     def __init__(self, config=None, **kwargs) -> None:
         super().__init__(config=config, **kwargs)
         pass
+
+
 class DAQSystem(envdsBase):
 
     STATUS_STATE_MANAGER = "manager"
-
 
     def __init__(self, config=None, **kwargs) -> None:
         super().__init__(config=config, **kwargs)
@@ -25,7 +32,6 @@ class DAQSystem(envdsBase):
         self.envds_id = ".".join([self.app_sig, "daq", self.namespace, self.name])
         # self.use_namespace = True
         # self.namespace = "default"
-
 
         # self.use_namespace = True
         # self.envds_id = ".".join([self.envds_id, "daq"])
@@ -41,7 +47,6 @@ class DAQSystem(envdsBase):
 
         self.loop.create_task(self.setup())
         self.do_run = True
-
 
         # #TODO: where to add this, wait for self.message_client
         # #      probably in fn to set default subs
@@ -59,7 +64,7 @@ class DAQSystem(envdsBase):
     def handle_config(self, config=None):
         super().handle_config(config=config)
 
-        return 
+        return
 
     async def setup(self):
         await super().setup()
@@ -68,6 +73,15 @@ class DAQSystem(envdsBase):
             self.logger.debug("waiting to create DAQSystemManager")
             await asyncio.sleep(1)
         # await self.create_manager()
+
+        # add subscriptions for system/manager
+        if self.part_of:
+            self.apply_subscription(
+                ".".join(["envds.system", self.part_of, "+", "request"])
+            )
+            self.apply_subscription(
+                ".".join(["envds.manager", self.part_of, "+", "request"])
+            )
 
     def set_config(self, config=None):
         # self.use_namespace = True
@@ -81,8 +95,8 @@ class DAQSystem(envdsBase):
             StatusEvent.create(
                 type=Status.TYPE_CREATE,
                 state=self.STATUS_STATE_MANAGER,
-                status=self.STATUS_CREATING,
-                ready_status=self.STATUS_CREATED,
+                status=Status.CREATING,
+                ready_status=Status.CREATED,
             )
         )
         self.manager = True
@@ -94,7 +108,7 @@ class DAQSystem(envdsBase):
                 StatusEvent.create(
                     type=Status.TYPE_CREATE,
                     state=self.STATUS_STATE_MANAGER,
-                    status=self.STATUS_CREATED,
+                    status=Status.CREATED,
                 )
             )
 
@@ -106,7 +120,7 @@ class DAQSystem(envdsBase):
 
         if (action := Message.get_type_action(message)) :
 
-            if action == envdsEvent.TYPE_ACTION_UPDATE:
+            if action == envdsEvent.TYPE_ACTION_REQUEST:
                 data = message.data
                 if "run" in data:
                     try:
@@ -120,7 +134,7 @@ class DAQSystem(envdsBase):
 
     async def run(self):
 
-         # set status to creating
+        # set status to creating
         self.status.event(
             StatusEvent.create(
                 type=Status.TYPE_RUN,
@@ -130,7 +144,7 @@ class DAQSystem(envdsBase):
             )
         )
 
-       # this part is bootstrapping...need special case for these
+        # this part is bootstrapping...need special case for these
         # wait for system to become ready
         # await self.ready_to_run() or something like that
         # if timeout, fail.
@@ -140,11 +154,10 @@ class DAQSystem(envdsBase):
         # manager.ready_to_run
         # if timeout, fail
 
-
         while not self.status.ready(type=Status.TYPE_CREATE):
             self.logger.debug("waiting for startup")
             await asyncio.sleep(1)
-            
+
         self.status.event(
             StatusEvent.create(
                 type=Status.TYPE_RUN,
@@ -155,38 +168,73 @@ class DAQSystem(envdsBase):
 
         while self.do_run:
 
-
             if get_datetime().second % 10 == 0:
 
-            #     # status_event = StatusEvent.create(
-            #     #     type=Status.TYPE_RUN,
-            #     #     state=Status.STATE_RUNSTATE,
-            #     #     status=Status.RUNNING,
-            #     # )
-            #     # self.status.event(status_event)
-                
-            #     status = self.create_status_update(data=self.status.to_dict())
-            #     # status = self.create_status_update(
-            #     #     {"status": {"time": get_datetime_string(), "value": "OK"}}
-            #     # )
-            #     await self.send_message(status)
+                #     # status_event = StatusEvent.create(
+                #     #     type=Status.TYPE_RUN,
+                #     #     state=Status.STATE_RUNSTATE,
+                #     #     status=Status.RUNNING,
+                #     # )
+                #     # self.status.event(status_event)
+
+                #     status = self.create_status_update(data=self.status.to_dict())
+                #     # status = self.create_status_update(
+                #     #     {"status": {"time": get_datetime_string(), "value": "OK"}}
+                #     # )
+                #     await self.send_message(status)
                 do_shutdown_req = True
             # self.loop.create_task(self.send_message(status))
 
             await asyncio.sleep(time_to_next(1))
 
     async def shutdown(self):
+
+        # set status to creating
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_SHUTDOWN,
+                state=Status.STATE_SHUTDOWN,
+                status=Status.SHUTTINGDOWN,
+                ready_status=Status.SHUTDOWN,
+            )
+        )
+        # self.status_update_freq = 1
+
+        # simulate waiting for rest of resources to shut down 
+        for x in range(0,2):
+            self.logger.debug("***simulating DAQSystem shutdown")
+            await asyncio.sleep(1)
+        
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_SHUTDOWN,
+                state=Status.STATE_SHUTDOWN,
+                status=Status.SHUTDOWN
+            )
+        )
+        # await asyncio.sleep(2)
+        # self.logger.debug("daqsystem: status.ready() = %s", self.status.ready())
+        # self.do_run = False
         # timeout = 10
         # sec = 0
         # # allow time for registered services to shutdown and unregister
         # while len(self._daq_map) > 0 and sec <= timeout:
         #     sec += 1
         #     await asyncio.sleep(1)
-        
+
         # self.logger.info("shutdown")
         # self.run_status = "SHUTDOWN"
         # self.run = False
-        return await super().shutdown()
+        # while not self.status.ready():
+        #     self.logger.debug("waiting to finish shutdown")
+        #     await asyncio.sleep(1)
+
+        while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+            self.logger.debug("waiting to finish shutdown")
+            await asyncio.sleep(1)
+
+        await super().shutdown()
+        self.do_run = False
 
     # async def run(self):
 
@@ -203,6 +251,7 @@ class DAQSystem(envdsBase):
     #             await self.send_message(status)
 
     #         await asyncio.sleep(1)
+
 
 # from cloudevents.http import event
 

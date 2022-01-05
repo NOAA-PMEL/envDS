@@ -47,8 +47,8 @@ class envdsEvent:
 class envdsBase(abc.ABC):
     STATUS_STATE_MSGCLIENT = "message-client"
 
-    STATUS_CREATING = "creating"
-    STATUS_CREATED = "created"
+    # STATUS_CREATING = "creating"
+    # STATUS_CREATED = "created"
 
     def __init__(self, config=None, **kwargs) -> None:
         super().__init__()
@@ -60,6 +60,7 @@ class envdsBase(abc.ABC):
 
         self.status = StatusMonitor().get_status()
         self.status_update_freq = 10
+        # self.status_update_freq = 2
 
         self.app_sig = "envds"
         self.default_namespace = "default"
@@ -71,6 +72,8 @@ class envdsBase(abc.ABC):
         self.use_namespace = True  # most things should be namespaced
         self.namespace = None
 
+        self.part_of = None
+        
         self.config = dict()
         if config:
             # each object should handle their own config.
@@ -84,7 +87,7 @@ class envdsBase(abc.ABC):
 
         self.send_buffer = asyncio.Queue()
         self.rec_buffer = asyncio.Queue()
-        self.buffer_tasks = []
+        self.core_tasks = []
 
         self.resource_map = dict()
 
@@ -164,6 +167,11 @@ class envdsBase(abc.ABC):
         except KeyError:
             self.namespace = self.default_namespace
 
+        try:
+            self.part_of = config["metadata"]["part-of"]
+        except KeyError:
+            pass
+
     async def setup(self):
         """
         Function to do setup all of the buffers and background processes
@@ -178,18 +186,27 @@ class envdsBase(abc.ABC):
         await self.create_message_client()
 
         # start status updates
-        self.loop.create_task(self.update_status_loop())
+        self.core_tasks.append(self.loop.create_task(self.update_status_loop()))
 
-    async def check_for_ready(self):
+    # async def check_for_ready(self):
 
-        while True:
-            ready = True
-            for condition in self.ready_conditions:
-                if not condition.result():
-                    self.check_ready_flag = False
+    #     while True:
+    #         ready = True
+    #         for condition in self.ready_conditions:
+    #             if not condition.result():
+    #                 self.check_ready_flag = False
 
-            self.check_ready_flag = True
-            asyncio.sleep(1)
+    #         self.check_ready_flag = True
+    #         asyncio.sleep(1)
+
+    async def check_resources_ready(self, type=Status.TYPE_HEALTH) -> bool:
+
+        for kind, kind_map in self.resource_map.items():
+            for name, resource in kind_map.items():
+                if resource.status is None or not resource.status.ready(type=type):
+                    self.logger.debug("%s: status.ready() = %s", name, resource.status.ready() )
+                    return False
+        return True
 
     # def create_message_client(self, config=None):
     #     self.loop.create_task(self._create_message_client(config=config))
@@ -211,6 +228,10 @@ class envdsBase(abc.ABC):
             except KeyError:
                 self.logger.info("create_object: adding default broker")
                 config["spec"]["broker"] = self.config["broker"]
+
+        # add 'part-of' if missing
+        if "part-of" not in config["metadata"]:
+            config["metadata"]["part-of"] = self.name
 
         # delete resource if exists - TODO: should call delete_resource
         try:
@@ -235,9 +256,7 @@ class envdsBase(abc.ABC):
                 self.resource_map[kind] = dict()
             # if config["kind"] not in self.resource_map:
             #     self.resource_map[config["kind"]] = dict()
-            self.resource_map[kind][name] = cls_(
-                config=config, **kwargs
-            )
+            self.resource_map[kind][name] = cls_(config=config, **kwargs)
             # self.resource_map[config["kind"]][config["metadata"]["name"]] = cls_(
             #     config=config, **kwargs
             # )
@@ -245,6 +264,10 @@ class envdsBase(abc.ABC):
             # prefix = self.message_client.to_channel(cls_.envds_id)
             # TODO: check cls_ for what types we should subscribe to. For now, all
             # self.apply_subscription(".".join([resource_id, "+", "update"]))
+            # await asyncio.sleep(2) # wait for resource to be instantiated
+            self.apply_subscription(
+                ".".join([self.resource_map[kind][name].get_id(), "+", "update"])
+            )
         except Exception as e:
             self.logger.error(
                 "%s: could not instantiate service: %s", e, config["name"]
@@ -264,8 +287,8 @@ class envdsBase(abc.ABC):
             StatusEvent.create(
                 type=Status.TYPE_CREATE,
                 state=self.STATUS_STATE_MSGCLIENT,
-                status=self.STATUS_CREATING,
-                ready_status=self.STATUS_CREATED,
+                status=Status.CREATING,
+                ready_status=Status.CREATED,
             )
         )
         # status: message_client.state: creating
@@ -304,7 +327,7 @@ class envdsBase(abc.ABC):
                     StatusEvent.create(
                         type=Status.TYPE_CREATE,
                         state=self.STATUS_STATE_MSGCLIENT,
-                        status=self.STATUS_CREATED,
+                        status=Status.CREATED,
                     )
                 )
 
@@ -342,9 +365,9 @@ class envdsBase(abc.ABC):
 
     def start_message_buffers(self):
 
-        self.buffer_tasks.append(self.loop.create_task(self.send_message_loop()))
-        self.buffer_tasks.append(self.loop.create_task(self.rec_message_loop()))
-        self.buffer_tasks.append(self.loop.create_task(self.message_handler()))
+        self.core_tasks.append(self.loop.create_task(self.send_message_loop()))
+        self.core_tasks.append(self.loop.create_task(self.rec_message_loop()))
+        self.core_tasks.append(self.loop.create_task(self.message_handler()))
 
     async def send_message(self, message, **extra):
         if message:
@@ -547,6 +570,17 @@ class envdsBase(abc.ABC):
         in child classes
         """
         self.run_status = "SHUTDOWN"
+        # while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+        #     self.logger.debug("waiting to finish shutdown")
+        #     await asyncio.sleep(1)
+
+        if self.message_client:
+            await self.message_client.disconnect()
+            self.message_client = None
+
+        # shut down message buffers
+        for task in self.core_tasks:
+            task.cancel()
 
 
 class DataSystemManager(envdsBase):
@@ -572,8 +606,8 @@ class DataSystemManager(envdsBase):
         # ----
         self.use_namespace = False
         self.namespace = "envds"
-        self.name = "envds-manager"
-        self.envds_id = ".".join([self.app_sig, "manager"])
+        # self.name = "envds-manager"
+        self.envds_id = ".".join([self.app_sig, "manager", self.name])
 
         self.loop.create_task(self.setup())
         self.do_run = True
@@ -650,7 +684,8 @@ class DataSystemManager(envdsBase):
                                 "bad config/status: %s-%s-%s", ns, kind, name
                             )
             self.logger.debug(time_to_next(5))
-            await asyncio.sleep(5)  # what's the right time here? 1, 5?
+            await asyncio.sleep(time_to_next(5))  # what's the right time here? 1, 5?
+            # await asyncio.sleep(5)  # what's the right time here? 1, 5?
 
         # self.envds_id = ".".join([self.envds_id, "system"])
         # self.service_map = dict()
@@ -750,22 +785,23 @@ class DataSystemManager(envdsBase):
     # async def message_handler(self):
     #     pass
 
-    async def create_required_services(self):
+    # async def create_required_services(self):
 
-        registry_config = {
-            "type": "service",
-            "name": "registry",
-            # "namespace": "acg",
-            "instance": {
-                "module": "envds.registry.registry",
-                "class": "envdsRegistry",
-            },
-            "part-of": self.get_id(),
-        }
-        await self.add_service(service_config=registry_config)
+    #     registry_config = {
+    #         "type": "service",
+    #         "name": "registry",
+    #         # "namespace": "acg",
+    #         "instance": {
+    #             "module": "envds.registry.registry",
+    #             "class": "envdsRegistry",
+    #         },
+    #         "part-of": self.get_id(),
+    #     }
+    #     await self.add_service(service_config=registry_config)
 
     async def handle_control(self, message, extra=dict()):
-
+        pass
+        return 
         if (action := Message.get_type_action(message)) :
 
             if action == envdsEvent.TYPE_ACTION_REQUEST:
@@ -803,37 +839,37 @@ class DataSystemManager(envdsBase):
     #     except Exception as e:
     #         self.logger.error("%s: could not instantiate service: %s", e, config)
 
-    async def add_service(
-        self, service_config=None, include_message_broker=True, **kwargs
-    ):
-        if not service_config or service_config["type"] != "service":
-            return
+    # async def add_service(
+    #     self, service_config=None, include_message_broker=True, **kwargs
+    # ):
+    #     if not service_config or service_config["type"] != "service":
+    #         return
 
-        if include_message_broker:
-            try:
-                mb_config = service_config["message_broker"]
-            except KeyError:
-                service_config["message_broker"] = self.config["message_broker"]
+    #     if include_message_broker:
+    #         try:
+    #             mb_config = service_config["message_broker"]
+    #         except KeyError:
+    #             service_config["message_broker"] = self.config["message_broker"]
 
-        try:
-            mod_ = importlib.import_module(service_config["instance"]["module"])
-            cls_ = getattr(mod_, service_config["instance"]["class"])
-            self.service_map[service_config["name"]] = cls_(
-                config=service_config, **kwargs
-            )
-            service_id = cls_.get_id()
-            # prefix = self.message_client.to_channel(cls_.envds_id)
-            # TODO: check cls_ for what types we should subscribe to. For now, all
-            self.apply_subscription(".".join([service_id, "+", "update"]))
-        except Exception as e:
-            self.logger.error(
-                "%s: could not instantiate service: %s", e, service_config["name"]
-            )
+    #     try:
+    #         mod_ = importlib.import_module(service_config["instance"]["module"])
+    #         cls_ = getattr(mod_, service_config["instance"]["class"])
+    #         self.service_map[service_config["name"]] = cls_(
+    #             config=service_config, **kwargs
+    #         )
+    #         service_id = cls_.get_id()
+    #         # prefix = self.message_client.to_channel(cls_.envds_id)
+    #         # TODO: check cls_ for what types we should subscribe to. For now, all
+    #         self.apply_subscription(".".join([service_id, "+", "update"]))
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "%s: could not instantiate service: %s", e, service_config["name"]
+    #         )
 
-    def create_control_update(self, data=None, **kwargs):
+    def create_control_request(self, data=None, **kwargs):
         # self.logger.debug("%s", sys.path)
         type = envdsEvent.TYPE_CONTROL
-        action = envdsEvent.TYPE_ACTION_UPDATE
+        action = envdsEvent.TYPE_ACTION_REQUEST
         return self.create_message(type=type, action=action, data=data, **kwargs)
 
     async def run(self):
@@ -915,24 +951,55 @@ class DataSystemManager(envdsBase):
 
     async def shutdown(self):
 
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_SHUTDOWN,
+                state=Status.STATE_SHUTDOWN,
+                status=Status.SHUTTINGDOWN,
+                ready_status=Status.SHUTDOWN,
+            )
+        )
+
         # send shutdown command to listening services
-        message = self.create_control_update(
+        message = self.create_control_request(
             data={"run": {"type": "shutdown", "value": True}}
         )
         await self.send_message(message)
 
+        # give a moment to let message propogate
+        await asyncio.sleep(2)
+
+        # TODO: make timeout a higher level variable
         timeout = 15
         sec = 0
         wait = True
         # wait for services in service_map to finish shutting down
         while sec <= timeout and wait:
-            wait = False
-            for name, service in self.service_map.items():
-                if service.run_status != "SHUTDOWN":
-                    wait = True
-                    break
+            # wait = False
+            if await self.check_resources_ready(type=Status.TYPE_SHUTDOWN):
+                break
+            # for name, service in self.service_map.items():
+            #     if service.run_status != "SHUTDOWN":
+            #         wait = True
+            #         break
             sec += 1
             await asyncio.sleep(1)
+
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_SHUTDOWN,
+                state=Status.STATE_SHUTDOWN,
+                status=Status.SHUTDOWN
+            )
+        )
+        # while not self.status.ready():
+        #     self.logger.debug("waiting to finish shutdown")
+        #     await asyncio.sleep(1)
+
+        while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+            self.logger.debug("waiting to finish shutdown")
+            await asyncio.sleep(1)
+
         self.do_run = False
         return await super().shutdown()
 
@@ -954,14 +1021,35 @@ class DataSystem(envdsBase):
         super().__init__(config=config, **kwargs)
 
         # these will override config
-        self.name = "envds-system"
-        self.envds_id = ".".join([self.app_sig, "system"])
+        # self.name = "envds-system"
+        self.envds_id = ".".join([self.app_sig, "system", self.name])
         self.use_namespace = False
         self.namespace = "envds"
 
         self.manager = None
         # create message client
         # self.start_message_client()
+
+        self.default_message_types = [
+            envdsEvent.TYPE_DATA,
+            envdsEvent.TYPE_MANAGE,
+            envdsEvent.TYPE_STATUS,
+            envdsEvent.TYPE_CONTROL,
+            envdsEvent.TYPE_REGISTRY,
+            envdsEvent.TYPE_DISCOVERY,
+        ]
+        Message.set_default_types(self.default_message_types)
+
+        # if not Message.default_message_type_actions:
+        self.default_type_actions = [
+            envdsEvent.TYPE_ACTION_UPDATE,
+            envdsEvent.TYPE_ACTION_REQUEST,
+            envdsEvent.TYPE_ACTION_DELETE,
+            envdsEvent.TYPE_ACTION_SET,
+        ]
+        Message.set_default_type_actions(self.default_type_actions)
+
+
         self.loop.create_task(self.setup())
         self.do_run = True
 
@@ -980,6 +1068,8 @@ class DataSystem(envdsBase):
         await self.create_manager()
 
     async def create_manager(self, config=None):
+        # TODO: allow config param to override?
+
         self.logger.debug("creating DataSystemManager client")
 
         # set status to creating
@@ -987,8 +1077,8 @@ class DataSystem(envdsBase):
             StatusEvent.create(
                 type=Status.TYPE_CREATE,
                 state=self.STATUS_STATE_MANAGER,
-                status=self.STATUS_CREATING,
-                ready_status=self.STATUS_CREATED,
+                status=Status.CREATING,
+                ready_status=Status.CREATED,
             )
         )
         manager_config = dict()
@@ -996,7 +1086,8 @@ class DataSystem(envdsBase):
             if key == "kind":
                 manager_config[key] = "DataSystemManager"
             elif key == "metadata":
-                manager_config[key] = {"name": "envds-manager", "namespace": "envds"}
+                # manager_config[key] = {"name": "envds-manager", "namespace": "envds"}
+                manager_config[key] = {"name": self.name, "namespace": "envds"}
             else:
                 manager_config[key] = val
 
@@ -1008,7 +1099,7 @@ class DataSystem(envdsBase):
                 StatusEvent.create(
                     type=Status.TYPE_CREATE,
                     state=self.STATUS_STATE_MANAGER,
-                    status=self.STATUS_CREATED,
+                    status=Status.CREATED,
                 )
             )
 
@@ -1059,6 +1150,8 @@ class DataSystem(envdsBase):
             )
         )
 
+        do_shutdown_req = False
+        shutdown_requested = False
         while self.do_run:
 
             if get_datetime().second % 10 == 0:
@@ -1077,21 +1170,31 @@ class DataSystem(envdsBase):
                 # await self.send_message(status)
                 do_shutdown_req = True
             # self.loop.create_task(self.send_message(status))
+            if do_shutdown_req and not shutdown_requested:
+                self.request_shutdown()
+                shutdown_requested = True
+                do_shutdown_req = False
 
             await asyncio.sleep(time_to_next(1))
 
     async def shutdown(self):
-        return await super().shutdown()
+        await self.manager.shutdown()
+        # while not self.manager.status.ready():
+        #     self.logger.debug("waiting for SystemManager to shutdown")
+        #     await asyncio.sleep(1)
+        # wait for status to become ready
+        await super().shutdown()
+        self.do_run = False
 
     def request_shutdown(self):
-        type = envdsEvent.TYPE_CONTROL
-        action = envdsEvent.TYPE_ACTION_REQUEST
-        data = {"run": {"type": "shutdown", "value": True}}
-        message = self.create_message(type=type, action=action, data=data)
-        self.loop.create_task(self.send_message(message))
-
+        # type = envdsEvent.TYPE_CONTROL
+        # action = envdsEvent.TYPE_ACTION_REQUEST
+        # data = {"run": {"type": "shutdown", "value": True}}
+        # message = self.create_message(type=type, action=action, data=data)
+        # self.loop.create_task(self.send_message(message))
+        self.loop.create_task(self.shutdown())
         # self.loop
-        self.do_run = False
+        # self.do_run = False
 
 
 if __name__ == "__main__":

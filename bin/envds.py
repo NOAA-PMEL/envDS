@@ -77,7 +77,7 @@ if __name__ == "__main__":
        "apiVersion": "envds/v1", 
         "kind": "DataSystem", 
         "metadata": {
-            "name": "envds-system", # <- this has to be unique name in namespace
+            "name": "who-daq", # <- this has to be unique name in namespace
             "namespace": "envds" 
         },
         "spec": {
@@ -123,7 +123,8 @@ if __name__ == "__main__":
         "kind": "DAQSystem", 
         "metadata": {
             "name": "daq-test", # <- this has to be unique name in namespace
-            "namespace": "acg-test" 
+            "namespace": "acg-test",
+            "part-of": "who-daq"
         },
         "spec": {
             "class": {

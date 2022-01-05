@@ -66,6 +66,10 @@ class MessageBrokerClient:
     async def connect(self):
         pass
 
+    @abstractmethod
+    async def disconnect(self):
+        pass
+
     async def send(self, data):
         await self.pub_data.put(data)
         if self.pub_data.qsize() > self.queue_size_limit:
@@ -168,7 +172,7 @@ class MQTTBrokerClient(MessageBrokerClient):
 
     async def disconnect(self):
         for topic in self.subscriptions:
-            await self.client.unsubscribe(topic)
+            self.client.unsubscribe(topic)
         await self.client.disconnect()
         self.logger.debug("disconnect")
 

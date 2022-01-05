@@ -121,6 +121,7 @@ class Status:
     # states (default)
     STATE_READY = "ready"
     STATE_RUNSTATE = "run-state"
+    STATE_SHUTDOWN = "shutdown-state"
 
     # status
     UNKNOWN = "unknown"
@@ -129,8 +130,15 @@ class Status:
     STARTING = "starting"
     RUNNING = "running"
     STOPPING = "stopping"
+    STOPPED = "stopped"
     SHUTTINGDOWN = "shuttingdown"
     SHUTDOWN = "shutdown"
+    CREATING = "creating"
+    CREATED = "created"
+    ENABLING = "enabling"
+    ENABLED = "enabled"
+    DISABLING = "disabling"
+    DISABLED = "disabled"
 
     def __init__(self) -> None:
 
