@@ -8,13 +8,17 @@ import signal
 import logging
 import importlib
 
+# from envds.registry.registry import envdsRegistry
+
 from envds.status.status import Status, StatusMonitor, StatusEvent
 from envds.message.message import Message
 from envds.message.broker.client import MessageBrokerClientFactory
 from envds.util.util import (
+    datetime_to_string,
     get_datetime,
     get_datetime_string,
     datetime_mod_sec,
+    string_to_datetime,
     time_to_next,
 )
 
@@ -23,6 +27,7 @@ class envdsEvent:
 
     APP_PREFIX = "envds"
 
+    TYPE_RUNSTATE = "run-state"
     TYPE_DATA = "data"
     TYPE_STATUS = "status"
     TYPE_CONTROL = "control"
@@ -34,10 +39,13 @@ class envdsEvent:
     TYPE_ACTION_UPDATE = "update"
     TYPE_ACTION_DELETE = "delete"
     TYPE_ACTION_REQUEST = "request"
+    TYPE_ACTION_RESPONSE = "response"
     TYPE_ACTION_SET = "set"
     TYPE_ACTION_GET = "get"
     TYPE_ACTION_INSERT = "insert"
     TYPE_ACTION_BROADCAST = "broadcast"
+    # TYPE_ACTION_ACK = "ack"
+    # TYPE_ACTION_NOACK = "noack"
 
     @staticmethod
     def get_type(type=TYPE_DATA, action=TYPE_ACTION_UPDATE):
@@ -46,6 +54,10 @@ class envdsEvent:
 
 class envdsBase(abc.ABC):
     STATUS_STATE_MSGCLIENT = "message-client"
+
+    RUNSTATE_ENABLE = "enable"
+    RUNSTATE_DISABLE = "disable"
+    RUNSTATE_SHUTDOWN = "shutdown"
 
     # STATUS_CREATING = "creating"
     # STATUS_CREATED = "created"
@@ -66,6 +78,8 @@ class envdsBase(abc.ABC):
         self.default_namespace = "default"
 
         # these need to be set by instantiated objects:
+        self.kind = None
+
         self.name = None
         self.envds_id = None
 
@@ -73,7 +87,7 @@ class envdsBase(abc.ABC):
         self.namespace = None
 
         self.part_of = None
-        
+
         self.config = dict()
         if config:
             # each object should handle their own config.
@@ -204,7 +218,9 @@ class envdsBase(abc.ABC):
         for kind, kind_map in self.resource_map.items():
             for name, resource in kind_map.items():
                 if resource.status is None or not resource.status.ready(type=type):
-                    self.logger.debug("%s: status.ready() = %s", name, resource.status.ready() )
+                    self.logger.debug(
+                        "%s: status.ready() = %s", name, resource.status.ready()
+                    )
                     return False
         return True
 
@@ -231,7 +247,7 @@ class envdsBase(abc.ABC):
 
         # add 'part-of' if missing
         if "part-of" not in config["metadata"]:
-            config["metadata"]["part-of"] = self.name
+            config["metadata"]["part-of"] = {"kind": self.kind, "name": self.name}
 
         # delete resource if exists - TODO: should call delete_resource
         try:
@@ -440,7 +456,7 @@ class envdsBase(abc.ABC):
             self.loop.create_task(self.message_client.subscribe_channel(channel))
 
     # create message helper functions
-    def create_message(self, type=None, action=None, data=None, **kwargs):
+    def create_message(self, type=None, action=None, data=None, target=None, **kwargs):
         if not type or not action:
             return None
 
@@ -449,8 +465,11 @@ class envdsBase(abc.ABC):
             channel = kwargs["channel"]
         except KeyError:
             if self.message_client:
+                if target is None:
+                    target = self.get_id()
+
                 kwargs["channel"] = "/".join(
-                    [self.message_client.to_channel(self.get_id()), type, action]
+                    [self.message_client.to_channel(target), type, action]
                 )
 
         msg_type = ".".join([envdsEvent.APP_PREFIX, type, action])
@@ -463,8 +482,17 @@ class envdsBase(abc.ABC):
             await asyncio.sleep(1)
 
         while True:
+            # send status update
             status = self.create_status_update(data=self.status.to_dict())
             await self.send_message(status)
+
+            # check registration status, if not registered, do so
+            await self.update_registration()
+            # reg_status = self.status.get_current_status(
+            #         type=Status.TYPE_REGISTRATION, state=Status.STATE_REGISTERED
+            #     )
+            # if reg_status not in [Status.REGISTERING, Status.REGISTERED]:
+            #     self.loop.create_task(self.register())
             await asyncio.sleep(self.status_update_freq)
 
     def create_status_update(self, data=None, **kwargs):
@@ -480,6 +508,46 @@ class envdsBase(abc.ABC):
     #     return Message.create(
     #         source=self.get_id(), type=event_type, data=data, **kwargs
     #     )
+
+    async def update_registration(self):
+
+        if self.kind == "Registry":
+            return 
+
+        reg_status = self.status.get_current_status(
+            type=Status.TYPE_REGISTRATION, state=Status.STATE_REGISTERED
+        )
+        if reg_status != Status.REGISTERED:
+            if reg_status != Status.REGISTERING:
+
+                # subscribe to registry responses
+                self.apply_subscription(
+                    ".".join([self.get_id(), envdsEvent.TYPE_REGISTRY, "response"])
+                )
+
+                self.status.event(
+                    StatusEvent.create(
+                        type=Status.TYPE_REGISTRATION,
+                        state=Status.STATE_REGISTERED,
+                        status=Status.REGISTERING,
+                        ready_status=Status.REGISTERED,
+                    )
+                )
+
+            # message = self.create_runstate_request(
+            #     target=resource.get_id(),
+            #     data={envdsEvent.TYPE_RUNSTATE: "shutdown"},
+            # )
+            # await self.send_message(message)
+
+            type = envdsEvent.TYPE_REGISTRY
+            action = envdsEvent.TYPE_ACTION_REQUEST
+            data = {envdsEvent.TYPE_REGISTRY: self.config}
+            message = self.create_registry_request(data=data)
+            await self.send_message(message)
+
+        # check if already in the process of registering
+        # if reg_status != Status.REGISTERING:
 
     async def message_handler(self):
         """
@@ -505,6 +573,7 @@ class envdsBase(abc.ABC):
             envdsEvent.TYPE_CONTROL: self.handle_control,
             envdsEvent.TYPE_MANAGE: self.handle_manage,
             envdsEvent.TYPE_REGISTRY: self.handle_registry,
+            envdsEvent.TYPE_RUNSTATE: self.handle_runstate,
         }
 
         # routed = False
@@ -539,7 +608,58 @@ class envdsBase(abc.ABC):
         pass
 
     async def handle_registry(self, message, extra=dict()):
-        pass
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_RESPONSE:
+                self.status.event(
+                    StatusEvent.create(
+                        type=Status.TYPE_REGISTRATION,
+                        state=Status.STATE_REGISTERED,
+                        status=Status.REGISTERED,
+                    )
+                )
+                pass
+
+
+    async def handle_runstate(self, message, extra=dict()):
+
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_REQUEST:
+                data = message.data
+                if envdsEvent.TYPE_RUNSTATE in data:
+                    if data[envdsEvent.TYPE_RUNSTATE] == self.RUNSTATE_SHUTDOWN:
+                        await self.shutdown()
+                    elif data[envdsEvent.TYPE_RUNSTATE] == self.RUNSTATE_DISABLE:
+                        await self.disable()
+                    elif data[envdsEvent.TYPE_RUNSTATE] == self.RUNSTATE_ENABLE:
+                        await self.enable()
+                    # try:
+                    #     control = data["run"]["type"]
+                    #     value = data["run"]["value"]
+                    #     if control == "shutdown" and value:
+                    #         await self.shutdown()
+                    # except KeyError:
+                    #     self.logger("invalid run control message")
+                    #     pass
+
+    def create_runstate_request(self, data=None, target=None, **kwargs):
+        # self.logger.debug("%s", sys.path)
+        type = envdsEvent.TYPE_RUNSTATE
+        action = envdsEvent.TYPE_ACTION_REQUEST
+        return self.create_message(
+            type=type, action=action, data=data, target=target, **kwargs
+        )
+
+    def create_registry_request(self, data=None, target=None, **kwargs):
+        # self.logger.debug("%s", sys.path)
+        if not target:
+            target = ".".join([self.app_sig, "registry"])
+        type = envdsEvent.TYPE_REGISTRY
+        action = envdsEvent.TYPE_ACTION_REQUEST
+        return self.create_message(
+            type=type, action=action, data=data, target=target, **kwargs
+        )
 
     async def wait_for_message_client(self) -> bool:
         timeout = 10  # seconds
@@ -563,6 +683,29 @@ class envdsBase(abc.ABC):
 
         self.run_status = "SHUTDOWN"
 
+    async def shutdown_resources(self):
+
+        # send shutdown request to all resources
+        for kind, kind_map in self.resource_map.items():
+            for name, resource in kind_map.items():
+                self.logger.debug(
+                    "shutdown resource: %s: %s -- %s", kind, name, resource
+                )
+                self.logger.debug("  resource_id: %s", resource.get_id())
+
+                # send shutdown command to listening services
+                message = self.create_runstate_request(
+                    target=resource.get_id(),
+                    data={envdsEvent.TYPE_RUNSTATE: "shutdown"},
+                )
+                await self.send_message(message)
+
+    async def enable(self):
+        pass
+
+    async def disable(self):
+        pass
+
     @abc.abstractmethod
     async def shutdown(self):
         """
@@ -581,6 +724,419 @@ class envdsBase(abc.ABC):
         # shut down message buffers
         for task in self.core_tasks:
             task.cancel()
+
+
+class envdsRegistryLocal(envdsBase):
+    def __init__(self, config=None, **kwargs) -> None:
+        super().__init__(config=config, **kwargs)
+
+        # self.use_namespace = False
+        self.kind = "Registry"
+        # self.envds_id = ".".join([self.envds_id, "registry"])
+        self.envds_id = ".".join([self.app_sig, "registry"])
+
+        # self.default_subscriptions = [f"{self.get_id()}/request"]
+        # self.default_subscriptions = []
+        # # self.default_subscriptions.append(f"{self.get_id()}.+.request")
+        # self.default_subscriptions.append(f"{self.get_id()}.{envdsEvent.TYPE_REGISTRY}.request")
+        # self.default_subscriptions.append(f"{self.get_id()}.{envdsEvent.TYPE_CONTROL}.request")
+        # self.default_subscriptions.append(f"{self.get_id()}.{envdsEvent.TYPE_DISCOVERY}.request")
+        # self.default_subscriptions.append(f"{self.get_id()}.{envdsEvent.TYPE_MANAGE}.request")
+        # self.default_subscriptions.append(f"{self.get_id()}.{envdsEvent.TYPE_STATUS}.request")
+
+        # #TODO: where to add this, wait for self.message_client
+        # #      probably in fn to set default subs
+        # if config and "part-of" in config:
+        #     # part_of = config["part-of"].split(".")
+        #     # parent = self.message_client.to_channel(part_of)
+        #     # channels = "/".join([parent, "update"])
+        #     channel = ".".join([config["part-of"], "+", "update"])
+        #     self.default_subscriptions.append(channel)
+
+        self.expired_reg_time = 60
+        self.stale_reg_time = 10
+        self.reg_monitor_time = 2
+
+        self._registry = dict()
+        self._registry_by_source = dict()
+
+        # self._registry = {
+        #     "services": None
+        # }
+
+        # self.logger.info("registry started")
+        # extra = {"channel": "envds/registry/status"}
+        # status = Message.create(
+        #     source=self.envds_id,
+        #     type=envdsEvent.get_type(type=envdsEvent.TYPE_STATUS, action=envdsEvent.TYPE_ACTION_UPDATE),
+        #     data={"update": "registry started"},
+        #     **extra,
+        # )
+        # self.loop.create_task(self.send_message(status))
+        # self.loop.create_task(self.run())
+        self.loop.create_task(self.setup())
+        self.do_run = True
+
+
+    # async def handle_registry(self, message, extra=dict()):
+
+    #     if (action := Message.get_type_action(message)) :
+
+    #         if action == envdsEvent.TYPE_ACTION_REQUEST:
+    #             data = message.data
+    #             if data["request"] == "register":
+
+    #                 # begin shutting down system
+    #                 # self.logger.info("shutdown requested")
+    #                 # extra = {"channel": "evnds/system/request"}
+    #                 # request = Message.create(
+    #                 #     source=self.envds_id,
+    #                 #     type=envdsEvent.TYPE_ACTION_REQUEST,
+    #                 #     data=data,
+    #                 #     **extra,
+    #                 # )
+    #                 await self.shutdown()
+
+    def set_config(self, config=None):
+        self.use_namespace = False
+        return super().set_config(config=config)
+
+    def handle_config(self, config=None):
+        super().handle_config(config=config)
+
+        return
+
+    async def setup(self):
+        await super().setup()
+
+        # while not self.status.ready(type=Status.TYPE_CREATE):
+        #     self.logger.debug("waiting to create DAQSystemManager")
+        #     await asyncio.sleep(1)
+        # await self.create_manager()
+
+        # add subscriptions for requests
+        self.apply_subscription(".".join([self.get_id(), "+", "request"]))
+        # add subscriptions for system/manager
+        # if self.part_of:
+        #     try:
+        #         self.apply_subscription(
+        #             ".".join(["envds.registry", "request"])
+        #         )
+        #         # self.apply_subscription(
+        #         #     ".".join(["envds.system", self.part_of["name"], "+", "update"])
+        #         # )
+        #         # self.apply_subscription(
+        #         #     ".".join(["envds.manager", self.part_of["name"], "+", "update"])
+        #         # )
+        #     except KeyError:
+        #         pass
+
+        self.loop.create_task(self.monitor_registry())
+        self.loop.create_task(self.run())
+
+    async def monitor_registry(self):
+        """
+        Loop to monitor status of registry
+        """
+        while True:
+            for ns, namespace in self._registry.items():
+                for kname, kind in namespace.items():
+                    for name, reg in kind.items():
+                        # dt = get_datetime()
+                        # lu = reg["last-update"]
+                        # ldt = string_to_datetime(reg["last-update"])
+                        # self.logger.debug("%s", (dt-ldt).seconds)
+                        diff = (get_datetime() - string_to_datetime(reg["last-update"])).seconds
+                        if diff > self.expired_reg_time:
+                            self.logger.debug("%s - %s - %s registration is expired")
+                        elif  diff > self.stale_reg_time:
+                            self.logger.debug("%s - %s - %s registration is stale", ns, kname, name)
+
+            await asyncio.sleep(self.reg_monitor_time)
+
+    async def handle_status(self, message, extra=dict()):
+
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_UPDATE:
+                source = message["source"]
+                self.refresh_registration_by_source(source)
+
+    async def handle_registry(self, message, extra=dict()):
+
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_REQUEST:
+                source = message["source"]
+                data = message.data
+                self.logger.debug("registry request: %s", message)
+
+                try:
+                    namespace = data[envdsEvent.TYPE_REGISTRY]["metadata"]["namespace"]
+                    kind = data[envdsEvent.TYPE_REGISTRY]["kind"]
+                    name = data[envdsEvent.TYPE_REGISTRY]["metadata"]["name"]
+
+                    # create/update _registry
+                    if namespace not in self._registry:
+                        self._registry[namespace] = dict()
+                    if kind not in self._registry[namespace]:
+                        self._registry[namespace][kind] = dict()
+                    self._registry[namespace][kind][name] = {
+                        "source": source,
+                        "created": get_datetime_string(),
+                        "last-update": get_datetime_string(),
+                    }
+
+                    # create/update _registry_by_source
+                    self._registry_by_source[source] = {
+                        "namespace": namespace,
+                        "kind": kind,
+                        "name": name
+                    }
+
+                    data = {envdsEvent.TYPE_REGISTRY: "registered"}
+                    response = self.create_registry_response(target=source, data=data)
+                    await self.send_message(response)
+
+                    # subscribe to status updates to refresh registry
+                    self.apply_subscription(
+                        ".".join([source, envdsEvent.TYPE_STATUS, "update"])
+                    )
+
+                except KeyError:
+                    self.logger.info("could not register %s", source)
+                    return
+
+                # if "run" in data:
+                #     try:
+                #         control = data["run"]["type"]
+                #         value = data["run"]["value"]
+                #         if control == "shutdown" and value:
+                #             await self.shutdown()
+                #     except KeyError:
+                #         self.logger("invalid run control message")
+                #         pass
+
+    def refresh_registration_by_source(self, source):
+        if reg := self.get_registration_by_source(source):
+            try:
+                ns = reg["namespace"]
+                kind = reg["kind"]
+                name = reg["name"]
+                self._registry[ns][kind][name]["last-update"] = get_datetime_string()
+            except KeyError:
+                pass
+
+    def update_registration(self, source, namespace, kind, name):
+
+        if not all([source, namespace, kind, name]):
+            self.logger.debug("can't update registration")
+            return
+
+        # create/update _registry
+        if namespace not in self._registry:
+            self._registry[namespace] = dict()
+        if kind not in self._registry[namespace]:
+            self._registry[namespace][kind] = dict()
+        self._registry[namespace][kind][name] = {
+            "source": source,
+            "created": get_datetime_string(),
+            "last-update": get_datetime_string(),
+        }
+
+        # create/update _registry_by_source
+        self._registry_by_source[source] = {
+            "namespace": namespace,
+            "kind": kind,
+            "name": name
+        }
+
+    def get_registration_filter(self, namespace=None, kind=None, name=None):
+        # allow user to get a list of registrations based on a filter
+        pass
+
+
+    def get_registration(self, namespace, kind, name):
+        if not all([namespace, kind, name]):
+            self.logger.debug("can't get registration")
+            return None
+        
+        try:
+            return self._registry[namespace][kind][name]
+        except KeyError:
+            return None
+
+    def get_registration_by_source(self, source):
+        if not source:
+            self.logger.debug("can't get registration_by_source")
+            return None
+
+        try:
+            reg = self._registry_by_source[source]
+            return reg
+            # return self.get_registration(meta["namespace"], meta["kind"], meta["name"])
+        except KeyError:
+            return None
+
+
+    def create_registry_response(self, target=None, data=None, **kwargs):
+        if not target:
+            target = ".".join([self.app_sig, "registry"])
+        type = envdsEvent.TYPE_REGISTRY
+        action = envdsEvent.TYPE_ACTION_RESPONSE
+        return self.create_message(
+            type=type, action=action, data=data, target=target, **kwargs
+        )
+
+    # async def handle_control(self, message, extra=dict()):
+
+    #     if (action := Message.get_type_action(message)) :
+
+    #         if action == envdsEvent.TYPE_ACTION_REQUEST:
+    #             data = message.data
+    #             if "run" in data:
+    #                 try:
+    #                     control = data["run"]["type"]
+    #                     value = data["run"]["value"]
+    #                     if control == "shutdown" and value:
+    #                         await self.shutdown()
+    #                 except KeyError:
+    #                     self.logger("invalid run control message")
+    #                     pass
+
+    async def shutdown(self):
+        timeout = 10
+        sec = 0
+        # allow time for registered services to shutdown and unregister
+        while len(self._registry) > 0 and sec <= timeout:
+            sec += 1
+            await asyncio.sleep(1)
+
+        self.logger.info("shutdown")
+        self.run_status = "SHUTDOWN"
+        self.run = False
+        return await super().shutdown()
+
+    async def run(self):
+
+        # set status to creating
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_RUN,
+                state=Status.STATE_RUNSTATE,
+                status=Status.STARTING,
+                ready_status=Status.RUNNING,
+            )
+        )
+
+        while not self.status.ready(type=Status.TYPE_CREATE):
+            self.logger.debug("waiting for startup")
+            await asyncio.sleep(1)
+
+        self.status.event(
+            StatusEvent.create(
+                type=Status.TYPE_RUN,
+                state=Status.STATE_RUNSTATE,
+                status=Status.RUNNING,
+            )
+        )
+
+        # apply subscriptions
+        # self.apply_subscriptions(self.default_subscriptions)
+
+        # self.run_status = "RUNNING"
+        # self.logger.info("registry started")
+        # self.do_run = True
+        while self.do_run:
+            # if datetime_mod_sec(10) == 0:
+            #     # self.logger.debug("%s", sys.path)
+            #     status = self.create_status_update({"update": {"value": "OK"}})
+            #     await self.send_message(status)
+
+            #         extra = {"channel": "envds/registry/status"}
+            #         status = Message.create(
+            #             source=self.envds_id,
+            #             type=envdsEvent.get_type(type=envdsEvent.TYPE_STATUS, action=envdsEvent.TYPE_ACTION_UPDATE),
+            #             data={"update": "registry started"},
+            #             **extra,
+            #         )
+            #         self.logger.debug(self.message_client)
+            #         await self.send_message(status)
+            #     # self.loop.create_task(self.send_message(status))
+            await asyncio.sleep(1)
+
+        # return await super().run()
+
+    async def shutdown(self):
+
+        if (
+            self.status.get_current_status(
+                type=Status.TYPE_SHUTDOWN, state=Status.STATE_SHUTDOWN
+            )
+            != Status.SHUTTINGDOWN
+        ):
+
+            # set status to creating
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTTINGDOWN,
+                    ready_status=Status.SHUTDOWN,
+                )
+            )
+            # self.status_update_freq = 1
+
+            # simulate waiting for rest of resources to shut down
+            # for x in range(0,2):
+            #     self.logger.debug("***simulating DAQSystem shutdown")
+            #     await asyncio.sleep(1)
+
+             # give a moment to let message propogate
+            await asyncio.sleep(2)
+
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTDOWN,
+                )
+            )
+            # await asyncio.sleep(2)
+            # self.logger.debug("daqsystem: status.ready() = %s", self.status.ready())
+            # self.do_run = False
+            # timeout = 10
+            # sec = 0
+            # # allow time for registered services to shutdown and unregister
+            # while len(self._daq_map) > 0 and sec <= timeout:
+            #     sec += 1
+            #     await asyncio.sleep(1)
+
+            # self.logger.info("shutdown")
+            # self.run_status = "SHUTDOWN"
+            # self.run = False
+            # while not self.status.ready():
+            #     self.logger.debug("waiting to finish shutdown")
+            #     await asyncio.sleep(1)
+
+            while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+                self.logger.debug("waiting to finish shutdown")
+                await asyncio.sleep(1)
+
+            await super().shutdown()
+            self.do_run = False
+
+    # async def run(self):
+    #     self.logger.info("registry started")
+    #     extra = {"channel": "envds/registry/status"}
+    #     status = Message.create(
+    #         source=self.envds_id,
+    #         type=Message.get_type(type=envdsEvent.TYPE_STATUS, action=envdsEvent.TYPE_ACTION_UPDATE),
+    #         data={"update": "registry started"},
+    #         **extra,
+    #     )
+    #     self.send_message(status)
+    #     return await super().run()
 
 
 class DataSystemManager(envdsBase):
@@ -605,6 +1161,7 @@ class DataSystemManager(envdsBase):
 
         # ----
         self.use_namespace = False
+        self.kind = "DataSystemManager"
         self.namespace = "envds"
         # self.name = "envds-manager"
         self.envds_id = ".".join([self.app_sig, "manager", self.name])
@@ -635,7 +1192,10 @@ class DataSystemManager(envdsBase):
             return
 
         namespace = self.default_namespace
-        if "namespace" in config["metadata"]:
+        if kind in ["Registry", "DataManager"]:
+            namespace = self.namespace
+            config["metadata"]["namespace"] = namespace
+        elif "namespace" in config["metadata"]:
             namespace = config["metadata"]["namespace"]
 
         # add broker if missing
@@ -668,12 +1228,16 @@ class DataSystemManager(envdsBase):
                                 )
 
                                 # check if service is started locally
-                                if kind == "DAQSystem":
-                                    # service = await self.add_service(config)
+                                try:
+                                    part_of = config["metadata"]["part-of"]
+                                    self.logger.debug("send message to %s", part_of)
+                                except KeyError:
+                                # if kind == "DAQSystem" or kind == "Registry":
+                                #     # service = await self.add_service(config)
                                     await self.create_resource(config=config)
                                     self.system_map[ns][kind][name]["status"] = Status()
-                                else:
-                                    self.logger.debug("send message to part-of")
+                                # else:
+                                #     self.logger.debug("send message to part-of")
 
                             elif not status.ready():
                                 # TODO: start timer on object to manage fix
@@ -683,7 +1247,9 @@ class DataSystemManager(envdsBase):
                             self.logger.error(
                                 "bad config/status: %s-%s-%s", ns, kind, name
                             )
-            self.logger.debug(time_to_next(5))
+            self.logger.debug(
+                "monitor_loop: time until next check = %s", time_to_next(5)
+            )
             await asyncio.sleep(time_to_next(5))  # what's the right time here? 1, 5?
             # await asyncio.sleep(5)  # what's the right time here? 1, 5?
 
@@ -760,9 +1326,9 @@ class DataSystemManager(envdsBase):
     async def setup(self):
         await super().setup()
 
-        while not self.status.ready(type=Status.TYPE_CREATE):
-            self.logger.debug("waiting to create DataSystemManager")
-            await asyncio.sleep(1)
+        # while not self.status.ready(type=Status.TYPE_CREATE):
+        #     self.logger.debug("waiting to create DataSystemManager")
+        #     await asyncio.sleep(1)
         # await self.create_manager()
 
         # start health monitor loop
@@ -778,9 +1344,9 @@ class DataSystemManager(envdsBase):
 
         # await self.create_message_client(config=broker_config)
 
-    # def set_config(self, config=None):
-    #     self.use_namespace = False
-    #     return super().set_config(config=config)
+    def set_config(self, config=None):
+        self.use_namespace = False
+        return super().set_config(config=config)
 
     # async def message_handler(self):
     #     pass
@@ -801,7 +1367,7 @@ class DataSystemManager(envdsBase):
 
     async def handle_control(self, message, extra=dict()):
         pass
-        return 
+        return
         if (action := Message.get_type_action(message)) :
 
             if action == envdsEvent.TYPE_ACTION_REQUEST:
@@ -951,57 +1517,74 @@ class DataSystemManager(envdsBase):
 
     async def shutdown(self):
 
-        self.status.event(
-            StatusEvent.create(
-                type=Status.TYPE_SHUTDOWN,
-                state=Status.STATE_SHUTDOWN,
-                status=Status.SHUTTINGDOWN,
-                ready_status=Status.SHUTDOWN,
+        if (
+            self.status.get_current_status(
+                type=Status.TYPE_SHUTDOWN, state=Status.STATE_SHUTDOWN
             )
-        )
+            != Status.SHUTTINGDOWN
+        ):
 
-        # send shutdown command to listening services
-        message = self.create_control_request(
-            data={"run": {"type": "shutdown", "value": True}}
-        )
-        await self.send_message(message)
-
-        # give a moment to let message propogate
-        await asyncio.sleep(2)
-
-        # TODO: make timeout a higher level variable
-        timeout = 15
-        sec = 0
-        wait = True
-        # wait for services in service_map to finish shutting down
-        while sec <= timeout and wait:
-            # wait = False
-            if await self.check_resources_ready(type=Status.TYPE_SHUTDOWN):
-                break
-            # for name, service in self.service_map.items():
-            #     if service.run_status != "SHUTDOWN":
-            #         wait = True
-            #         break
-            sec += 1
-            await asyncio.sleep(1)
-
-        self.status.event(
-            StatusEvent.create(
-                type=Status.TYPE_SHUTDOWN,
-                state=Status.STATE_SHUTDOWN,
-                status=Status.SHUTDOWN
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTTINGDOWN,
+                    ready_status=Status.SHUTDOWN,
+                )
             )
-        )
-        # while not self.status.ready():
-        #     self.logger.debug("waiting to finish shutdown")
-        #     await asyncio.sleep(1)
 
-        while not self.status.ready(type=Status.TYPE_SHUTDOWN):
-            self.logger.debug("waiting to finish shutdown")
-            await asyncio.sleep(1)
+            await self.shutdown_resources()
 
-        self.do_run = False
-        return await super().shutdown()
+            # # send shutdown request to all resources
+            # for kind, kind_map in self.resource_map.items():
+            #     for name, resource in kind_map.items():
+            #         self.logger.debug(
+            #             "shutdown resource: %s: %s -- %s", kind, name, resource
+            #         )
+            #         self.logger.debug("  resource_id: %s", resource.get_id())
+
+            # # send shutdown command to listening services
+            # message = self.create_control_request(
+            #     data={"run": {"type": "shutdown", "value": True}}
+            # )
+            # await self.send_message(message)
+
+            # give a moment to let message propogate
+            await asyncio.sleep(2)
+
+            # TODO: make timeout a higher level variable
+            timeout = 15
+            sec = 0
+            wait = True
+            # wait for services in service_map to finish shutting down
+            while sec <= timeout and wait:
+                # wait = False
+                if await self.check_resources_ready(type=Status.TYPE_SHUTDOWN):
+                    break
+                # for name, service in self.service_map.items():
+                #     if service.run_status != "SHUTDOWN":
+                #         wait = True
+                #         break
+                sec += 1
+                await asyncio.sleep(1)
+
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTDOWN,
+                )
+            )
+            # while not self.status.ready():
+            #     self.logger.debug("waiting to finish shutdown")
+            #     await asyncio.sleep(1)
+
+            while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+                self.logger.debug("waiting to finish shutdown")
+                await asyncio.sleep(1)
+
+            self.do_run = False
+            return await super().shutdown()
 
     def request_shutdown(self):
         type = envdsEvent.TYPE_CONTROL
@@ -1015,6 +1598,7 @@ class DataSystemManager(envdsBase):
 
 
 class DataSystem(envdsBase):
+    STATUS_STATE_REGISTRY = "registry"
     STATUS_STATE_MANAGER = "manager"
 
     def __init__(self, config=None, **kwargs) -> None:
@@ -1022,6 +1606,7 @@ class DataSystem(envdsBase):
 
         # these will override config
         # self.name = "envds-system"
+        self.kind = "DAQSystem"
         self.envds_id = ".".join([self.app_sig, "system", self.name])
         self.use_namespace = False
         self.namespace = "envds"
@@ -1037,6 +1622,7 @@ class DataSystem(envdsBase):
             envdsEvent.TYPE_CONTROL,
             envdsEvent.TYPE_REGISTRY,
             envdsEvent.TYPE_DISCOVERY,
+            envdsEvent.TYPE_RUNSTATE,
         ]
         Message.set_default_types(self.default_message_types)
 
@@ -1046,9 +1632,9 @@ class DataSystem(envdsBase):
             envdsEvent.TYPE_ACTION_REQUEST,
             envdsEvent.TYPE_ACTION_DELETE,
             envdsEvent.TYPE_ACTION_SET,
+            envdsEvent.TYPE_ACTION_RESPONSE,
         ]
         Message.set_default_type_actions(self.default_type_actions)
-
 
         self.loop.create_task(self.setup())
         self.do_run = True
@@ -1065,7 +1651,62 @@ class DataSystem(envdsBase):
         while not self.status.ready(type=Status.TYPE_CREATE):
             self.logger.debug("waiting to create DataSystemManager")
             await asyncio.sleep(1)
+
         await self.create_manager()
+        await self.create_registry()
+
+    async def create_registry(self, config=None):
+        # TODO: allow config param to override?
+
+        self.logger.debug("creating Registry")
+
+        # set status to creating
+        # self.status.event(
+        #     StatusEvent.create(
+        #         type=Status.TYPE_CREATE,
+        #         state=self.STATUS_STATE_REGISTRY,
+        #         status=Status.CREATING,
+        #         ready_status=Status.CREATED,
+        #     )
+        # )
+
+        reg_config = {
+            "apiVersion": "envds/v1",
+            "kind": "Registry",
+            "metadata": {
+                "name": "who-daq",  # <- this has to be unique name in namespace
+                "namespace": "envds",
+                # "part-of": {"kind": "DataSystem", "name": "who-daq"},
+            },
+            "spec": {
+                "class": {"module": "envds.registry.registry", "class": "envdsRegistry"},
+            },
+        }
+
+        await self.manager.apply(config=reg_config)
+        # registry_config = dict()
+        # for key, val in self.config.items():
+        #     if key == "kind":
+        #         registry_config[key] = "Registry"
+        #     elif key == "metadata":
+        #         # manager_config[key] = {"name": "envds-manager", "namespace": "envds"}
+        #         registry_config[key] = {"name": self.name, "namespace": "envds"}
+        #     else:
+        #         registry_config[key] = val
+
+        # self.registry = envdsRegistry(config=registry_config)
+        # self.registry = envdsRegistry(config=registry_config)
+        # if self.registry:
+
+        #     # set status to created
+        #     self.status.event(
+        #         StatusEvent.create(
+        #             type=Status.TYPE_CREATE,
+        #             state=self.STATUS_STATE_REGISTRY,
+        #             status=Status.CREATED,
+        #         )
+        #     )
+        pass
 
     async def create_manager(self, config=None):
         # TODO: allow config param to override?
@@ -1171,7 +1812,7 @@ class DataSystem(envdsBase):
                 do_shutdown_req = True
             # self.loop.create_task(self.send_message(status))
             if do_shutdown_req and not shutdown_requested:
-                self.request_shutdown()
+                # self.request_shutdown()
                 shutdown_requested = True
                 do_shutdown_req = False
 
@@ -1179,6 +1820,7 @@ class DataSystem(envdsBase):
 
     async def shutdown(self):
         await self.manager.shutdown()
+        # await self.registry.shutdown()
         # while not self.manager.status.ready():
         #     self.logger.debug("waiting for SystemManager to shutdown")
         #     await asyncio.sleep(1)

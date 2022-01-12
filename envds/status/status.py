@@ -116,17 +116,23 @@ class Status:
     TYPE_CREATE = "create"
     TYPE_RUN = "run"
     TYPE_HEALTH = "health"
+    TYPE_REGISTRATION = "registration"
     TYPE_SHUTDOWN = "shutdown"
 
     # states (default)
     STATE_READY = "ready"
     STATE_RUNSTATE = "run-state"
+    STATE_REGISTERED = "registered"
     STATE_SHUTDOWN = "shutdown-state"
 
     # status
     UNKNOWN = "unknown"
     OK = "ok"
     NOTOK = "notok"
+    REGISTERING = "registering"
+    REGISTERED = "registered"
+    DEREGISTERING = "deregistering"
+    NOTREGISTERED = "notregistered"
     STARTING = "starting"
     RUNNING = "running"
     STOPPING = "stopping"
@@ -154,6 +160,13 @@ class Status:
         self.add_type_state(Status.TYPE_RUN, Status.STATE_READY)
         self.add_type_state(Status.TYPE_HEALTH, Status.STATE_READY)
         self.add_type_state(Status.TYPE_SHUTDOWN, Status.STATE_READY)
+
+        # # add registration status entry
+        # self.update_status(
+        #     Status.TYPE_REGISTRATION,
+        #     Status.STATE_REGISTERED,
+        #     status=Status.UNKNOWN,
+        # )
 
     def event(self, event, **kwargs):
         self.handle_event(event, **kwargs)
@@ -195,11 +208,16 @@ class Status:
                 if include_ready:
                     self.status_map[type]["ready"] = {
                         "status": False,
-                        "ready-status": None
+                        "ready-status": None,
                     }
 
     def add_type_state(
-        self, type: str, state: str, status=UNKNOWN, ready_status: str = None, update=False
+        self,
+        type: str,
+        state: str,
+        status=UNKNOWN,
+        ready_status: str = None,
+        update=False,
     ) -> None:
         if type is not None and state is not None:
             self.add_type(type)
@@ -208,7 +226,9 @@ class Status:
             if ready_status is not None:
                 self.status_map[type][state]["ready-status"] = ready_status
 
-    def update_status(self, type: str, state: str, status=None, ready_status=None) -> None:
+    def update_status(
+        self, type: str, state: str, status=None, ready_status=None
+    ) -> None:
         self.add_type(type)
         self.add_type_state(type, state, status=status, ready_status=ready_status)
         if status is not None:
@@ -217,11 +237,18 @@ class Status:
             self.status_map[type][state]["ready-status"] = ready_status
         self.status_map["last-update-time"] = get_datetime_string()
         self.status_map["current-time"] = get_datetime_string()
-        
+
     def ready(self, type: str = "health") -> bool:
         if "ready" in self.status_map[type]:
             return self.status_map[type]["ready"]["status"]
         return False
+
+    def get_current_status(self, type: str = "health", state: str = "ready") -> str:
+        try:
+            current = self.status_map[type][state]["status"]
+            return current
+        except KeyError:
+            return Status.UNKNOWN
 
     def to_dict(self) -> dict:
         self.status_map["current-time"] = get_datetime_string()

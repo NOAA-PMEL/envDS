@@ -1,5 +1,5 @@
-import os
-import sys
+# import os
+# import sys
 import asyncio
 import logging
 import signal
@@ -29,6 +29,7 @@ class DAQSystem(envdsBase):
         super().__init__(config=config, **kwargs)
 
         # self.name = "daq-system"
+        self.kind = "DAQSystem"
         self.envds_id = ".".join([self.app_sig, "daq", self.namespace, self.name])
         # self.use_namespace = True
         # self.namespace = "default"
@@ -69,19 +70,26 @@ class DAQSystem(envdsBase):
     async def setup(self):
         await super().setup()
 
-        while not self.status.ready(type=Status.TYPE_CREATE):
-            self.logger.debug("waiting to create DAQSystemManager")
-            await asyncio.sleep(1)
+        # while not self.status.ready(type=Status.TYPE_CREATE):
+        #     self.logger.debug("waiting to create DAQSystem")
+        #     await asyncio.sleep(1)
         # await self.create_manager()
 
+        # add subscriptions for requests
+        self.apply_subscription(
+            ".".join([self.get_id(), "+", "request"])
+        )
         # add subscriptions for system/manager
         if self.part_of:
-            self.apply_subscription(
-                ".".join(["envds.system", self.part_of, "+", "request"])
-            )
-            self.apply_subscription(
-                ".".join(["envds.manager", self.part_of, "+", "request"])
-            )
+            try:
+                self.apply_subscription(
+                    ".".join(["envds.system", self.part_of["name"], "+", "update"])
+                )
+                self.apply_subscription(
+                    ".".join(["envds.manager", self.part_of["name"], "+", "update"])
+                )
+            except KeyError:
+                pass
 
     def set_config(self, config=None):
         # self.use_namespace = True
@@ -189,52 +197,59 @@ class DAQSystem(envdsBase):
 
     async def shutdown(self):
 
-        # set status to creating
-        self.status.event(
-            StatusEvent.create(
-                type=Status.TYPE_SHUTDOWN,
-                state=Status.STATE_SHUTDOWN,
-                status=Status.SHUTTINGDOWN,
-                ready_status=Status.SHUTDOWN,
+        if (
+            self.status.get_current_status(
+                type=Status.TYPE_SHUTDOWN, state=Status.STATE_SHUTDOWN
             )
-        )
-        # self.status_update_freq = 1
+            != Status.SHUTTINGDOWN
+        ):
 
-        # simulate waiting for rest of resources to shut down 
-        for x in range(0,2):
-            self.logger.debug("***simulating DAQSystem shutdown")
-            await asyncio.sleep(1)
-        
-        self.status.event(
-            StatusEvent.create(
-                type=Status.TYPE_SHUTDOWN,
-                state=Status.STATE_SHUTDOWN,
-                status=Status.SHUTDOWN
+            # set status to creating
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTTINGDOWN,
+                    ready_status=Status.SHUTDOWN,
+                )
             )
-        )
-        # await asyncio.sleep(2)
-        # self.logger.debug("daqsystem: status.ready() = %s", self.status.ready())
-        # self.do_run = False
-        # timeout = 10
-        # sec = 0
-        # # allow time for registered services to shutdown and unregister
-        # while len(self._daq_map) > 0 and sec <= timeout:
-        #     sec += 1
-        #     await asyncio.sleep(1)
+            # self.status_update_freq = 1
 
-        # self.logger.info("shutdown")
-        # self.run_status = "SHUTDOWN"
-        # self.run = False
-        # while not self.status.ready():
-        #     self.logger.debug("waiting to finish shutdown")
-        #     await asyncio.sleep(1)
+            # simulate waiting for rest of resources to shut down 
+            for x in range(0,2):
+                self.logger.debug("***simulating DAQSystem shutdown")
+                await asyncio.sleep(1)
+            
+            self.status.event(
+                StatusEvent.create(
+                    type=Status.TYPE_SHUTDOWN,
+                    state=Status.STATE_SHUTDOWN,
+                    status=Status.SHUTDOWN
+                )
+            )
+            # await asyncio.sleep(2)
+            # self.logger.debug("daqsystem: status.ready() = %s", self.status.ready())
+            # self.do_run = False
+            # timeout = 10
+            # sec = 0
+            # # allow time for registered services to shutdown and unregister
+            # while len(self._daq_map) > 0 and sec <= timeout:
+            #     sec += 1
+            #     await asyncio.sleep(1)
 
-        while not self.status.ready(type=Status.TYPE_SHUTDOWN):
-            self.logger.debug("waiting to finish shutdown")
-            await asyncio.sleep(1)
+            # self.logger.info("shutdown")
+            # self.run_status = "SHUTDOWN"
+            # self.run = False
+            # while not self.status.ready():
+            #     self.logger.debug("waiting to finish shutdown")
+            #     await asyncio.sleep(1)
 
-        await super().shutdown()
-        self.do_run = False
+            while not self.status.ready(type=Status.TYPE_SHUTDOWN):
+                self.logger.debug("waiting to finish shutdown")
+                await asyncio.sleep(1)
+
+            await super().shutdown()
+            self.do_run = False
 
     # async def run(self):
 
@@ -540,73 +555,7 @@ class DAQSystem(envdsBase):
 #         # await asyncio.sleep(1)
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    pass
 
-#     print(f"args: {sys.argv[1:]}")
-
-#     BASE_DIR = os.path.dirname(
-#         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-#     )
-#     print(BASE_DIR)
-#     # sys.path.append(os.path.join(BASE_DIR, "envdsys/shared"))
-#     # sys.path.append(os.path.join(BASE_DIR, "envdsys"))
-#     sys.path.append(BASE_DIR)
-#     print(sys.path)
-
-#     # from managers.hardware_manager import HardwareManager
-#     from envds.eventdata.eventdata import EventData
-#     from envds.eventdata.broker.broker import MQTTBroker
-
-#     # configure logging to stdout
-#     isofmt = "%Y-%m-%dT%H:%M:%SZ"
-#     root_logger = logging.getLogger()
-#     root_logger.setLevel(logging.DEBUG)
-#     handler = logging.StreamHandler(sys.stdout)
-#     formatter = logging.Formatter(
-#         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # , datefmt=isofmt
-#     )
-#     handler.setFormatter(formatter)
-#     root_logger.addHandler(handler)
-
-#     event_loop = asyncio.get_event_loop()
-
-#     config = {
-#         "namespace": "junge",
-#         "msg_broker": {
-#             "host": "localhost",
-#             "port": 1883,
-#             # "keepalive": 60,
-#             "ssl_context": None,
-#             # "ssl_client_cert": None,
-#             # "ssl_client_key": None
-#         },
-#     }
-#     # create the DAQManager
-#     daq_manager = DAQManager().configure(config=config)
-#     # if namespace is specified
-#     # daq_manager.set_namespace("junge")
-#     # daq_manager.set_msg_broker()
-#     # daq_manager.start()
-
-#     # task = event_loop.create_task(daq_manager.run())
-#     # task_list = asyncio.all_tasks(loop=event_loop)
-
-#     try:
-#         event_loop.run_until_complete(daq_manager.run())
-#     except KeyboardInterrupt:
-#         root_logger.info("Shutdown requested")
-#         event_loop.run_until_complete(daq_manager.shutdown())
-#         event_loop.run_forever()
-
-#     finally:
-#         root_logger.info("Closing event loop")
-#         event_loop.close()
-
-#     # from daq.manager.sys_manager import SysManager
-#     # from daq.controller.controller import ControllerFactory  # , Controller
-#     # from client.wsclient import WSClient
-#     # import shared.utilities.util as util
-#     # from shared.data.message import Message
-#     # from shared.data.status import Status
-#     # from shared.data.namespace import Namespace
 

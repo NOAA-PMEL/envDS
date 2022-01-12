@@ -21,12 +21,13 @@ def get_datetime_string():
 
 def datetime_to_string(dt: datetime):
     if dt:
-        return dt.strftime(get_datetime_format())
-
+        dt_string = dt.strftime(get_datetime_format())
+        return dt_string
 def string_to_datetime(dt_string: str):
     if dt_string:
         try:
-            datetime.strptime(dt_string, get_datetime_format())
+            isofmt = get_datetime_format()
+            return datetime.strptime(dt_string, get_datetime_format())
         except ValueError:
             return None
 
