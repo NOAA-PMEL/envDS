@@ -183,7 +183,7 @@ if __name__ == "__main__":
                 }
             },
         },
-        "spec": {"class": {"module": "envds.daq.controller", "class": "DAQController"}},
+        "spec": {"class": {"module": "envds.daq.daq", "class": "DAQController"}},
     }
 
     envds_config_other = [
@@ -477,6 +477,7 @@ if __name__ == "__main__":
     envds = DataSystem(config=envds_config)
     envds.apply_nowait(config=daq_config)
     envds.apply_nowait(config=datamanager_config)
+    envds.apply_nowait(config=controller_config)
     # create the DAQManager
     # daq_manager = DAQManager().configure(config=config)
     # if namespace is specified

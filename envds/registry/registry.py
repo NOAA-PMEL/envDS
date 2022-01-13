@@ -44,44 +44,11 @@ class envdsRegistry(envdsBase):
         self.reg_monitor_time = 2
 
         self._registry = dict()
-        self._registry_by_source = dict()
+        self._registry_by_id = dict()
 
-        # self._registry = {
-        #     "services": None
-        # }
-
-        # self.logger.info("registry started")
-        # extra = {"channel": "envds/registry/status"}
-        # status = Message.create(
-        #     source=self.envds_id,
-        #     type=envdsEvent.get_type(type=envdsEvent.TYPE_STATUS, action=envdsEvent.TYPE_ACTION_UPDATE),
-        #     data={"update": "registry started"},
-        #     **extra,
-        # )
-        # self.loop.create_task(self.send_message(status))
         # self.loop.create_task(self.run())
         self.loop.create_task(self.setup())
         self.do_run = True
-
-
-    # async def handle_registry(self, message, extra=dict()):
-
-    #     if (action := Message.get_type_action(message)) :
-
-    #         if action == envdsEvent.TYPE_ACTION_REQUEST:
-    #             data = message.data
-    #             if data["request"] == "register":
-
-    #                 # begin shutting down system
-    #                 # self.logger.info("shutdown requested")
-    #                 # extra = {"channel": "evnds/system/request"}
-    #                 # request = Message.create(
-    #                 #     source=self.envds_id,
-    #                 #     type=envdsEvent.TYPE_ACTION_REQUEST,
-    #                 #     data=data,
-    #                 #     **extra,
-    #                 # )
-    #                 await self.shutdown()
 
     def set_config(self, config=None):
         self.use_namespace = False
@@ -145,15 +112,15 @@ class envdsRegistry(envdsBase):
         if (action := Message.get_type_action(message)) :
 
             if action == envdsEvent.TYPE_ACTION_UPDATE:
-                source = message["source"]
-                self.refresh_registration_by_source(source)
+                id = message["source"]
+                self.refresh_registration_by_id(id)
 
     async def handle_registry(self, message, extra=dict()):
 
         if (action := Message.get_type_action(message)) :
 
             if action == envdsEvent.TYPE_ACTION_REQUEST:
-                source = message["source"]
+                id = message["source"]
                 data = message.data
                 self.logger.debug("registry request: %s", message)
 
@@ -168,29 +135,29 @@ class envdsRegistry(envdsBase):
                     if kind not in self._registry[namespace]:
                         self._registry[namespace][kind] = dict()
                     self._registry[namespace][kind][name] = {
-                        "source": source,
+                        "id": id,
                         "created": get_datetime_string(),
                         "last-update": get_datetime_string(),
                     }
 
-                    # create/update _registry_by_source
-                    self._registry_by_source[source] = {
+                    # create/update _registry_by_id
+                    self._registry_by_id[id] = {
                         "namespace": namespace,
                         "kind": kind,
                         "name": name
                     }
 
                     data = {envdsEvent.TYPE_REGISTRY: "registered"}
-                    response = self.create_registry_response(target=source, data=data)
+                    response = self.create_registry_response(target=id, data=data)
                     await self.send_message(response)
 
                     # subscribe to status updates to refresh registry
                     self.apply_subscription(
-                        ".".join([source, envdsEvent.TYPE_STATUS, "update"])
+                        ".".join([id, envdsEvent.TYPE_STATUS, "update"])
                     )
 
                 except KeyError:
-                    self.logger.info("could not register %s", source)
+                    self.logger.info("could not register %s", id)
                     return
 
                 # if "run" in data:
@@ -203,8 +170,8 @@ class envdsRegistry(envdsBase):
                 #         self.logger("invalid run control message")
                 #         pass
 
-    def refresh_registration_by_source(self, source):
-        if reg := self.get_registration_by_source(source):
+    def refresh_registration_by_id(self, id):
+        if reg := self.get_registration_by_id(id):
             try:
                 ns = reg["namespace"]
                 kind = reg["kind"]
@@ -213,9 +180,9 @@ class envdsRegistry(envdsBase):
             except KeyError:
                 pass
 
-    def update_registration(self, source, namespace, kind, name):
+    def update_registration(self, id, namespace, kind, name):
 
-        if not all([source, namespace, kind, name]):
+        if not all([id, namespace, kind, name]):
             self.logger.debug("can't update registration")
             return
 
@@ -225,13 +192,13 @@ class envdsRegistry(envdsBase):
         if kind not in self._registry[namespace]:
             self._registry[namespace][kind] = dict()
         self._registry[namespace][kind][name] = {
-            "source": source,
+            "id": id,
             "created": get_datetime_string(),
             "last-update": get_datetime_string(),
         }
 
-        # create/update _registry_by_source
-        self._registry_by_source[source] = {
+        # create/update _registry_by_id
+        self._registry_by_id[id] = {
             "namespace": namespace,
             "kind": kind,
             "name": name
@@ -252,13 +219,13 @@ class envdsRegistry(envdsBase):
         except KeyError:
             return None
 
-    def get_registration_by_source(self, source):
-        if not source:
-            self.logger.debug("can't get registration_by_source")
+    def get_registration_by_id(self, id):
+        if not id:
+            self.logger.debug("can't get registration_by_id")
             return None
 
         try:
-            reg = self._registry_by_source[source]
+            reg = self._registry_by_id[id]
             return reg
             # return self.get_registration(meta["namespace"], meta["kind"], meta["name"])
         except KeyError:

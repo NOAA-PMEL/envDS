@@ -260,6 +260,14 @@ class Status:
         except TypeError:
             return None
 
+    def from_json(self, json_data):
+        try:
+            data = json.loads(json_data)
+            for key, value in data:
+                self.status_map[key] = value
+        except TypeError:
+            return
+
 
 async def run(status):
 

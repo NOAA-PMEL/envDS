@@ -59,6 +59,9 @@ class envdsBase(abc.ABC):
     RUNSTATE_DISABLE = "disable"
     RUNSTATE_SHUTDOWN = "shutdown"
 
+    MANAGE_APPLY = "apply"
+    MANAGE_DELETE = "delete"
+
     # STATUS_CREATING = "creating"
     # STATUS_CREATED = "created"
 
@@ -182,7 +185,7 @@ class envdsBase(abc.ABC):
             self.namespace = self.default_namespace
 
         try:
-            self.part_of = config["metadata"]["part-of"]
+            self.part_of = config["metadata"]["labels"]["part-of"]
         except KeyError:
             pass
 
@@ -215,13 +218,14 @@ class envdsBase(abc.ABC):
 
     async def check_resources_ready(self, type=Status.TYPE_HEALTH) -> bool:
 
-        for kind, kind_map in self.resource_map.items():
-            for name, resource in kind_map.items():
-                if resource.status is None or not resource.status.ready(type=type):
-                    self.logger.debug(
-                        "%s: status.ready() = %s", name, resource.status.ready()
-                    )
-                    return False
+        for ns, ns_map in self.resource_map.items():
+            for kind, kind_map in ns_map.items():
+                for name, resource in kind_map.items():
+                    if resource.status is None or not resource.status.ready(type=type):
+                        self.logger.debug(
+                            "%s: status.ready() = %s", name, resource.status.ready()
+                        )
+                        return False
         return True
 
     # def create_message_client(self, config=None):
@@ -246,15 +250,24 @@ class envdsBase(abc.ABC):
                 config["spec"]["broker"] = self.config["broker"]
 
         # add 'part-of' if missing
-        if "part-of" not in config["metadata"]:
-            config["metadata"]["part-of"] = {"kind": self.kind, "name": self.name}
+
+        if "labels" not in config["metadata"]:
+            config["metadata"]["labels"] = dict()
+        if "part-of" not in config["metadata"]["labels"]:
+            config["metadata"]["labels"]["part-of"] = {
+                "kind": self.kind,
+                "name": self.name,
+            }
 
         # delete resource if exists - TODO: should call delete_resource
         try:
-            resource = self.resource_map[config["kind"]][config["name"]]
+            ns = config["metadata"]["namespace"]
+            kind = config["kind"]
+            name = config["metadata"]["name"]
+            resource = self.resource_map[ns][kind][name]
             if resource:
                 await resource.shutdown()
-            self.resource_map[config["kind"]][config["name"]] = None
+            self.resource_map[ns][kind][name] = None
         except KeyError:
             pass
 
@@ -266,13 +279,16 @@ class envdsBase(abc.ABC):
             # cls_ = getattr(mod_, config["instance"]["class"])
             cls_ = getattr(mod_, class_name)
 
+            ns = config["metadata"]["namespace"]
             kind = config["kind"]
             name = config["metadata"]["name"]
-            if kind not in self.resource_map:
-                self.resource_map[kind] = dict()
+            if ns not in self.resource_map:
+                self.resource_map[ns] = dict()
+            if kind not in self.resource_map[ns]:
+                self.resource_map[ns][kind] = dict()
             # if config["kind"] not in self.resource_map:
             #     self.resource_map[config["kind"]] = dict()
-            self.resource_map[kind][name] = cls_(config=config, **kwargs)
+            self.resource_map[ns][kind][name] = cls_(config=config, **kwargs)
             # self.resource_map[config["kind"]][config["metadata"]["name"]] = cls_(
             #     config=config, **kwargs
             # )
@@ -281,9 +297,11 @@ class envdsBase(abc.ABC):
             # TODO: check cls_ for what types we should subscribe to. For now, all
             # self.apply_subscription(".".join([resource_id, "+", "update"]))
             # await asyncio.sleep(2) # wait for resource to be instantiated
+            id = self.resource_map[ns][kind][name].get_id()
             self.apply_subscription(
-                ".".join([self.resource_map[kind][name].get_id(), "+", "update"])
+                ".".join([id, "+", "update"])
             )
+
         except Exception as e:
             self.logger.error(
                 "%s: could not instantiate service: %s", e, config["name"]
@@ -483,7 +501,14 @@ class envdsBase(abc.ABC):
 
         while True:
             # send status update
-            status = self.create_status_update(data=self.status.to_dict())
+            data = {
+                "namespace": self.namespace,
+                "kind": self.kind,
+                "name": self.name,
+                "status": self.status.to_dict()
+            }
+            # status = self.create_status_update(data=self.status.to_dict())
+            status = self.create_status_update(data=data)
             await self.send_message(status)
 
             # check registration status, if not registered, do so
@@ -512,7 +537,7 @@ class envdsBase(abc.ABC):
     async def update_registration(self):
 
         if self.kind == "Registry":
-            return 
+            return
 
         reg_status = self.status.get_current_status(
             type=Status.TYPE_REGISTRATION, state=Status.STATE_REGISTERED
@@ -605,7 +630,18 @@ class envdsBase(abc.ABC):
         pass
 
     async def handle_manage(self, message, extra=dict()):
-        pass
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_REQUEST:
+                data = message.data
+                if envdsEvent.TYPE_MANAGE in data:
+                    if self.MANAGE_APPLY in data[envdsEvent.TYPE_MANAGE]:
+                        config = data[envdsEvent.TYPE_MANAGE][self.MANAGE_APPLY]
+                        await self.create_resource(config=config)
+                        self.logger.debug("apply: create resource")
+                        # await self.shutdown()
+                    elif [envdsEvent.TYPE_MANAGE] == self.MANAGE_DELETE:
+                        self.logger.debug("apply: delete resource")
 
     async def handle_registry(self, message, extra=dict()):
         if (action := Message.get_type_action(message)) :
@@ -619,7 +655,6 @@ class envdsBase(abc.ABC):
                     )
                 )
                 pass
-
 
     async def handle_runstate(self, message, extra=dict()):
 
@@ -686,19 +721,20 @@ class envdsBase(abc.ABC):
     async def shutdown_resources(self):
 
         # send shutdown request to all resources
-        for kind, kind_map in self.resource_map.items():
-            for name, resource in kind_map.items():
-                self.logger.debug(
-                    "shutdown resource: %s: %s -- %s", kind, name, resource
-                )
-                self.logger.debug("  resource_id: %s", resource.get_id())
+        for ns, ns_map in self.resource_map.items():
+            for kind, kind_map in ns_map.items():
+                for name, resource in kind_map.items():
+                    self.logger.debug(
+                        "shutdown resource: %s: %s -- %s", kind, name, resource
+                    )
+                    self.logger.debug("  resource_id: %s", resource.get_id())
 
-                # send shutdown command to listening services
-                message = self.create_runstate_request(
-                    target=resource.get_id(),
-                    data={envdsEvent.TYPE_RUNSTATE: "shutdown"},
-                )
-                await self.send_message(message)
+                    # send shutdown command to listening services
+                    message = self.create_runstate_request(
+                        target=resource.get_id(),
+                        data={envdsEvent.TYPE_RUNSTATE: "shutdown"},
+                    )
+                    await self.send_message(message)
 
     async def enable(self):
         pass
@@ -777,7 +813,6 @@ class envdsRegistryLocal(envdsBase):
         self.loop.create_task(self.setup())
         self.do_run = True
 
-
     # async def handle_registry(self, message, extra=dict()):
 
     #     if (action := Message.get_type_action(message)) :
@@ -846,11 +881,15 @@ class envdsRegistryLocal(envdsBase):
                         # lu = reg["last-update"]
                         # ldt = string_to_datetime(reg["last-update"])
                         # self.logger.debug("%s", (dt-ldt).seconds)
-                        diff = (get_datetime() - string_to_datetime(reg["last-update"])).seconds
+                        diff = (
+                            get_datetime() - string_to_datetime(reg["last-update"])
+                        ).seconds
                         if diff > self.expired_reg_time:
                             self.logger.debug("%s - %s - %s registration is expired")
-                        elif  diff > self.stale_reg_time:
-                            self.logger.debug("%s - %s - %s registration is stale", ns, kname, name)
+                        elif diff > self.stale_reg_time:
+                            self.logger.debug(
+                                "%s - %s - %s registration is stale", ns, kname, name
+                            )
 
             await asyncio.sleep(self.reg_monitor_time)
 
@@ -891,7 +930,7 @@ class envdsRegistryLocal(envdsBase):
                     self._registry_by_source[source] = {
                         "namespace": namespace,
                         "kind": kind,
-                        "name": name
+                        "name": name,
                     }
 
                     data = {envdsEvent.TYPE_REGISTRY: "registered"}
@@ -948,19 +987,18 @@ class envdsRegistryLocal(envdsBase):
         self._registry_by_source[source] = {
             "namespace": namespace,
             "kind": kind,
-            "name": name
+            "name": name,
         }
 
     def get_registration_filter(self, namespace=None, kind=None, name=None):
         # allow user to get a list of registrations based on a filter
         pass
 
-
     def get_registration(self, namespace, kind, name):
         if not all([namespace, kind, name]):
             self.logger.debug("can't get registration")
             return None
-        
+
         try:
             return self._registry[namespace][kind][name]
         except KeyError:
@@ -977,7 +1015,6 @@ class envdsRegistryLocal(envdsBase):
             # return self.get_registration(meta["namespace"], meta["kind"], meta["name"])
         except KeyError:
             return None
-
 
     def create_registry_response(self, target=None, data=None, **kwargs):
         if not target:
@@ -1092,7 +1129,7 @@ class envdsRegistryLocal(envdsBase):
             #     self.logger.debug("***simulating DAQSystem shutdown")
             #     await asyncio.sleep(1)
 
-             # give a moment to let message propogate
+            # give a moment to let message propogate
             await asyncio.sleep(2)
 
             self.status.event(
@@ -1178,6 +1215,8 @@ class DataSystemManager(envdsBase):
             # }
         }
 
+        self.system_map_by_id = dict()
+
     async def apply(self, config=None):
         if config is None:
             return
@@ -1210,7 +1249,7 @@ class DataSystemManager(envdsBase):
         if kind not in self.system_map[namespace]:
             self.system_map[namespace][kind] = dict()
 
-        self.system_map[namespace][kind][name] = {"config": config, "status": None}
+        self.system_map[namespace][kind][name] = {"id": None, "config": config, "status": None}
 
     async def monitor_loop(self):
 
@@ -1228,12 +1267,44 @@ class DataSystemManager(envdsBase):
                                 )
 
                                 # check if service is started locally
+                                part_of = None
                                 try:
-                                    part_of = config["metadata"]["part-of"]
-                                    self.logger.debug("send message to %s", part_of)
+                                    part_of = config["metadata"]["labels"]["part-of"]
                                 except KeyError:
-                                # if kind == "DAQSystem" or kind == "Registry":
-                                #     # service = await self.add_service(config)
+                                    pass
+
+                                if part_of:
+                                    try:
+                                        # part_of = config["metadata"]["labels"][
+                                        #     "part-of"
+                                        # ]
+                                        self.logger.debug("send message to %s", part_of)
+
+                                        # check to see if "part-of" resource exists
+                                        po_ns = config["metadata"]["namespace"]
+                                        po_kind = part_of["kind"]
+                                        po_name = part_of["name"]
+
+                                        if po := (
+                                            self.system_map[po_ns][po_kind][po_name]
+                                        ):
+                                            if po["id"]:
+                                                # crate manage message for owner to create resource
+                                                data = {
+                                                    envdsEvent.TYPE_MANAGE: {
+                                                        self.MANAGE_APPLY: config
+                                                    }
+                                                }
+                                                message = self.create_manage_request(
+                                                    data=data, target=po["id"]
+                                                )
+                                                await self.send_message(message)
+                                                self.system_map[ns][kind][name]["status"] = Status()
+                                    except KeyError:
+                                        pass
+                                else:
+                                    # if kind == "DAQSystem" or kind == "Registry":
+                                    #     # service = await self.add_service(config)
                                     await self.create_resource(config=config)
                                     self.system_map[ns][kind][name]["status"] = Status()
                                 # else:
@@ -1365,6 +1436,25 @@ class DataSystemManager(envdsBase):
     #     }
     #     await self.add_service(service_config=registry_config)
 
+    async def handle_status(self, message, extra=dict()):
+
+        if (action := Message.get_type_action(message)) :
+
+            if action == envdsEvent.TYPE_ACTION_UPDATE:
+                id = message["source"]
+                data = message.data
+                try:
+                    ns = data["namespace"]
+                    kind = data["kind"]
+                    name = data["name"]
+                    status = data["status"]
+
+                    self.system_map[ns][kind][name]["id"] = id
+                    self.system_map[ns][kind][name]["status"].from_json(status)
+                except KeyError:
+                    pass
+                # self.refresh_registration_by_id(id)
+
     async def handle_control(self, message, extra=dict()):
         pass
         return
@@ -1437,6 +1527,14 @@ class DataSystemManager(envdsBase):
         type = envdsEvent.TYPE_CONTROL
         action = envdsEvent.TYPE_ACTION_REQUEST
         return self.create_message(type=type, action=action, data=data, **kwargs)
+
+    def create_manage_request(self, data=None, target=None, **kwargs):
+        # self.logger.debug("%s", sys.path)
+        type = envdsEvent.TYPE_MANAGE
+        action = envdsEvent.TYPE_ACTION_REQUEST
+        return self.create_message(
+            type=type, action=action, data=data, target=target, **kwargs
+        )
 
     async def run(self):
 
@@ -1679,7 +1777,10 @@ class DataSystem(envdsBase):
                 # "part-of": {"kind": "DataSystem", "name": "who-daq"},
             },
             "spec": {
-                "class": {"module": "envds.registry.registry", "class": "envdsRegistry"},
+                "class": {
+                    "module": "envds.registry.registry",
+                    "class": "envdsRegistry",
+                },
             },
         }
 
