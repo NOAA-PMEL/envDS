@@ -1,0 +1,41 @@
+version: '3'
+
+# volumes:
+#   msdata:
+
+services:
+
+  mosquitto1:
+    image: eclipse-mosquitto:2.0.14
+    ports:
+      - "1883:1883"
+    environment:
+        CONFIG_MQTT: |
+          sys_interval 1
+          autosave_interval 1
+          allow_anonymous true
+          autosave_on_changes true
+          # logs
+          log_dest stdout
+          log_type all
+          log_timestamp true
+          log_timestamp_format %Y-%m-%d_%H:%M:%S
+          connection_messages true
+          # data
+          persistence true
+          persistence_location /mosquitto/data/
+          persistence_file mosquitto.db
+          # Non-TLS
+          listener 1883
+          protocol mqtt
+
+    volumes:
+      # - "msdata:/mosquitto/data"
+      # - "${PWD}/mosquitto_tmp.conf:/mosquitto/config/mosquitto.conf"
+      - "{CONFIG_MQTT}:/mosquitto/config/mosquitto.conf"
+      # - "${PWD}/docker/certs/:/certs:ro"
+    networks:
+      - cloudysky
+
+networks:
+  cloudysky: {}

@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/rewrite-target":"/$2"},"name":"envds-ingress","namespace":"envds"},"spec":{"rules":[{"http":{"paths":[{"backend":{"service":{"name":"envds","port":{"number":9080}}},"path":"/envds(/|$)(.*)","pathType":"Prefix"}]}}]}}
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  creationTimestamp: "2022-10-23T20:08:47Z"
+  generation: 2
+  name: envds-ingress
+  namespace: envds
+  resourceVersion: "916"
+  uid: cd192ca1-e2e3-4899-a7f4-b9f9d04ac9de
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: envds
+            port:
+              number: 9080
+        # path: /envds(/|$)(.*)
+        path: /envds
+        pathType: Prefix
+status:
+  loadBalancer: {}

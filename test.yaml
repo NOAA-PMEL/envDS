@@ -1,0 +1,20 @@
+apiversion: envds/v1
+kind: DataSystem
+metadata: 
+  name: acg-main
+  namespace: envds,
+spec: 
+  containers:
+  - name: acg-main
+  - image: local/datasystem:latest
+---  
+apiversion: envds/v1
+kind: MessageBroker
+metadata: 
+  name: default
+  namespace: default
+  type: MQTT
+spec: 
+  containers:
+  - name: default
+  - image: local/mosquitto-default:latest

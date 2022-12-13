@@ -1,0 +1,52 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: mosquitto
+spec:
+  entryPoints:
+  - mqtt
+  routes:
+  - match: HostSNI(`*`)
+    services:
+    - name: mosquitto
+      port: 1883
+  tls:
+    passthrough: false
+    options:
+      name: default
+      namespace: mosquitto
+# ---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: TLSOption
+# metadata:
+#   name: default
+# spec:
+#   cipherSuites:
+#   - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+#   - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+#   - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+#   - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+#   - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+#   minVersion: VersionTLS13
+#   sniStrict: true
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: mosquitto
+#   # namespace: envds-cloudy
+#   annotations:
+#     ingress.kubernetes.io/tls-acme: "false"
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: mosquitto
+#             namespace: envds-cloudy
+#             port:
+#               number: 1883
+

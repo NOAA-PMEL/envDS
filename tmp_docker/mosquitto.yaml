@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  mosquitto3:
+    image: eclipse-mosquitto:2.0.14
+    ports:
+      - target: 1883
+        published: 1885
+        mode: host
+      # - "1884:1883"
+    configs:
+      - source: mosquitto-conf
+        target: /mosquitto/config/mosquitto.conf
+    restart: on-failure
+configs:
+  mosquitto-conf:
+    external: true
+    name: mosquitto-conf

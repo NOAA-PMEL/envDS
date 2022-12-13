@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: default
+data:
+  mosquitto.conf: |
+    sys_interval 1
+    autosave_interval 1
+    allow_anonymous true
+    autosave_on_changes true
+    # logs
+    log_dest stdout
+    log_type all
+    log_timestamp true
+    log_timestamp_format %Y-%m-%d_%H:%M:%S
+    connection_messages true
+    # data
+    persistence true
+    persistence_location /mosquitto/data/
+    persistence_file mosquitto.db
+
+    # Non-TLS
+    listener 1883
+    protocol mqtt
+
+    # # TLS
+    # # https://mosquitto.org/man/mosquitto-tls-7.html
+    # listener 8883
+    # protocol mqtt
+    # cafile /certs/ca.crt
+    # certfile /certs/server.crt
+    # keyfile /certs/server.key
+    # require_certificate false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        # image: localhost:5000/envds/eclipse-mosquitto:2.0.14
+        image: envds-registry:41555/eclipse-mosquitto:2.0.14
+        # image: eclipse-mosquitto:2.0.14
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 1883
+          protocol: TCP
+        # - name: https
+        #   containerPort: 8883
+        #   protocol: TCP
+        volumeMounts:
+            - name: mosquitto-config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            # - name: mosquitto-certs
+            #   mountPath: /certs/ca.crt
+            #   subPath: ca.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.crt
+            #   subPath: server.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.key
+            #   subPath: server.key
+      volumes:
+        - name: mosquitto-config
+          configMap:
+            name: mosquitto-config
+        # - name: mosquitto-certs
+        #   configMap:
+        #     name: mosquitto-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: default
+spec:
+  selector:
+    app: mosquitto
+  ports:
+  - name: http
+    port: 1883
+    targetPort: 1883
+  # - name: https
+  #   port: 8883
+  #   targetPort: 8883
+  type: LoadBalancer

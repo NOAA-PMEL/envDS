@@ -1,8 +1,8 @@
 # import os
 # import sys
 import asyncio
-import logging
-import signal
+# import logging
+# import signal
 from envds.util.util import (
     get_datetime,
     get_datetime_string,
@@ -10,7 +10,7 @@ from envds.util.util import (
     time_to_next,
 )
 
-from envds.envds.envds import envdsBase, envdsEvent
+from envds.system.envds import envdsBase, envdsEvent
 from envds.message.message import Message
 from envds.status.status import Status, StatusEvent
 
@@ -167,6 +167,8 @@ class DAQSystem(envdsBase):
                 )
             )
             # self.status_update_freq = 1
+
+            await self.shutdown_resources()
 
             # simulate waiting for rest of resources to shut down 
             for x in range(0,2):
@@ -365,10 +367,12 @@ class DAQController(envdsBase):
             )
             # self.status_update_freq = 1
 
-            # simulate waiting for rest of resources to shut down 
-            for x in range(0,2):
-                self.logger.debug("***simulating DAQSystem shutdown")
-                await asyncio.sleep(1)
+            await self.shutdown_resources()
+
+            # # simulate waiting for rest of resources to shut down 
+            # for x in range(0,2):
+            #     self.logger.debug("***simulating DAQSystem shutdown")
+            #     await asyncio.sleep(1)
             
             self.status.event(
                 StatusEvent.create(

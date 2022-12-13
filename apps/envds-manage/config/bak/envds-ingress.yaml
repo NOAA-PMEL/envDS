@@ -1,0 +1,38 @@
+
+# ---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: http-redirect-ingressRoute
+#   namespace: envds-system
+# spec:
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: envds-stripprefix
+  namespace: envds-system
+spec:
+  stripPrefix:
+    prefixes:
+      - /envds
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: envds-ingress
+  namespace: envds-system
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares:
+      envds-system-envds-stripprefix@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /envds
+        pathType: Prefix
+        backend:
+          service:
+            name: envds
+            port:
+              number: 9080
