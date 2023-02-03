@@ -94,7 +94,8 @@ spec:
         # image: localhost:5000/envds/eclipse-mosquitto:2.0.14
         # image: envds-registry:36301/eclipse-mosquitto:2.0.14
         # image: envds-registry:5000/core/eclipse-mosquitto:2.0.14
-        image: envds-registry:5000/core/redis-stack-server:latest
+        # image: envds-registry:5000/core/redis-stack-server:latest
+        image: envds-registry:5000/envds/redis-stack-server:latest
         # command:
         #   - redis-server
         #   - "/etc/redis-stack.conf"

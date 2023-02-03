@@ -65,7 +65,8 @@ spec:
         # image: localhost:5000/envds/eclipse-mosquitto:2.0.14
         # image: envds-registry:36301/eclipse-mosquitto:2.0.14
         # image: envds-registry:5000/core/eclipse-mosquitto:2.0.14
-        image: envds-registry:5000/core/eclipse-mosquitto:2.0.15
+        # image: envds-registry:5000/core/eclipse-mosquitto:2.0.15
+        image: envds-registry:5000/envds/eclipse-mosquitto:2.0.15
         resources:
           requests:
             cpu: "50m"

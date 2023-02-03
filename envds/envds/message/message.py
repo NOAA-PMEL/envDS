@@ -14,6 +14,7 @@ from cloudevents.http import CloudEvent#, event, from_json, to_structured
 #     encrypted: Union[bool, None] = False
 
 
+# TODO: this could be pydantic model
 class Message(object):
     """docstring for Message."""
 

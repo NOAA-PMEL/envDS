@@ -33,3 +33,7 @@ def string_to_datetime(dt_string: str, fraction: bool=True):
 
 def datetime_mod_sec(sec: int) -> int:
     return get_datetime().second % sec
+
+def seconds_elapsed(inital_dt: datetime) -> float:
+    delta = get_datetime() - inital_dt
+    return delta.total_seconds()

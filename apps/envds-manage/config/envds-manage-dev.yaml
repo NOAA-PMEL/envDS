@@ -8,23 +8,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: envds-manage
+  name: envds-manage-dev
   namespace: envds
   labels:
     app: envds
 spec:
   selector:
     matchLabels:
-      app: envds-manage
+      app: envds-manage-dev
   template:
     metadata:
       labels:
-        app: envds-manage
+        app: envds-manage-dev
     spec:
       containers:
-      - name: envds-manage
-        image: envds-registry:5000/core/envds-manage:0.1.0
+      - name: envds-manage-dev
+        # image: envds-registry:5000/core/envds-manage:0.1.0
+        image: envds-registry:5000/envds/envds-manage:0.1.0
         imagePullPolicy: "Always"
+        env:
+          - name: ENVDS_ID
+            value: dev
         resources:
           requests:
             cpu: "50m"
@@ -62,13 +66,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: envds-manage
+  name: envds-manage-dev
   namespace: envds
   labels:
-    app: envds-manage
+    app: envds-manage-dev
 spec:
   selector:
-    app: envds-manage
+    app: envds-manage-dev
   ports:
   - name: http
     protocol: TCP

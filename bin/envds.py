@@ -40,6 +40,7 @@ class ClusterConfig(BaseModel):
     )
     db: str | None = "redis"
     log_level: str = "info"
+    envds_id: str = "default"
 
 
 class ApplyConfig(BaseModel):
@@ -63,7 +64,9 @@ class SystemConfig(BaseModel):
 
 def get_kubeconfig():
     # set kubeconfig
-    k3d_args = ["k3d", "kubeconfig", "write", "envds"]
+    # k3d_args = ["k3d", "kubeconfig", "write", "envds"]
+    k3d_args = ["k3d", "kubeconfig", "write", get_cluster_name()]
+    print(f"get_kubeconfig: k3d_args: {k3d_args}")
     res = subprocess.run(k3d_args, capture_output=True, text=True)
     # print(f"config: {res.stdout}")
     # print(f"config: {res.stdout}")
@@ -84,6 +87,8 @@ def set_kubeconfig():
 
 def get_registry_port() -> int:
     args = ["docker", "ps", "--format", "'{{.Ports}}:'", "-f", "name=envds-registry"]
+    # args = ["docker", "ps", "--format", "'{{.Ports}}:'", "-f", f"name={get_cluster_name()}-registry"]
+    print(f"get_registry_port: args: {args}")
     res = subprocess.run(args, capture_output=True, text=True)
     port = res.stdout.strip().split("->")[0].split(":")[1]
     return int(port)
@@ -130,6 +135,9 @@ def register_image(image: str):
     # print(f"ouput(error): {res.stderr}")
     # print(f"ouput(out): {res.stdout}")
 
+def get_cluster_name() -> str:
+    cfg = get_config("cluster")
+    return "-".join(["envds", cfg["envds_id"]])
 
 def create_cluster(args) -> bool:
     # print("init")
@@ -148,6 +156,8 @@ def create_cluster(args) -> bool:
         cluster_config.http_port = args.http_port
     if args.https_port:
         cluster_config.https_port = args.https_port
+    if args.envds_id:
+        cluster_config.envds_id = args.envds_id
 
     Path(cluster_config.envds_data_dir).mkdir(parents=True, exist_ok=True)
     Path(cluster_config.config_dir).mkdir(parents=True, exist_ok=True)
@@ -158,6 +168,12 @@ def create_cluster(args) -> bool:
     if cluster_config.host != "localhost":
         host = f"{cluster_config.host}:"
 
+    # save cluster config
+    # print(f"pre-save: {config}")
+    save_config(cluster_config.dict(), cfg_type="cluster")
+
+    cluster_name = get_cluster_name()
+    print(f"create_cluster: {cluster_name}")
     try:
         mb_config = cluster_config.message_bus
 
@@ -169,7 +185,8 @@ def create_cluster(args) -> bool:
         for line in res.stdout.split("\n"):
             parts = line.split()
             # print(parts)
-            if parts and parts[0] == "envds":
+            # if parts and parts[0] == "envds":
+            if parts and parts[0] == cluster_name:
                 print("envds already initialized -- try 'envds start'")
                 return True
 
@@ -178,7 +195,8 @@ def create_cluster(args) -> bool:
             "k3d",
             "cluster",
             "create",
-            "envds",
+            # "envds",
+            cluster_name,
             # "--k3s-arg",
             # "--disable=traefik@server:0",
             "--volume",
@@ -197,6 +215,7 @@ def create_cluster(args) -> bool:
             f"{host}{mb_config.config['mqtts_port']}:{8883}@loadbalancer",
             "--registry-create",
             "envds-registry",
+            # f"{cluster_name}-registry",
             "--servers",
             "1",
             "--agents",
@@ -215,9 +234,9 @@ def create_cluster(args) -> bool:
         # set kubeconfig
         set_kubeconfig()
 
-        # save cluster config
-        # print(f"pre-save: {config}")
-        save_config(cluster_config.dict(), cfg_type="cluster")
+        # # save cluster config
+        # # print(f"pre-save: {config}")
+        # save_config(cluster_config.dict(), cfg_type="cluster")
 
         # # add required CRDs
         # k8s_args = [
@@ -267,14 +286,16 @@ def init_message_bus():
 
         mqtt_image = "eclipse-mosquitto"
         try:
-            img = client.images.get(f"core/{mqtt_image}:{tag}")
+            # img = client.images.get(f"core/{mqtt_image}:{tag}")
+            img = client.images.get(f"envds/{mqtt_image}:{tag}")
         except docker.errors.ImageNotFound:
             # pull
             # print(f"Pull {img}")
             img = client.images.pull(mqtt_image, tag=tag)
 
         print(f"Tag image as: core/eclipse-mosquitto:{tag}")
-        repo = f"core/{mqtt_image}"
+        # repo = f"core/{mqtt_image}"
+        repo = f"envds/{mqtt_image}"
         img.tag(repo, tag=tag)
         register_image(f"{repo}:{tag}")
 
@@ -315,14 +336,17 @@ def init_db():
 
         db_image = "redis-stack-server"
         try:
-            img = client.images.get(f"core/{db_image}:{tag}")
+            # img = client.images.get(f"core/{db_image}:{tag}")
+            img = client.images.get(f"envds/{db_image}:{tag}")
         except docker.errors.ImageNotFound:
             # pull
             # print(f"Pull {img}")
             img = client.images.pull(f"redis/{db_image}", tag=tag)
             
-        print(f"Tag image as: core/redis-stack-server:{tag}")
-        repo = f"core/{db_image}"
+        # print(f"Tag image as: core/redis-stack-server:{tag}")
+        print(f"Tag image as: envds/redis-stack-server:{tag}")
+        # repo = f"core/{db_image}"
+        repo = f"envds/{db_image}"
         img.tag(repo, tag=tag)
         register_image(f"{repo}:{tag}")
 
@@ -353,28 +377,50 @@ def save_config(config: dict, cfg_type: str = None):
         # p = Path(os.path.join(os.getcwd(), "config", "cluster"))
         p = Path(os.path.join(os.getcwd(), "config", cfg_type))
         p.mkdir(parents=True, exist_ok=True)
+
+        # save as current config
         name = f"envds_{cfg_type}.json"
         # print(p)
         with open(os.path.join(p, name), "w") as f:
             # print(config.dict())
             # json.dump(config.dict(), f)
             json.dump(config, f)
+        
+        if cfg_type == "cluster":
+            cluster_name = f"envds-{config['envds_id']}"
+        elif cfg_type == "system":
+            cluster_name = get_cluster_name()
+        print(f"{cfg_type}: {cluster_name}")
+        # save additional copy using envds_id for later use
+        name = f"{cluster_name}_{cfg_type}.json"
+        # print(p)
+        with open(os.path.join(p, name), "w") as f:
+            # print(config.dict())
+            # json.dump(config.dict(), f)
+            json.dump(config, f)
+
     except Exception as e:
         print(e)
 
 
 # def get_cluster_config() -> ClusterConfig:
-def get_config(cfg_type: str = None) -> dict:
+def get_config(cfg_type: str = None, envds_id:str=None) -> dict:
 
     if cfg_type is None or cfg_type not in ["cluster", "system"]:
         print(f"can't get config of type {cfg_type}")
         return None
 
     name = f"envds_{cfg_type}.json"
-    with open(os.path.join(os.getcwd(), "config", cfg_type, name), "r") as f:
-        config = json.load(f)
-        return config
+    if envds_id:
+        name = f"envds-{envds_id}_{cfg_type}.json"
 
+    try:
+        with open(os.path.join(os.getcwd(), "config", cfg_type, name), "r") as f:
+            config = json.load(f)
+            return config
+    except FileNotFoundError:
+        print(f"config file {name} not found!")
+        return None
 
 def get_cluster_status() -> bool:
 
@@ -389,6 +435,7 @@ def get_cluster_status() -> bool:
 
     args = ["kubectl", "get", "deployment", "traefik", "-ojson", "-n", "kube-system"]
     res = subprocess.run(args, capture_output=True, text=True)
+    # print(f"get_cluster_status: {res}")
     try:
         status = json.loads(res.stdout)
         replicas = status["status"]["availableReplicas"]
@@ -531,7 +578,7 @@ def init_core_services(update: bool = True):
     for service in system_config.core_services:
         # build_core_package(pkg=service)
         print(f"\tworking on {service}")
-        add_service_image(pkg=service)
+        add_service_image(app=service)
     # register_image
     # build_envds_package()
     # build_core_image(pkg="envds")
@@ -545,6 +592,68 @@ def init_core_services(update: bool = True):
 #     for r in results:
 #         print(r)
 
+# def add_service(service: str = None, type: str = "core"):
+def add_service(service: str = None):
+    
+    if service is None:
+        return
+    print(f"service: {service}")
+    # add_service_image(app=service, type=type)
+    add_service_image(app=service)
+    start_service(service)
+
+def start_service(service: str = None, update: bool = True):
+
+    if service is None:
+        return
+
+    filename = f"./apps/{service}/config/"
+    cfg = ApplyConfig(file=filename)
+    cfg.namespace = "default"
+    apply(cfg)
+
+# add_instrument(make=cl_args.make, model=cl_args.model, serial_number=cl_args.serial_number)
+def add_sensor(make: str, model:str, serial_number:str):
+    
+    # if service is None:
+    #     return
+    print(f"make: {make}, model: {model}, s/n: {serial_number}")
+    # add_service_image(app=service, type=type)
+    add_sensor_image(make=make, model=model)
+    start_sensor(make=make, model=model, serial_number=serial_number)
+
+def start_sensor(make: str, model:str, serial_number:str):
+
+    # if service is None:
+    #     return
+
+    # filename = f"./apps/{service}/config/"
+    filename = os.path.join(".", "apps", "daq", "sensors", make, model, "config", f"{model.lower()}-{serial_number}.yaml")
+
+    cfg = ApplyConfig(file=filename)
+    cfg.namespace = "default"
+    apply(cfg)
+
+def add_interface(type: str, name:str, uid:str):
+    
+    # if service is None:
+    #     return
+    print(f"type: {type}, name: {name}, uid: {uid}")
+    # add_service_image(app=service, type=type)
+    add_interface_image(type=type, name=name)
+    start_interface(type=type, name=name, uid=uid)
+
+def start_interface(type: str, name:str, uid:str):
+
+    # if service is None:
+    #     return
+
+    # filename = f"./apps/{service}/config/"
+    filename = os.path.join(".", "apps", "daq", "interfaces", type, name, "config", f"{name.lower()}-{uid}.yaml")
+
+    cfg = ApplyConfig(file=filename)
+    cfg.namespace = "default"
+    apply(cfg)
 
 def start_core_services(update: bool = True):
 
@@ -564,22 +673,26 @@ def start_core_services(update: bool = True):
         apply(cfg)
 
 
-def add_service_image(pkg: str = "envds-manage", type: str = "core") -> str:
+# def add_service_image(app: str = "envds-manage", type: str = "core") -> str:
+def add_service_image(app: str = "envds-manage") -> str:
 
     # registry = f"envds-registry:{get_registry_port()}"
     # registry = f"localhost:{get_registry_port()}"
-    repo = f"{type}/{pkg}"
+    # repo = f"{type}/{app}"
+    repo = f"envds/{app}"
 
-    with open(f"./apps/{pkg}/VERSION", "r") as f:
+    print(f"repo: {repo}, app: {app}")
+    with open(f"./apps/{app}/VERSION", "r") as f:
         tag = f.readline()
     # img = f"{registry}/{repo}:{tag}"
     img = f"{repo}:{tag}"
 
-    with open(f"./apps/{pkg}/requirements_local.txt", "r") as req_file:
+    with open(f"./apps/{app}/requirements_local.txt", "r") as req_file:
         while req := req_file.readline():
             print("\tcopying wheel(s) to app library")
             src_path = os.path.join(req, "lib")
-            dest_path = os.path.join("apps", pkg, "lib", req)
+            dest_path = os.path.join("apps", app, "lib", req)
+            print(f"{src_path}, {dest_path}")
             os.makedirs(dest_path, exist_ok=True)
             for f in os.listdir(src_path):
                 if f.endswith(".whl"):
@@ -590,7 +703,7 @@ def add_service_image(pkg: str = "envds-manage", type: str = "core") -> str:
     client = docker.from_env()
 
     print(f"Build {img}")
-    res = client.images.build(path=f"./apps/{pkg}", tag=img)
+    res = client.images.build(path=f"./apps/{app}", tag=img)
     print(f"Build image result: {res}")
 
     register_image(img)
@@ -601,10 +714,110 @@ def add_service_image(pkg: str = "envds-manage", type: str = "core") -> str:
 
     # print(client.images.list(registry))
 
+def add_sensor_image(make: str = "MockCo", model: str = "Mock1") -> str:
 
-def start():
+    # registry = f"envds-registry:{get_registry_port()}"
+    # registry = f"localhost:{get_registry_port()}"
+    # repo = f"{type}/{app}"
+    repo = f"envds/sensor/{make.lower()}-{model.lower()}"
 
-    k3d_args = ["k3d", "cluster", "start", "envds"]
+    inst_path = os.path.join("apps", "daq", "sensors", make, model)
+
+    print(f"repo: {repo}, inst_path: {inst_path}")
+    # with open(f"./{inst_path}/VERSION", "r") as f:
+    with open(os.path.join(".",inst_path, "VERSION"), "r") as f:
+        tag = f.readline()
+    # img = f"{registry}/{repo}:{tag}"
+    img = f"{repo}:{tag}"
+
+    # with open(f"./apps/daq/instruments/{make}/{model}/requirements_local.txt", "r") as req_file:
+    with open(os.path.join(".",inst_path, "requirements_local.txt"), "r") as req_file:
+        while req := req_file.readline():
+            print("\tcopying wheel(s) to app library")
+            src_path = os.path.join(req, "lib")
+            dest_path = os.path.join(inst_path, "lib", req)
+            print(f"{src_path}, {dest_path}")
+            os.makedirs(dest_path, exist_ok=True)
+            for f in os.listdir(src_path):
+                if f.endswith(".whl"):
+                    shutil.copyfile(
+                        os.path.join(src_path, f), os.path.join(dest_path, f)
+                    )
+                    # os.remove(os.path.join(wheel_path, f))
+    client = docker.from_env()
+
+    print(f"Build {img}")
+    # res = client.images.build(path=f"./apps/{inst}", tag=img)
+    res = client.images.build(path=os.path.join(".",inst_path), tag=img)
+    print(f"Build image result: {res}")
+
+    register_image(img)
+
+    # print(f"Push {img}")
+    # res = client.images.push(img)
+    # print(f"push image result: {res}")
+
+    # print(client.images.list(registry))
+
+def add_interface_image(type: str = "system", name: str = "default") -> str:
+
+    # registry = f"envds-registry:{get_registry_port()}"
+    # registry = f"localhost:{get_registry_port()}"
+    # repo = f"{type}/{app}"
+    repo = f"envds/interface/{type.lower()}-{name.lower()}"
+
+    iface_path = os.path.join("apps", "daq", "interfaces", type, name)
+
+    print(f"repo: {repo}, iface_path: {iface_path}")
+    # with open(f"./{inst_path}/VERSION", "r") as f:
+    with open(os.path.join(".",iface_path, "VERSION"), "r") as f:
+        tag = f.readline()
+    # img = f"{registry}/{repo}:{tag}"
+    img = f"{repo}:{tag}"
+
+    # with open(f"./apps/daq/instruments/{make}/{model}/requirements_local.txt", "r") as req_file:
+    with open(os.path.join(".",iface_path, "requirements_local.txt"), "r") as req_file:
+        while req := req_file.readline():
+            print("\tcopying wheel(s) to app library")
+            src_path = os.path.join(req, "lib")
+            dest_path = os.path.join(iface_path, "lib", req)
+            print(f"{src_path}, {dest_path}")
+            os.makedirs(dest_path, exist_ok=True)
+            for f in os.listdir(src_path):
+                if f.endswith(".whl"):
+                    shutil.copyfile(
+                        os.path.join(src_path, f), os.path.join(dest_path, f)
+                    )
+                    # os.remove(os.path.join(wheel_path, f))
+    client = docker.from_env()
+
+    print(f"Build {img}")
+    # res = client.images.build(path=f"./apps/{inst}", tag=img)
+    res = client.images.build(path=os.path.join(".",iface_path), tag=img)
+    print(f"Build image result: {res}")
+
+    register_image(img)
+
+    # print(f"Push {img}")
+    # res = client.images.push(img)
+    # print(f"push image result: {res}")
+
+    # print(client.images.list(registry))
+
+def start(args):
+
+    if args.envds_id:
+        # switch context
+        cluster_config = get_config("cluster", envds_id=args.envds_id)
+        system_config = get_config("system", envds_id=args.envds_id)
+        if cluster_config is None or system_config is None:
+            print(f"No cluster with envds_id = {args.envds_id} found")
+            return
+        save_config(cluster_config, cfg_type="cluster")
+        save_config(system_config, cfg_type="system")
+        
+    # k3d_args = ["k3d", "cluster", "start", "envds"]
+    k3d_args = ["k3d", "cluster", "start", get_cluster_name()]
 
     res = subprocess.run(k3d_args, capture_output=True, text=True)
     print(f"result: {res.stdout}")
@@ -615,7 +828,8 @@ def start():
 
 def stop():
 
-    k3d_args = ["k3d", "cluster", "stop", "envds"]
+    # k3d_args = ["k3d", "cluster", "stop", "envds"]
+    k3d_args = ["k3d", "cluster", "stop", get_cluster_name()]
 
     res = subprocess.run(k3d_args, capture_output=True, text=True)
     print(f"result: {res.stdout}")
@@ -750,9 +964,24 @@ def run(*args):
         # default=(os.path.join(os.getcwd(), "data")),
     )
 
+    init_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+
     # init_parser.set_defaults(command="init")
     start_parser = subparsers.add_parser(
         "start", help="start initialized envds instance"
+    )
+    start_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
     )
     stop_parser = subparsers.add_parser("stop", help="stop envds instance")
     reg_parser = subparsers.add_parser(
@@ -762,10 +991,79 @@ def run(*args):
         "-i", "--image", type=str, help="name of image to register", required=True
     )
 
+    reg_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+
     apply_parser = subparsers.add_parser("apply", help="apply yaml configuration file")
     apply_parser.add_argument("-f", "--file", type=str, help="yaml config file")
-    apply_parser.add_argument("-n", "--namespace", type=str, help="apply to namespace")
+    apply_parser.add_argument("-ns", "--namespace", type=str, help="apply to namespace")
     # apply_parser.set_defaults(command="apply")
+    apply_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+
+    add_service_parser = subparsers.add_parser("add-service", help="add service")
+    add_service_parser.add_argument("-s", "--service", type=str, help="service name")
+    # add_service_parser.add_argument("-t", "--type", type=str, help="service type")
+    add_service_parser.add_argument("-ns", "--namespace", type=str, help="apply to namespace")
+    add_service_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+
+    add_sensor_parser = subparsers.add_parser("add-sensor", help="add sensor")
+    add_sensor_parser.add_argument("-mk", "--make", type=str, help="instrument make")
+    add_sensor_parser.add_argument("-md", "--model", type=str, help="instrument model")
+    add_sensor_parser.add_argument("-sn", "--serial_number", type=str, help="instrument serial number")
+    # add_instrument_parser.add_argument("-t", "--type", type=str, help="service type")
+    add_sensor_parser.add_argument("-ns", "--namespace", type=str, help="apply to namespace")
+    add_sensor_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+    add_sensor_parser.add_argument(
+        "-daq",
+        "--daq-id",
+        type=str,
+        help="daq id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+
+    add_interface_parser = subparsers.add_parser("add-interface", help="add interface")
+    add_interface_parser.add_argument("-t", "--type", type=str, help="interface type")
+    add_interface_parser.add_argument("-n", "--name", type=str, help="interface name")
+    add_interface_parser.add_argument("-u", "--uid", type=str, help="instrument uid")
+    # add_instrument_parser.add_argument("-t", "--type", type=str, help="service type")
+    add_interface_parser.add_argument("-ns", "--namespace", type=str, help="apply to namespace")
+    add_interface_parser.add_argument(
+        "-id",
+        "--envds-id",
+        type=str,
+        help="envds id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+    add_interface_parser.add_argument(
+        "-daq",
+        "--daq-id",
+        type=str,
+        help="daq id",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
 
     cl_args = parser.parse_args()
     print(cl_args)
@@ -789,13 +1087,25 @@ def run(*args):
     #     init(cl_args)
 
     elif cl_args.command == "start":
-        start()
+        start(cl_args)
 
     elif cl_args.command == "stop":
         stop()
 
     elif cl_args.command == "register-image":
         register_image(cl_args.image)
+
+    elif cl_args.command == "add-service":
+        # add_service(service=cl_args.service, type=cl_args.type)
+        add_service(service=cl_args.service)
+
+    elif cl_args.command == "add-sensor":
+        # add_service(service=cl_args.service, type=cl_args.type)
+        add_sensor(make=cl_args.make, model=cl_args.model, serial_number=cl_args.serial_number)
+
+    elif cl_args.command == "add-interface":
+        # add_service(service=cl_args.service, type=cl_args.type)
+        add_interface(type=cl_args.type, name=cl_args.name, uid=cl_args.uid)
 
     elif cl_args.command == "apply":
         if cl_args.file is None:

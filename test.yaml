@@ -1,13 +1,13 @@
-apiversion: envds/v1
-kind: DataSystem
-metadata: 
-  name: acg-main
-  namespace: envds,
-spec: 
-  containers:
-  - name: acg-main
-  - image: local/datasystem:latest
----  
+# apiversion: envds/v1
+# kind: DataSystem
+# metadata: 
+#   name: acg-main
+#   namespace: envds,
+# spec: 
+#   containers:
+#   - name: acg-main
+#   - image: local/datasystem:latest
+# ---  
 apiversion: envds/v1
 kind: MessageBroker
 metadata: 
@@ -18,3 +18,7 @@ spec:
   containers:
   - name: default
   - image: local/mosquitto-default:latest
+test: 
+  title: 
+    one: 1
+    two: 2
