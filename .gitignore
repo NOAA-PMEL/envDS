@@ -130,3 +130,16 @@ dmypy.json
 
 # k3d dev from iot project
 k3d
+
+dev/
+docker/
+fastapi/
+http/
+lib/images/*
+test_lib/
+testapp/
+testapp2/
+tmp_docker/
+envds_bak/
+envds_old_framework/
+data/
