@@ -143,3 +143,13 @@ tmp_docker/
 envds_bak/
 envds_old_framework/
 data/
+
+config/cluster/*
+config/services/*
+config/system/*
+
+.vscode/
+kn-linux-amd64
+Untitled.ipynb
+Untitled1.ipynb
+testdict.yaml
