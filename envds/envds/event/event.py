@@ -1,6 +1,6 @@
 import asyncio
 import json
-import logging 
+import logging
 from ulid import ULID
 
 from cloudevents.http import CloudEvent, from_dict, from_json
@@ -17,7 +17,9 @@ class envdsEvent(object):
         super(envdsEvent, self).__init__()
         # self.logger = logging.getLogger(self.__class__.__name__)
 
-    def create(type: str, source: str, data: dict = {}, extra_header: dict = None) -> CloudEvent:
+    def create(
+        type: str, source: str, data: dict = {}, extra_header: dict = None
+    ) -> CloudEvent:
 
         attributes = {
             "type": type,
@@ -27,7 +29,7 @@ class envdsEvent(object):
         }
 
         if extra_header:
-            for k,v in extra_header.items():
+            for k, v in extra_header.items():
                 attributes[k] = v
 
         try:
@@ -43,33 +45,57 @@ class envdsEvent(object):
 
     @staticmethod
     def create_data_update(source: str, data: dict = {}, extra_header: dict = None):
-        return envdsEvent.create(type=et.data_update(), source=source, data=data, extra_header=extra_header)
+        return envdsEvent.create(
+            type=et.data_update(), source=source, data=data, extra_header=extra_header
+        )
 
     @staticmethod
     def create_status_update(source: str, data: dict = {}, extra_header: dict = None):
-        return envdsEvent.create(type=et.status_update(), source=source, data=data, extra_header=extra_header)
+        return envdsEvent.create(
+            type=et.status_update(), source=source, data=data, extra_header=extra_header
+        )
 
     @staticmethod
     def create_status_request(source: str, data: dict = {}, extra_header: dict = None):
-        return envdsEvent.create(type=et.status_request(), source=source, data=data, extra_header=extra_header)
+        return envdsEvent.create(
+            type=et.status_request(),
+            source=source,
+            data=data,
+            extra_header=extra_header,
+        )
 
     @staticmethod
     def create_control_request(source: str, data: dict = {}, extra_header: dict = None):
-        return envdsEvent.create(type=et.control_request(), source=source, data=data, extra_header=extra_header)
+        return envdsEvent.create(
+            type=et.control_request(),
+            source=source,
+            data=data,
+            extra_header=extra_header,
+        )
 
     @staticmethod
     def create_control_update(source: str, data: dict = {}, extra_header: dict = None):
-        return envdsEvent.create(type=et.control_update(), source=source, data=data, extra_header=extra_header)
+        return envdsEvent.create(
+            type=et.control_update(),
+            source=source,
+            data=data,
+            extra_header=extra_header,
+        )
 
     @staticmethod
-    def create_ping(source: str, data: dict = {"data": "ping"}, extra_header: dict = None):
-        return envdsEvent.create(type=et.TYPE_PING, source=source, data=data, extra_header=extra_header)
+    def create_ping(
+        source: str, data: dict = {"data": "ping"}, extra_header: dict = None
+    ):
+        return envdsEvent.create(
+            type=et.TYPE_PING, source=source, data=data, extra_header=extra_header
+        )
 
 
 # Future: allow for partial routes to match:
 #   e.g., route = envds.status would match envds.status.request and envds.status.update
 class EventRouter(object):
     """docstring for EventRouter."""
+
     def __init__(self):
         super(EventRouter, self).__init__()
 
@@ -77,12 +103,11 @@ class EventRouter(object):
         self.routes = dict()
 
     def register_route(self, key: str, route, allow_partial: bool = False):
-        self.routes[key] = {
-            "route": route,
-            "allow_partial": allow_partial
-        }
+        self.routes[key] = {"route": route, "allow_partial": allow_partial}
         # print(f"register_route: {key}, {route}, {self.routes}")
-        self.logger.debug("register_route", extra={"key": key, "route": route})
+        self.logger.debug(
+            "register_route", extra={"key": key, "route": route, "routes": self.routes}
+        )
 
     def deregister_route(self, key: str):
         if key in self.routes:
@@ -91,22 +116,23 @@ class EventRouter(object):
     def route_event(self, event: CloudEvent):
         # print(f"route_event: {event}")
         try:
-            # self.logger.debug("route_event", extra={"type": type(event)})#, "routes": self.routes})
+            # self.logger.debug(
+            #     "route_event", extra={"type": type(event)}
+            # )  # , "routes": self.routes})
             return self.get_route(event["type"])
         except Exception as e:
             self.logger.debug("route_event", extra={"exception": e})
             return None
 
-
     def get_route(self, key: str):
-        print(f"get_route: {key}")
+        # print(f"get_route: {key}")
         try:
-            # self.logger.debug("get_route", extra={"key", key})
+            # self.logger.debug("get_route", extra={"key": key})
             return self.routes[key]["route"]
         except KeyError:
             # print(f"key error: {type(self.routes)}")
             if self.routes[key]["allow_partial"]:
-                for k,v in self.routes.items():
+                for k, v in self.routes.items():
                     if key in k:
                         return k["route"]
             else:

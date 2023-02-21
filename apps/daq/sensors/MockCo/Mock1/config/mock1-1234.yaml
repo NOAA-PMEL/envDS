@@ -12,7 +12,7 @@ data:
     interfaces:
       # default: serial
       default:
-        interface_envds_id: dev # if omitted, defaults to envds_id of sensor
+        interface_env_id: dev # if omitted, defaults to envds_id of sensor
         interface_id: system::mock::localhost
         # path: port, channel, etc
         path: port-01
@@ -52,7 +52,7 @@ spec:
         image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
         imagePullPolicy: "Always"
         env:
-          - name: ENVDS_ID
+          - name: ENVDS_ENV_ID
             value: dev
           - name: LOG_LEVEL
             value: DEBUG
@@ -110,121 +110,38 @@ spec:
   #   targetPort: 8883
   # type: LoadBalancer
   type: ClusterIP
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: mockco-mock1-1234-stripprefix
-  namespace: envds
-  labels:
-    app: envds
-spec:
-  stripPrefix:
-    prefixes:
-      - /envds/sensor/MockCo/Mock1/1234
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mockco-mock1-1234-ingress
-  namespace: envds
-  # labels:
-  #   app: envds
-  annotations:
-    ingress.kubernetes.io/ssl-redirect: "false"
-    traefik.ingress.kubernetes.io/router.middlewares:
-      envds-mockco-mock1-1234-stripprefix@kubernetescrd
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /envds/sensor/MockCo/Mock1/1234
-        pathType: Prefix
-        backend:
-          service:
-            name: mockco-mock1-1234
-            port:
-              number: 9080
-
-# # ---
-# # apiVersion: networking.k8s.io/v1
-# # kind: Ingress
-# # metadata:
-# #   name: mosquitto-ingress
-# #   namespace: envds-cloudy
-# #   annotations:
-# #     kubernetes.io/ingress.class: nginx
-# #     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-# # spec:
-# #   rules:
-# #   - host: mosquitto.local
-# #     http:
-# #       paths:
-# #         - pathType: Prefix
-# #           path: "/"
-# #           backend:
-# #             service:
-# #               name: mosquitto
-# #               port: 
-# #                 number: 9001
-# # ---
-# # apiVersion: traefik.containo.us/v1alpha1
-# # kind: Middleware
-# # metadata:
-# #   name: envds-stripprefix
-# #   namespace: envds
-# #   labels:
-# #     app: envds
-# # spec:
-# #   stripPrefix:
-# #     prefixes:
-# #       - /envds/main
+# ---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: mockco-mock1-1234-stripprefix
+#   namespace: envds
+#   labels:
+#     app: envds
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /envds/sensor/MockCo/Mock1/1234
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: envds-ingress
+#   name: mockco-mock1-1234-ingress
 #   namespace: envds
-#   labels:
-#     app: envds
+#   # labels:
+#   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
-#     # traefik.ingress.kubernetes.io/router.middlewares:
-#     #   envds-envds-stripprefix@kubernetescrd
+#     traefik.ingress.kubernetes.io/router.middlewares:
+#       envds-mockco-mock1-1234-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/main
+#       - path: /envds/sensor/MockCo/Mock1/1234
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: envds
+#             name: mockco-mock1-1234
 #             port:
 #               number: 9080
-# # ---
-# # apiVersion: networking.k8s.io/v1
-# # kind: Ingress
-# # metadata:
-# #   annotations:
-# #     kubernetes.io/ingress.class: nginx
-# #     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-# #     nginx.ingress.kubernetes.io/rewrite-target: /$2
-# #     # nginx.ingress.kubernetes.io/rewrite-target: /
-# #   name: envds-ingress
-# #   namespace: envds
-# # spec:
-# #   rules:
-# #   - http:
-# #       paths:
-# #         - path: /envds(/|$)(.*)
-# #           pathType: Prefix
-# #           backend:
-# #             service:
-# #               name: envds
-# #               port: 
-# #                 number: 9080
-# #         # path: /envds(/|$)(.*)
-# #         #   service: 
-# #         #   serviceName: http-svc
-# #         #   servicePort: 80

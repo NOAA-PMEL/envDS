@@ -8,6 +8,7 @@ class BaseEventType(object):
     TYPE_CONTROL = "control"
     TYPE_MANAGE = "manage"
     TYPE_PING = "ping"
+    TYPE_KEEPALIVE = "keepalive"
 
     ACTION_REQUEST = "request"
     ACTION_UPDATE = "update"
@@ -41,6 +42,14 @@ class BaseEventType(object):
     @staticmethod
     def control_update():
         return ".".join([BaseEventType.TYPE_BASE, BaseEventType.TYPE_CONTROL, BaseEventType.ACTION_UPDATE])
+
+    @staticmethod
+    def keepalive_request():
+        return ".".join([BaseEventType.get_type(BaseEventType.TYPE_KEEPALIVE), BaseEventType.ACTION_REQUEST])
+
+    @staticmethod
+    def keepalive_update():
+        return ".".join([BaseEventType.TYPE_BASE, BaseEventType.TYPE_KEEPALIVE, BaseEventType.ACTION_UPDATE])
 
     @staticmethod
     def get_type(type: str):

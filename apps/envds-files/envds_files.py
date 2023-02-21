@@ -86,6 +86,9 @@ class DataFile:
         # print(f'write: {data}')
         # print(f"write: {data_event}")
         await self.data_buffer.put(data_event.data)
+        qsize = self.data_buffer.qsize()
+        if qsize > 5:
+            self.logger.warn("write buffer filling up", extra={"qsize": qsize})
 
     async def __write(self):
 
@@ -171,6 +174,7 @@ class DataFile:
         # print(f"open: {self.file}, {self.base_path}, {fname}")
 
     def open(self):
+        self.logger.debug("DataFile.open")
         self.task_list.append(asyncio.create_task(self.save_file_loop()))
         self.task_list.append(asyncio.create_task(self.__write()))
 
@@ -221,6 +225,19 @@ class envdsFiles(envdsBase):
         # self.message_client.subscribe(f"/envds/{self.id.app_env_id}/sensor/+/update")
         # self.router.register_route(key=bet.data_update(), route=self.handle_data)
 
+    def run_setup(self):
+        super().run_setup()
+
+        self.logger = logging.getLogger(self.build_app_uid())
+        self.update_id("app_uid", self.build_app_uid())
+
+    def build_app_uid(self):
+        parts = [
+            "envds-files",
+            self.id.app_env_id,
+        ]
+        return (Sensor.ID_DELIM).join(parts)
+
     async def handle_data(self, message: Message):
         # print(f"handle_data: {message.data}")
         # self.logger.debug("handle_data", extra={"data": message.data})
@@ -255,11 +272,12 @@ class envdsFiles(envdsBase):
 
         print(f"set_routes: {enable}")
 
+
         if enable:
-            self.message_client.subscribe(f"/envds/{self.id.app_env_id}/sensor/+/update")
+            self.message_client.subscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
             self.router.register_route(key=bet.data_update(), route=self.handle_data)
         else:
-            self.message_client.unsubscribe(f"/envds/{self.id.app_env_id}/sensor/+/update")
+            self.message_client.unsubscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
             self.router.deregister_route(key=bet.data_update(), route=self.handle_data)
        
         # self.message_client.subscribe(f"{topic_base}/status/request")
@@ -270,7 +288,10 @@ class envdsFiles(envdsBase):
         # # self.router.register_route(key=et.control_update, route=self.handle_control)
 
     def run(self):
+        print("run:1")
         super(envdsFiles, self).run()
+        print("run:2")
+        
         self.enable()
 
 class ServerConfig(BaseModel):
@@ -305,8 +326,13 @@ async def main(server_config: ServerConfig = None):
     envdsLogger(level=logging.DEBUG).init_logger()
     logger = logging.getLogger("envds-files")
 
+    print("main:1")
     files = envdsFiles()
+    print("main:2")
     files.run()
+    print("main:3")
+    # await asyncio.sleep(2)
+    # files.enable()
     # task_list.append(asyncio.create_task(files.run()))
     # await asyncio.sleep(2)
 

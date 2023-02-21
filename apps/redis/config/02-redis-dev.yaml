@@ -7,7 +7,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: redis-pv-volume
+  name: redis-pv-volume-dev
   namespace: default
   labels:
     type: local
@@ -18,7 +18,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/data/envds/redis"
+    path: "/data/envds/redis/dev"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

@@ -30,6 +30,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: envds-manage
+            name: envds-manage-dev
             port:
               number: 9080

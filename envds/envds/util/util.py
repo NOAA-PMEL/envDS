@@ -1,6 +1,7 @@
 from datetime import datetime
 import time
 import math
+import json
 
 def time_to_next(sec: float) -> float:
     now = time.time()
@@ -37,3 +38,6 @@ def datetime_mod_sec(sec: int) -> int:
 def seconds_elapsed(inital_dt: datetime) -> float:
     delta = get_datetime() - inital_dt
     return delta.total_seconds()
+
+def get_checksum(data: dict) -> int:
+    return hash(json.dumps(data, sort_keys=True))

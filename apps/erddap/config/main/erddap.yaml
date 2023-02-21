@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: erddap-data-pv-volume
+  namespace: default
+  labels:
+    type: local
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/envds/erddap"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: erddap-data-pv-claim
+  namespace: default
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erddap
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: https
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: erddap
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: erddap
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: erddap
+  template:
+    metadata:
+      labels:
+        app: erddap
+    spec:
+      containers:
+        - name: erddap 
+          # image: axiom/docker-erddap:latest@sha256:aef1e33e6073a05b5a85f1b430188782bde3c61fc67a7b94566e30b4a6047977
+          image: axiom/docker-erddap:latest
+          env:
+            - name: ERDDAP_MAX_MEMORY
+              value: 2G
+            - name: ERDDAP_MIN_MEMORY
+              value: 1G
+            - name: ERDDAP_baseUrl
+              value: http://localhost:8090/envds/dataserver
+              # value: http://erddap.default:8080
+            - name: ERDDAP_baseHttpsUrl
+              value: https://localhost:8453/envds/dataserver
+              # value: https://erddap.default:8443
+            - name: ERDDAP_DATASETS_cacheMinutes
+              value: "1"
+          resources:
+            requests:
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "800m"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          volumeMounts:
+            - name: erddap-data-pv-storage
+              mountPath: /erddapData
+              subPath: data
+            # - name: erddap-server-pv-storage
+            - name: erddap-data-pv-storage
+              mountPath: /usr/local/tomcat/conf/server.xml
+              subPath: conf/server.xml
+            # - name: erddap-ssl-crt-pv-storage
+            # - name: erddap-data-pv-storage
+            - name: erddap-cert-crt
+              mountPath: /usr/local/tomcat/conf/ssl.crt
+              # subPath: certs/ssl.crt
+              subPath: tls.crt
+            # - name: erddap-ssl-key-pv-storage
+            # - name: erddap-data-pv-storage
+            - name: erddap-cert-key
+              mountPath: /usr/local/tomcat/conf/ssl.key
+              # subPath: certs/ssl.key
+              subPath: tls.key
+            # - name: erddap-datasetsd-storage
+            - name: erddap-data-pv-storage
+              mountPath: /datasets.d
+              subPath: datasets.d
+      volumes:
+        - name: erddap-data-pv-storage
+          persistentVolumeClaim:
+            claimName: erddap-data-pv-claim
+        - name: erddap-server-pv-storage
+          hostPath:
+            path: /data/erddap/conf/server.xml
+            type: File
+        # - name: erddap-ssl-crt-pv-storage
+        #   hostPath:
+        #     path: /data/erddap/certs/ssl.crt
+        #     type: File
+        # - name: erddap-ssl-key-pv-storage
+        #   hostPath:
+        #     path: /data/erddap/certs/ssl.key
+        #     type: File
+        - name: erddap-cert-crt
+          secret:
+            secretName: erddap-tls-secret
+        - name: erddap-cert-key
+          secret:
+            secretName: erddap-tls-secret
+        - name: erddap-datasetsd-storage
+          hostPath:
+            path: /data/erddap/datasets.d
+            type: Directory
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: erddap-stripprefix
+  namespace: default
+  # labels:
+  #   app: envds
+spec:
+  stripPrefix:
+    prefixes:
+      - /envds/dataserver
+---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: erddap-rewrite
+#   namespace: default
+# spec:
+#   replacePathRegex:
+#     regex: /erddap/(.*)
+#     replacement: /envds/dataserver/erddap/$1
+# ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erddap-ingress
+  namespace: default
+  # labels:
+  #   app: envds
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares:
+      default-erddap-stripprefix@kubernetescrd
+      # default-erddap-rewrite@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      # - path: /erddap
+      - path: /envds/dataserver/erddap
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: erddap
+            port:
+              number: 8080

@@ -16,7 +16,11 @@ COPY lib/. /lib
 RUN pip3 install --no-index --find-links=/lib/envds envds
 # lib/envds-0.1.0-py3-none-any.whl
 
-COPY . .
+# for fastapi/uvicorn
+# COPY . .
+# without fastapi/uvicorn
+COPY ./mock1.py .
+
 # WORKDIR $APP_HOME/envds
 # COPY ./apis ./apis
 # COPY ./registry.py ./registry.py

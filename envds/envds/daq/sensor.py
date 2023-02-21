@@ -13,7 +13,7 @@ from envds.core import envdsBase, envdsAppID, envdsStatus
 from envds.message.message import Message
 from envds.daq.event import DAQEvent
 from envds.daq.types import DAQEventType as det
-from envds.exceptions import envdsRunTransitionException
+from envds.exceptions import envdsRunTransitionException, envdsRunWaitException, envdsRunErrorException
 from envds.daq.interface import Interface
 
 from envds.util.util import (
@@ -23,6 +23,8 @@ from envds.util.util import (
     get_datetime_string,
 )
 
+from envds.daq.registration import init_sensor_registration, register_sensor #, get_sensor_registration, get_sensor_metadata
+
 class SensorVariable(BaseModel):
     """docstring for SensorVariable."""
     name: str
@@ -30,6 +32,11 @@ class SensorVariable(BaseModel):
     shape: list[str] | None = ["time"]
     attributes: dict | None = dict()
     modes: list[str] | None = ["default"]
+
+class SensorSetting(BaseModel):
+    name: str
+    type: str | None = "str"
+
 
 # # class InstrumentInterface(BaseModel):
 # #     """docstring for InstrumentInterface."""
@@ -60,72 +67,72 @@ class SensorConfig(BaseModel):
 #     def __init__(self):
 #         super(SensorStatus, self).__init__()
 
-class SensorInterface(object):
-    """docstring for SensorInterface."""
-    def __init__(self, config):
-        self.config = config
+# class SensorInterface(object):
+#     """docstring for SensorInterface."""
+#     def __init__(self, config):
+#         self.config = config
             
-        self.recv_buffer = asyncio.Queue()
-        self.send_buffer = asyncio.Queue()
+#         self.recv_buffer = asyncio.Queue()
+#         self.send_buffer = asyncio.Queue()
 
-        self.configure(self)
+#         self.configure(self)
 
-    def configure(self):
+#     def configure(self):
         
-        # TODO: this info should come from registry
+#         # TODO: this info should come from registry
 
-        self.interface_path = None
-        self.interface_id = None
-        if "interface_id" in self.config:
-            self.interface_id = self.config["interface_id"]
+#         self.interface_path = None
+#         self.interface_id = None
+#         if "interface_id" in self.config:
+#             self.interface_id = self.config["interface_id"]
 
-        self.port = None
-        if "port" in self.config:
-            self.port = str(self.config["port"])
+#         self.port = None
+#         if "port" in self.config:
+#             self.port = str(self.config["port"])
 
-        self.channel = None
-        if "channel" in self.config:
-            self.port = str(self.config["channel"])
+#         self.channel = None
+#         if "channel" in self.config:
+#             self.port = str(self.config["channel"])
 
-        if self.interface_id:
-            parts = []
-            parts.append("/envds")
-            parts.append("interface")
-            parts.append(self.interface_id)
+#         if self.interface_id:
+#             parts = []
+#             parts.append("/envds")
+#             parts.append("interface")
+#             parts.append(self.interface_id)
 
-            if self.port or self.channel:
-                if self.port:
-                    parts.append(self.port)
-                else:
-                    parts.append(self.channel)
+#             if self.port or self.channel:
+#                 if self.port:
+#                     parts.append(self.port)
+#                 else:
+#                     parts.append(self.channel)
     
-                self.interface_path = "/".join(parts)
+#                 self.interface_path = "/".join(parts)
 
-    async def send_data(self, data: CloudEvent, **extra):
-        if data:
-            await self.send_buffer.put(data)
+#     async def send_data(self, data: CloudEvent, **extra):
+#         if data:
+#             await self.send_buffer.put(data)
 
-    async def send_message_loop(self):
+#     async def send_message_loop(self):
 
-        while True:
-            # print("send_message_loop")
-            data = await self.send_buffer.get()
-            while not self.message_client:
-                await asyncio.sleep(0.1)
+#         while True:
+#             # print("send_message_loop")
+#             data = await self.send_buffer.get()
+#             while not self.message_client:
+#                 await asyncio.sleep(0.1)
 
-            iface_id = self.config["id"]
-            dest_path = f"{self.interface_path}/send"
-            message = Message(data=data, dest_path=dest_path)
-            await self.message_client.send(data)
-            await asyncio.sleep(.01)
+#             iface_id = self.config["id"]
+#             dest_path = f"{self.interface_path}/send"
+#             message = Message(data=data, dest_path=dest_path)
+#             await self.message_client.send(data)
+#             await asyncio.sleep(.01)
 
-    async def rec_message_loop(self):
+#     async def rec_message_loop(self):
 
-        while True:
-            if self.message_client:
-                data = await self.message_client.get()
-                await self.recv_buffer.put(data)
-            await asyncio.sleep(0.01)
+#         while True:
+#             if self.message_client:
+#                 data = await self.message_client.get()
+#                 await self.recv_buffer.put(data)
+#             await asyncio.sleep(0.01)
 
 
 
@@ -138,7 +145,7 @@ class Sensor(envdsBase):
     SAMPLING = "sampling"
     # CONNECTED = "connected"
 
-    ID_DELIM = "::"
+    # ID_DELIM = "::"
 
     def __init__(self, config=None, **kwargs):
         super(Sensor, self).__init__(config=config, **kwargs)
@@ -187,6 +194,23 @@ class Sensor(envdsBase):
         self.logger.debug("configure()")
         pass
 
+    # can be overridden if metadata in another place
+    def get_metadata(self):
+        return self.metadata
+
+    def run_setup(self):
+        super().run_setup()
+
+        self.logger = logging.getLogger(self.build_app_uid())
+        self.update_id("app_uid", self.build_app_uid())
+
+        init_sensor_registration()
+        register_sensor(
+            make=self.config.make,
+            model=self.config.model,
+            metadata=self.get_metadata()
+        )
+
     def build_app_uid(self):
         parts = [
             self.config.make,
@@ -197,6 +221,7 @@ class Sensor(envdsBase):
 
     def set_routes(self, enable: bool=True):
         super(Sensor, self).set_routes()
+        pass
 
     #     topic_base = self.get_id_as_topic()
     #     self.set_route(
@@ -210,33 +235,38 @@ class Sensor(envdsBase):
 
 
         # dest_path = f"/envds/{iface_envds_env_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
-
+        # print(f"name:1 {name}, iface: {interface}")
         if name and interface:
 
             try:
-                iface_env_id = interface["interface"]["interface_env_id"]
+                iface_env_id = interface["interface_env_id"]
             except KeyError:
-                interface["interface"]["interface_env_id"] = self.id.app_env_id
+                interface["interface_env_id"] = self.id.app_env_id
 
-
+            # print(f"name:2 {name}, iface: {interface}")
             if name not in self.iface_map or update:
                 self.iface_map[name] = {
                     "interface": interface,
                     "status": envdsStatus()
                 }
-                self.iface_map[name].set_state_param(
+                # print(f"name:3 {name}, iface: {interface}")
+                self.iface_map[name]["status"].set_state_param(
                     envdsStatus.RUNNING,
                     requested=envdsStatus.TRUE,
                     actual=envdsStatus.TRUE,
                 )
-                env_id = interface["interface"]["interface_env_id"]
+                # print(f"name:4 {name}, iface: {interface}")
+                env_id = interface["interface_env_id"]
                 id = interface["interface_id"]
                 path = interface["path"]
+
+                # print(f"name:5 {name}, iface: {interface}")
                 self.set_route(
-                    subscription=f"/envds/{env_id}/interface/{id}/{path}/connect/request",
+                    subscription=f"/envds/{env_id}/interface/{id}/{path}/status/update",
                     route_key=det.interface_status_update(),
                     route=self.handle_interface_status
                 )
+                # print(f"name:6 {name}, iface: {interface}")
 
  
         # if enable:
@@ -253,7 +283,10 @@ class Sensor(envdsBase):
         # self.router.register_route(key=et.control_request(), route=self.handle_control)
         # # self.router.register_route(key=et.control_update, route=self.handle_control)
 
-    def handle_interface_status(self, message: Message):
+    async def handle_interface_data(self, message: Message):
+        pass
+
+    async def handle_interface_status(self, message: Message):
         if message.data["type"] == det.interface_status_update():
             self.logger.debug("handle_interface_status", extra={"type": det.interface_status_update()})
 
@@ -266,18 +299,26 @@ class Sensor(envdsBase):
         # while True:
 
             # try:
+        await super(Sensor,self).status_check()
+
         if not self.status.get_health(): # something has changed
             if not self.status.get_health_state(Sensor.SAMPLING):
                 if self.status.get_requested(Sensor.SAMPLING) == envdsStatus.TRUE:
-                    await self.do_start()
+                    try:
+                        await self.do_start()
+                    except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
+                        pass
                     # self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRUE)
                 else:
                     # self.disable()
                     # self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRANSITION)
-                    await self.do_stop()
-                    pass
+                    try:
+                        await self.do_stop()
+                    except envdsRunTransitionException:
+                        pass
 
-        await super(Sensor,self).status_check()
+        
+        # await super(Sensor,self).status_check()
 
             # if not self.status.get_health_state(envdsStatus.RUNNING):
             #     if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
@@ -291,13 +332,13 @@ class Sensor(envdsBase):
         #     # await super(Sensor, self).status_monitor() # super has sleep
         #     # print("here: 57")
 
-    async def do_enable(self):
+    # async def do_enable(self):
 
-        try:
-            await super(Sensor, self).do_enable()
-        except envdsRunTransitionException:
-            raise 
-            # return
+    #     try:
+    #         await super(Sensor, self).do_enable()
+    #     except envdsRunTransitionException:
+    #         raise 
+    #         # return
 
         # for name, iface in self.iface_map.items():
         #     dest_path = f"{self.get_id_as_topic()}/{id}/connect/request"
@@ -325,9 +366,12 @@ class Sensor(envdsBase):
         # TODO: set connect requested in interface status
         #  - this will trigger the connect loop to send a connection request
 
-    def interface_enable(self):
-         for name, iface in self.iface_map.items():
-            iface.status.set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
+    # def interface_enable(self):
+    #     # for name, iface in self.iface_map.items():
+    #     #     iface.status.set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
+
+    #     for name, iface in self.iface_map.items():
+    #         iface["status"].set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
 
     # async def do_interface_enable(self):
 
@@ -343,47 +387,126 @@ class Sensor(envdsBase):
             
     #         iface.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRANSITION)
 
+    def enable(self):
+        # print("sensor.enable:1")
+        super().enable()
+        # print("sensor.enable:2")
+
+        for name, iface in self.iface_map.items():
+            # print("sensor.enable:3")
+            iface["status"].set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
+            # print("sensor.enable:4")
+        # print("sensor.enable:5")
+
+    # def disable(self):
+    #     if self.interface_task:
+    #         self.interface_task.cancel()
+    #     pass
 
     def disable(self):
-        if self.interface_task:
-            self.interface_task.cancel()
-        pass
+        for name, iface in self.iface_map.items():
+            iface["status"].set_requested(envdsStatus.ENABLED, envdsStatus.FALSE)
+
+        super().disable()
+
+    def sampling(self) -> bool:
+        self.logger.debug("sensor.sampling")
+        if self.status.get_requested(Sensor.SAMPLING) == envdsStatus.TRUE:
+            return self.status.get_health_state(Sensor.SAMPLING)
 
     def start(self):
+
+        if not self.enabled():
+            self.enable()
+
         self.status.set_requested(Sensor.SAMPLING, envdsStatus.TRUE)
 
     async def do_start(self):
-        # print("do_start:1")
-        # self.enable()
-        # print("do_start:2")
+    
+        try:
+            # print("do_start:1")
+            # self.enable()
+            # print("do_start:2")
+            # print("do_start:1")
+            requested = self.status.get_requested(Sensor.SAMPLING)
+            actual = self.status.get_actual(Sensor.SAMPLING)
 
-        requested = self.status.get_requested(Sensor.SAMPLING)
-        actual = self.status.get_actual(Sensor.SAMPLING)
+            if requested != envdsStatus.TRUE:
+                raise envdsRunTransitionException(Sensor.SAMPLING)
 
-        if requested != envdsStatus.TRUE:
+            if actual != envdsStatus.FALSE:
+                raise envdsRunTransitionException(Sensor.SAMPLING)
+            print("do_start:2")
+
+            # self.enable()
+            # print("do_start:3")
+
+            # if not (
+            #     self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE
+            #     and self.status.get_health_state(envdsStatus.ENABLED)
+            # ):
+            #     return
+            # while not self.status.get_health_state(envdsStatus.ENABLED):
+            #     self.logger.debug("waiting for enable state to start sensor")
+            #     await asyncio.sleep(1)
+
+            if not self.enabled():
+                raise envdsRunWaitException(Sensor.SAMPLING)
+                # return
+
+            # while not self.enabled():
+            #     self.logger.info("waiting for sensor to become enabled")
+            #     await asyncio.sleep(1)
+            # print("do_start:4")
+
+            self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRANSITION)
+            # print("do_start:5")
+
+            for task in self.sampling_task_list:
+                # print("do_start:6")
+                self.sampling_tasks.append(asyncio.create_task(task))
+                # print("do_start:7")
+
+            # # TODO: enable all interfaces
+            # for name, iface in self.iface_map.items():
+            #     iface["status"].set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
+
+            # may need to require sensors to set this but would rather not
+            self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRUE)
+            # print("do_start:8")
+            self.logger.debug("do_start complete", extra={"status": self.status.get_status()})
+
+        except (envdsRunWaitException, TypeError) as e:
+            self.logger.warn("do_start", extra={"error": e})
+            # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+            # for task in self.enable_task_list:
+            #     if task:
+            #         task.cancel()
+            raise envdsRunWaitException(Sensor.SAMPLING)
+
+        except envdsRunTransitionException as e:
+            self.logger.warn("do_start", extra={"error": e})
+            # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+            # for task in self.enable_task_list:
+            #     if task:
+            #         task.cancel()
             raise envdsRunTransitionException(Sensor.SAMPLING)
 
-        if actual != envdsStatus.FALSE:
-            raise envdsRunTransitionException(Sensor.SAMPLING)
+        # except (envdsRunWaitException, envdsRunTransitionException) as e:
+        #     self.logger.warn("do_enable", extra={"error": e})
+        #     # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+        #     # for task in self.enable_task_list:
+        #     #     if task:
+        #     #         task.cancel()
+        #     raise e(Sensor.SAMPLING)
 
-        self.enable()
-
-        if not (
-            self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE
-            and self.status.get_health_state(envdsStatus.ENABLED)
-        ):
-            return
-        # while not self.status.get_health_state(envdsStatus.ENABLED):
-        #     self.logger.debug("waiting for enable state to start sensor")
-        #     await asyncio.sleep(1)
-
-        self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRANSITION)
-
-        for task in self.sampling_task_list:
-            self.sampling_tasks.append(asyncio.create_task(task))
-
-        # may need to require sensors to set this but would rather not
-        self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRUE)
+        except (envdsRunErrorException, Exception) as e:
+            self.logger.error("do_start", extra={"error": e})
+            self.status.set_actual(Sensor.SAMPLING, envdsStatus.FALSE)
+            for task in self.sampling_task_list:
+                if task:
+                    task.cancel()
+            raise envdsRunErrorException(Sensor.SAMPLING)
 
         # self.run_state = "STARTING"
         # self.logger.debug("start", extra={"run_state": self.run_state})
@@ -408,52 +531,66 @@ class Sensor(envdsBase):
 
         self.status.set_actual(Sensor.SAMPLING, envdsStatus.FALSE)
 
-    async def shutdown(self):
-        # do sensor shutdown tasks
+    def disable(self):
+        self.stop()
+        super().disable()
 
-        # do this after all is done
-        await super(Sensor,self).shutdown()
+    # async def shutdown(self):
+    #     # do sensor shutdown tasks
+    #     self.stop()
+    #     # do this after all is done
+    #     await super(Sensor,self).shutdown()
 
     async def interface_monitor(self):
 
         while True:
-            
+            self.logger.debug("interface_monitor")
             try:
                 await self.interface_check()
             except Exception as e:
                 self.logger.debug("interface_status_monitor error", extra={"e": e})
-            # check status of each interface
-            #  - if connection is:
-            #     - connect requested: true, request connection if actual not true
-            #     - connect requested: false, request connection if actual not false
-
-            # send keepalive if health is good
             
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
 
     async def interface_check(self):
-        
+        # self.logger.debug("interface_check", extra={"iface_map": self.iface_map})
         for name, iface in self.iface_map.items():
             status = iface["status"]
+            # self.logger.debug("interface_check", extra={"status": status.get_status()})
             if not status.get_health():
                 if not status.get_health_state(envdsStatus.ENABLED):
                     if status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
-
                         try:
-                            iface_envds_id = iface["interface"]["interface_envds_env_id"]
-                        except KeyError:
-                            iface_envds_id = self.id.app_env_id
+                            try:
+                                iface_envds_id = iface["interface"]["interface_envds_env_id"]
+                            except KeyError:
+                                iface_envds_id = self.id.app_env_id
 
-                        dest_path = f"/envds/{iface_envds_id}/interface/{iface['inteface_id']}/{iface['path']}/connect/request"
-                        event = DAQEvent.create_interface_connect_request(
-                            # source="envds.core", data={"test": "one", "test2": 2}
-                            source=self.get_id_as_source(),
-                            data={"path_id": iface["path"], "enable": envdsStatus.TRUE},
-                        )
-                        self.logger.debug("connect interface", extra={"name": name, "event": event})
-                        message = Message(data=event, dest_path=dest_path)
-                        await self.send_message(message)
+                            # dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
+                            dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/status/request"
+                            extra_header = {"path_id": iface["interface"]["path"]}
+                            # event = DAQEvent.create_interface_connect_request(
+                            event = DAQEvent.create_interface_status_request(
+                                # source="envds.core", data={"test": "one", "test2": 2}
+                                source=self.get_id_as_source(),
+                                # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                                data={"state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+                                extra_header=extra_header
+                            )
+                            self.logger.debug("enable interface", extra={"n": name, "e": event, "dest_path": dest_path})
+                            message = Message(data=event, dest_path=dest_path)
+                            # self.logger.debug("interface check", extra={"dest_path": dest_path})
+                            await self.send_message(message)
 
+                            # set the route to recv data
+                            self.set_route(
+                                subscription=f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/update",
+                                route_key=det.interface_data_recv(),
+                                # route=iface["recv_task"]
+                                route=self.handle_interface_data
+                            )
+                        except Exception as e:
+                            self.logger.error("interface_check", extra={"error": e})
                     else:
 
                         try:
@@ -461,16 +598,56 @@ class Sensor(envdsBase):
                         except KeyError:
                             iface_envds_id = self.id.app_env_id
 
-                        dest_path = f"/envds/{iface_envds_id}/interface/{iface['inteface_id']}/{iface['path']}/connect/request"
-                        event = DAQEvent.create_interface_connect_request(
+                        # dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
+                        dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/status/request"
+                        extra_header = {"path_id": iface['interface']["path"]}
+                        # event = DAQEvent.create_interface_connect_request(
+                        event = DAQEvent.create_interface_status_request(
                             # source="envds.core", data={"test": "one", "test2": 2}
                             source=self.get_id_as_source(),
-                            data={"path_id": iface["path"], "enable": envdsStatus.FALSE},
+                            # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                            data={"state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                            extra_header=extra_header
                         )
-                        self.logger.debug("connect interface", extra={"name": name, "event": event})
+                        self.logger.debug("connect interface", extra={"n": name, "e": event})
                         message = Message(data=event, dest_path=dest_path)
                         await self.send_message(message)
 
+                        # remove route
+                        self.set_route(
+                            subscription=f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/update",
+                            route_key=det.interface_data_recv(),
+                            # route=iface["recv_task"],
+                            route=self.handle_interface_data,
+                            enable=False
+                        )
+
+
+            else:
+                if status.get_health_state(envdsStatus.ENABLED):
+                    try:
+                        iface_envds_id = iface["interface"]["interface_envds_env_id"]
+                    except KeyError:
+                        iface_envds_id = self.id.app_env_id
+
+                    dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/keepalive/request"
+                    extra_header = {"path_id": iface["interface"]["path"]}
+                    event = DAQEvent.create_interface_keepalive_request(
+                        # source="envds.core", data={"test": "one", "test2": 2}
+                        source=self.get_id_as_source(),
+                        # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                        data={},
+                        extra_header=extra_header
+                    )
+                    # # event = DAQEvent.create_interface_connect_request(
+                    # event = DAQEvent.create_interface_keepalive_request(
+                    #     # source="envds.core", data={"test": "one", "test2": 2}
+                    #     source=self.get_id_as_source(),
+                    #     data={"path_id": iface["path"]} #, "state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+                    # )
+                    self.logger.debug("interface keepalive request", extra={"n": name, "e": event})
+                    message = Message(data=event, dest_path=dest_path)
+                    await self.send_message(message)
     
 
     # async def connect_interface(self, name):
@@ -493,6 +670,13 @@ class Sensor(envdsBase):
     #     #   - register interface/status/updates route
     #     #   - start interface monitor
     #     #       - check for dis/connects
+
+    async def update_registry(self):
+        await super().update_registry()
+
+        # update sensor definition on db/redis
+        # update sensor instance on db/redis
+        # send registry_update message
 
     async def send_metadata_loop(self):
 
@@ -530,11 +714,11 @@ class Sensor(envdsBase):
                 record["variables"][name]["attributes"] = var.attributes
         return record
     
-    async def send_interface_data(self, data: CloudEvent, interface: SensorInterface):
-        # build Message using iface meta
-        message = None
+    # async def send_interface_data(self, data: CloudEvent, interface: SensorInterface):
+    #     # build Message using iface meta
+    #     message = None
 
-        await self.message_client.send_message(message)
+    #     await self.message_client.send_message(message)
 
 
     

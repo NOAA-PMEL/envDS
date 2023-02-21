@@ -1,0 +1,569 @@
+{# templates/envds/instrument.html #}
+
+{% extends 'envds/envdaq_base.html' %}
+
+
+{% block title%}envDS Instrument{% endblock title%}
+
+{% block navpath%}
+    <div id="instrument-navpath">
+    </div>
+{% endblock navpath %}
+
+{% block data %}
+    <div id="inst-data-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+        <div class="w3-bar w3-center">
+            <h6>Data</h6>
+            <h1>WebSocket Chat</h1>
+            <h2>Your ID: <span id="ws-id"></span></h2>
+            <form action="" onsubmit="sendMessage(event)">
+                <input type="text" id="messageText" autocomplete="off"/>
+                <button>Send</button>
+            </form>
+            <ul id='messages'>
+            </ul>
+    
+        </div>
+    </div>
+{% endblock %}
+
+{% block controls %}
+    <div id="inst-controls-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+        <div class="w3-bar w3-center">
+            <h6>Controls &amp Settings</h6>
+        </div>
+    </div>
+{% endblock %}
+
+{% block status %}
+    <div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    <p><em>Status</em></p>
+    <textarea readonly class="w3-round" id="status-window" style="width:100%" rows="5"></textarea><br/>
+    <button id="refresh-status-button" class="w3-button w3-round w3-border" value="Refresh" onclick=request_status()>Refresh</button>
+    </div>
+{% endblock %}
+
+{% block plots %}
+    {#
+    {% for app in plot_scripts %}
+        <div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+            {{ app | safe }}
+        </div>
+    {% endfor %}
+    #}
+{% endblock %}
+
+
+{% block rawdata %}
+    <div id="inst-rawdata-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    </div>
+{% endblock rawdata %}
+
+
+{% block extracontent %}
+
+<div class="children"></div>
+
+    
+
+<style>
+#data-table #control-table{
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    display: block;
+}
+
+</style>                                                                                                                                                                     
+     
+    <script>
+
+        var daq_host = "{{ daq_host }}"
+        var parent_namespace = "{{ parent_namespace }}"
+        var instrument_namespace = "{{ instrument_namespace }}"
+
+        {#
+        window.onload=init;
+        #}
+        
+        var cellvalue = '1234.5'
+        var meas_prefix = "{{ instrument_prefix }}"
+        var measurements_json = "{{ instrument_measurements }}"
+        {# var measurements = JSON.parse("{{ instrument_measurements }}") #}
+        
+        {#
+        //var plot_app = JSON.parse("{{ plot_app | escapejs }}")
+        //var name = plot_app['name']
+        //var plots = document.getElementById('plot_container')
+        //url = "http://"+plot_app['host']+":"+plot_app['port']+plot_app['name']
+        #}
+        var wait_for_setup = true;
+
+        function init() {
+            build_path()
+            {#
+            build_data_table()
+            // build_controls_table()
+            //build_rawdata_table() 
+            
+            // //setup_accordions()
+
+            // // reqest_status()
+            #}
+            wait_for_setup = false
+
+        }
+
+        function build_path() {
+            console.log(window.location.host)
+            var home = "http://"+window.location.host+"/"
+            home = "/"
+            var daq = home + "envdaq/"
+            var server = daq + "daqserver/" + daq_host + "/" + parent_namespace +"/"
+
+            var path = '<a href='+home+' style="text-decoration: none">Home</a> / '
+            path += '<a href='+daq+' style="text-decoration: none">DAQ</a> / '
+            path += 'DAQInstrument / ' + daq_host + " / " + parent_namespace + "/" + instrument_namespace
+            //path += '<a href='+server+' style="text-decoration: none">'+daq_namespace+'</a>'
+            var navpath = document.getElementById("instrument-navpath")
+            navpath.innerHTML = path
+            //navpath.appendChild(text)
+            //console.log(navpath)
+        };
+
+        function build_data_table() {
+            var tablediv = document.getElementById('inst-data-table-div');
+
+            var ts_box = document.createElement("div")
+            ts_box.setAttribute("class", "w3-container") 
+
+            var ts = document.createElement('text')
+            ts.setAttribute("id", "time-stamp")
+
+            var ts_text = document.createElement("label")
+            ts_text.setAttribute("for", "ts")
+            ts_text.appendChild(document.createTextNode("Timestamp: "))
+
+            ts_box.appendChild(ts_text)
+            ts_box.appendChild(ts)
+            tablediv.appendChild(ts_box)
+
+            var table = document.createElement('table');
+            table.setAttribute('id', 'meas-inst-data-table');
+            table.setAttribute('class', 'w3-table-all')
+
+
+            var header = table.createTHead();
+            var row = header.insertRow(0);
+            var cell = row.insertCell(0);
+            cell.setAttribute("class", "w3-center")
+            cell.innerHTML = "<b>Name</b>";
+            cell = row.insertCell(1);
+            cell.setAttribute("class", "w3-center")
+            cell.innerHTML = "<b>Value</b>"
+            cell = row.insertCell(2);
+            cell.setAttribute("class", "w3-center")
+            cell.innerHTML = "<b>Units</b>";
+            for (var meastype in measurements) {
+                if (meastype == "primary") {
+                    mtype = measurements[meastype]
+                    for (var meas in mtype) {
+                        dims = mtype[meas]['dimensions']['axes']
+                        if (mtype[meas]['dimensions']['axes'].length > 1) {
+                            continue
+                        }
+                        var name = meas
+                        if (meas_prefix) {
+                            name = meas_prefix + "_" + meas
+                        }
+                        meas_id = meas.replace(/_/g, "-")
+                        row = table.insertRow(-1);
+                        cell = row.insertCell(0);
+                        cell.setAttribute('id', (meas_id+'-name'));
+                        cell.setAttribute("class", "w3-center")
+                        cell.innerHTML = name
+                        cell = row.insertCell(1);
+                        cell.setAttribute("class", "w3-center")
+                        cell.setAttribute('id', (meas_id+'-value'));
+                        cell.innerHTML = '';         
+                        cell = row.insertCell(2);           
+                        cell.setAttribute('id', (meas_id+'-units'));
+                        cell.setAttribute("class", "w3-center")
+                        cell.innerHTML = mtype[meas]['units']                    
+                    }
+                }
+            }
+
+            for (var meastype in measurements) {
+                if (meastype != "controls" && meastype != "primary") {
+                    mtype = measurements[meastype]
+                    for (var meas in mtype) {
+                        dims = mtype[meas]['dimensions']['axes']
+                        if (mtype[meas]['dimensions']['axes'].length > 1) {
+                            continue
+                        }
+                        var name = meas
+                        if (meas_prefix) {
+                            name = meas_prefix + "_" + meas
+                        }
+                        meas_id = meas.replace(/_/g, "-")
+                        row = table.insertRow(-1);
+                        cell = row.insertCell(0);
+                        cell.setAttribute('id', (meas_id+'-name'));
+                        cell.setAttribute("class", "w3-center")
+                        cell.innerHTML = name
+                        cell = row.insertCell(1);
+                        cell.setAttribute("class", "w3-center")
+                        cell.setAttribute('id', (meas_id+'-value'));
+                        cell.innerHTML = '';         
+                        cell = row.insertCell(2);           
+                        cell.setAttribute('id', (meas_id+'-units'));
+                        cell.setAttribute("class", "w3-center")
+                        cell.innerHTML = mtype[meas]['units']                    
+                    }
+                }
+            }
+            var td = table.rows[0].cells[0];
+            td.width = '200px';
+            td = table.rows[0].cells[1];
+            td.width = '200px';
+            td = table.rows[0].cells[2];
+            td.width = '100px';
+           
+            tablediv.appendChild(table);
+            
+
+        }
+
+        function build_controls_table() {
+            var tablediv = document.getElementById('inst-controls-table-div');
+            
+            var ops_container = document.createElement("div")
+            ops_container.setAttribute("class", "w3-container w3-border w3-padding")
+            var ops_button = document.createElement("button")
+            ops_button.setAttribute("id", "start-stop-button")
+            ops_button.setAttribute("class", "w3-button w3-round w3-border w3-cell")
+            ops_button.setAttribute("onclick", "opsButtonRequest()")
+            ops_button.value = "Start"
+            ops_button.innerText = "Start"
+
+            var button_text = document.createElement("label")
+            button_text.setAttribute("for", "ops_button")
+            button_text.appendChild(document.createTextNode("Instrument Control: "))
+            ops_container.appendChild(button_text)
+            ops_container.appendChild(ops_button)
+
+            tablediv.appendChild(ops_container)
+
+            var control_groups = []
+            for (var meastype in measurements) {
+                if (meastype == "controls") {
+                    mtype = measurements[meastype]
+                    for (var meas in mtype) {
+                        var group_name = "default"
+                        if ("control_group" in mtype[meas]) {
+                            group_name = mtype[meas]["control_group"]
+                        }
+                        var group_id = group_name.replace(/_/g, "-")
+                        group_id = group_id.replace(/ /g, "-")
+                        var group_box = document.getElementById('controls-group-box-'+group_id)
+                        if (group_box == null) {
+                            group_box = document.createElement('div')
+                            group_button = document.createElement('a')
+                            group_button.setAttribute('id', 'controls-group-box-'+group_id)
+                            group_button.setAttribute('class', 'w3-block w3-button')
+                            var fn_arg = 'controls-group-box-'+group_id+'-contents'
+                            group_button.setAttribute('onclick', "doAccordion('controls-group-box-"+group_id+"-contents')" )
+                            group_button.setAttribute('href', "javascript:void(0)")
+                            group_button.innerHTML= "<em>Settings: "+group_name+"</em><i id='controls-group-box-"+group_id+"-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+                            group_box.appendChild(group_button)
+                            group_contents = document.createElement('div')
+                            group_contents.setAttribute('id', 'controls-group-box-'+group_id+'-contents')
+                            group_contents.setAttribute("class", "w3-hide")
+                            control_groups.push(group_id)
+
+                            table = document.createElement('table')
+                            table_id = 'controls-group-table-'+group_id
+                            table.setAttribute('id', table_id)
+                            table.setAttribute('class', 'w3-table w3-bordered w3-border')
+                        
+
+                            var header = table.createTHead();
+                            var row = header.insertRow(0);
+                            var cell = row.insertCell(0);
+                            cell.setAttribute("class", "w3-center")
+                            cell.innerHTML = "<b>Name</b>";
+                            cell = row.insertCell(1);
+                            cell.setAttribute("class", "w3-center")
+                            cell.innerHTML = "<b>Value</b>";
+                            cell = row.insertCell(2);
+                            cell.setAttribute("class", "w3-center")
+                            cell.innerHTML = "<b>Setting</b>";
+                            cell = row.insertCell(3);
+                            cell.setAttribute("class", "w3-center")
+                            cell.innerHTML = "";
+                            cell.setAttribute('id', table_id+'-setbuttoncol');
+
+                            var td = table.rows[0].cells[0];
+                            td.width = '200px';
+                            td = table.rows[0].cells[1];
+                            td.width = '100px';
+                            td = table.rows[0].cells[2];
+                            td.width = '100px';
+                            td = table.rows[0].cells[3];
+                            td.width = '100px'
+                            group_contents.appendChild(table)
+                            group_box.appendChild(group_contents)
+                            tablediv.appendChild(group_box);
+                        }
+                        
+                        table = document.getElementById('controls-group-table-'+group_id)
+                    
+                        var rng_min = 0
+                        var rng_max = 65000
+                        if ("allowed_range" in mtype[meas]) {
+                            var rng = mtype[meas]["allowed_range"]
+                            rng_min = rng[0]
+                            rng_max = rng[1]
+                        }
+                        var name = meas
+                        if (meas_prefix) {
+                            name = meas_prefix + "_" + meas
+                        }
+
+                        meas_id = meas.replace(/_/g, "-")
+                        row = table.insertRow(-1);
+                        cell = row.insertCell(0);
+                        cell.setAttribute('id', (meas_id+'-name'));
+                        cell.innerHTML = name
+                        cell = row.insertCell(1);
+                        cell.setAttribute('id', (meas_id+'-value'));
+                        cell.innerHTML = '';         
+                        cell = row.insertCell(2);           
+                        cell.setAttribute('id', (meas_id+'-input'));
+                        cell.innerHTML = '<input id='+meas_id+'-setting-input type=number min='+rng_min+' max='+rng_max+' step=any>'                                
+                        cell = row.insertCell(3);           
+                        cell.setAttribute('id', (meas_id+'-setting-set'));
+                        cell.innerHTML = 
+                            '<button id='+meas_id+'-setting-button class="w3-button w3-round w3-border" value="apply" onclick=apply_setting(this)>apply</button>'
+
+                    }
+                }
+            }
+
+        }
+
+
+        function build_rawdata_table() {
+            var tablediv = document.getElementById('inst-rawdata-table-div');
+            
+            var group_box = document.createElement('div')
+            group_button = document.createElement('a')
+            group_button.setAttribute('class', 'w3-block w3-button')
+            group_button.setAttribute('onclick', "doAccordion('inst_rawdata-box-metadata-contents')" )
+            group_button.setAttribute('href', "javascript:void(0)")
+            group_button.innerHTML= "<em>Raw Data: Metadata</em><i id='inst_rawdata-box-metadata-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+            group_box.appendChild(group_button)
+            group_contents = document.createElement('div')
+            group_contents.setAttribute('id', 'inst_rawdata-box-metadata-contents')
+            group_contents.setAttribute("class", "w3-hide")
+            var metadata = document.createElement("textarea")
+            metadata.setAttribute("id", "metadata-window")
+            metadata.setAttribute("class", "w3-border w3-round w3-code")
+            metadata.style.width = "100%"
+            metadata.rows = 10
+
+            group_contents.appendChild(metadata)
+            group_box.appendChild(group_contents)
+            tablediv.appendChild(group_box)
+
+            var group_box = document.createElement('div')
+            group_button = document.createElement('a')
+            group_button.setAttribute('class', 'w3-block w3-button')
+            group_button.setAttribute('onclick', "doAccordion('inst_rawdata-box-data-contents')" )
+            group_button.setAttribute('href', "javascript:void(0)")
+            group_button.innerHTML= "<em>Raw Data: Data</em><i id='inst_rawdata-box-data-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+            group_box.appendChild(group_button)
+            group_contents = document.createElement('div')
+            group_contents.setAttribute('id', 'inst_rawdata-box-data-contents')
+            group_contents.setAttribute("class", "w3-hide")
+            var metadata = document.createElement("textarea")
+            metadata.setAttribute("id", "data-window")
+            metadata.setAttribute("class", "w3-border w3-round w3-code")
+            metadata.style.width = "100%"
+            metadata.rows = 10
+
+            group_contents.appendChild(metadata)
+            group_box.appendChild(group_contents)
+            tablediv.appendChild(group_box)
+
+        }
+       
+        var client_id = Date.now()
+            document.querySelector("#ws-id").textContent = client_id;
+            var ws = new WebSocket(`ws://localhost:8000/ws/${client_id}`);
+
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode(event.data)
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("messageText")
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+
+
+        {#
+        var websocket = new WebSocket(
+            'ws://' + window.location.host +
+            '/ws/envdaq/'+daq_host+'/'+parent_namespace+'/instrument/'+instrument_namespace+'/');
+
+
+        var run_status = "UNKNOWN"
+
+        websocket.onmessage = function(e) {
+
+            var data = JSON.parse(e.data);
+            if (data['message']['SUBJECT'] == 'DATA') {
+
+                if ("METADATA" in data['message']['BODY']) {
+                    var message = data['message']['BODY']['METADATA'];
+                    document.querySelector('#metadata-window').innerHTML = (JSON.stringify(data['message']['BODY']['METADATA']) + '\n');
+                }
+                if ('DATA' in data['message']['BODY']) {
+                    var message = data['message']['BODY']['DATA'];
+                    document.querySelector('#data-window').innerHTML = (JSON.stringify(data['message']['BODY']['DATA']) + '\n');
+
+                    document.querySelector('#time-stamp').innerHTML =  (message['DATETIME'].replace(/T|Z/g, " "));
+
+                    var cell_value = ''
+                    for (var meas in message['MEASUREMENTS']) {
+                        if (message['MEASUREMENTS'][meas]['VALUE'] == null) {
+                            continue
+                        }
+                        if (message['MEASUREMENTS'][meas]['VALUE'].constructor === Array) {
+                            continue
+                        }
+                        cell_id = (meas+"-value").replace(/_/g, "-")
+                        document.getElementById(cell_id).innerHTML = message['MEASUREMENTS'][meas]['VALUE'];
+                    }
+                }
+
+            } else if (data['message']['SUBJECT'] == "SETTINGS") {
+
+                if ('settings' in data['message']['BODY']) {
+                    var settings = data['message']['BODY']['settings'];
+                    var cell_value = ''
+                    for (var setting in settings) {
+                        if (setting == null) {
+                            continue
+                        }
+                        value_id = (setting+"-value").replace(/_/g, "-")
+                        input_id = (setting+"-setting-input").replace(/_/g, "-")
+                        document.getElementById(value_id).innerHTML = settings[setting];
+                        document.getElementById(input_id).setAttribute('value', settings[setting]);
+                    }
+                }
+            } else if (data['message']['SUBJECT'] == 'STATUS') {
+
+                if (data.message.BODY.purpose == 'UPDATE') {
+                    console.log(JSON.stringify(data.message.BODY.status))
+                    var status = data.message.BODY.status
+                    update_status(status)
+                }
+            }
+        };
+
+        websocket.onopen = function(event) {
+            console.log('Connected to: ' + event.currentTarget.url)
+            console.log('setup done')
+            
+            request_status()
+        };
+        #}
+
+        function apply_setting(control) {
+            console.log(control)
+            var id = control.id.split('-')
+            id.splice(-2,2)
+            var control = id.join("-")
+            setpoint = document.getElementById(control+'-setting-input').value
+            control = control.replace(/-/g, "_")
+            console.log(control)
+            console.log(setpoint)
+            var message = {}
+            message['SUBJECT'] = 'CONTROLS'
+            message['BODY'] = {
+                'purpose': 'REQUEST',
+                'control': control,
+                'value': setpoint,
+            }
+            console.log(message)
+            
+            websocket.send(
+                JSON.stringify({'message': message})
+            )
+
+        }
+
+        function request_status() {
+
+            var message = {}
+            message['SUBJECT'] = 'STATUS'
+            message['BODY'] = {
+                'purpose': 'REQUEST',
+           }
+
+            websocket.send(
+                JSON.stringify({'message': message})
+            )
+
+        }
+
+        function update_status(status) {
+            runstate = status.run_status
+            opsButtonSet(runstate)
+            document.getElementById("status-window").value = JSON.stringify(status)
+        }
+ 
+
+        function opsButtonRequest() {
+            button = document.getElementById('start-stop-button')
+            var req = "STOP"
+            if (button.value == "Start") {
+                req = "START"
+            } 
+            console.log(req)
+            var message = {}
+            message['SUBJECT'] = 'RUNCONTROLS'
+            message['BODY'] = {
+                'purpose': 'REQUEST',
+                'control': 'start_stop',
+                'value': req,
+            }
+
+            websocket.send(
+                JSON.stringify({'message': message})
+            )
+
+        }
+
+        function opsButtonSet(runstate) {
+            button = document.getElementById('start-stop-button')
+
+            var value = "Stop"
+
+        if (runstate == "STOPPED" || runstate == "READY_TO_RUN") {
+                value = "Start"
+            }
+            button.value = value
+            button.innerText = value
+        }
+
+    </script>
+
+{% endblock extracontent %}

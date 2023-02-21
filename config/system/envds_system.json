@@ -1,1 +1,0 @@
-{"core_packages": ["envds"], "core_services": ["envds-manage"], "message_bus": "mqtt", "db": "redis", "added_services": [], "user_services": [], "namespace": "envds"}

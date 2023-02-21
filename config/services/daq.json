@@ -1,7 +1,0 @@
-{
-    "test": {
-        "type": "service",
-        "name": "test",
-        "namespace": "acg"
-    }
-}

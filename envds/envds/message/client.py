@@ -9,7 +9,7 @@ from logfmter.formatter import Logfmter
 from pydantic import BaseSettings, Field
 from asyncio_mqtt import Client, MqttError
 from cloudevents.http import CloudEvent, from_dict, from_json, to_structured
-from cloudevents.conversion import to_json #, from_dict, from_json#, to_structured
+from cloudevents.conversion import to_json  # , from_dict, from_json#, to_structured
 from cloudevents.exceptions import InvalidStructuredJSON
 
 # from typing import Union
@@ -18,10 +18,12 @@ from pydantic import BaseModel
 from envds.message.message import Message
 from envds.event.event import envdsEvent as et
 
+
 class MessageClientConfig(BaseModel):
     type: str | None = "mqtt"
     # config: dict | None = {"hostname": "localhost", "port": 1883}
     config: dict | None = {"hostname": "mosquitto.default", "port": 1883}
+
 
 # class MessageData(BaseModel):
 #     payload: CloudEvent
@@ -32,10 +34,10 @@ class MessageClientConfig(BaseModel):
 #         arbitrary_types_allowed = True
 
 
-class MessageClientManager():
+class MessageClientManager:
     """MessageClientManager.
-    
-        Factory class to create MessageClients
+
+    Factory class to create MessageClients
     """
 
     @staticmethod
@@ -81,9 +83,6 @@ class MessageClient(ABC):
         # self.run_task_list.append(asyncio.create_task(self.publisher()))
         # self.run_task_list.append(asyncio.create_task(self.run()))
 
-
-
-
     async def send(self, data: Message):
         await self.pub_data.put(data)
         if self.pub_data.qsize() > self.queue_size_limit:
@@ -126,6 +125,7 @@ class MessageClient(ABC):
         # self.do_run = False
         asyncio.create_task(self.shutdown())
 
+
 class MQTTMessageClient(MessageClient):
     """docstring for MQTTMessageClient."""
 
@@ -134,12 +134,12 @@ class MQTTMessageClient(MessageClient):
         self.mqtt_config = config.config
         self.connected = False
         self.reconnect_interval = 5
-        
+
         self.subscriptions = []
 
         self._start()
         self.subscribe(f"/mqtt/manage/{self.client_id}")
-    
+
     async def _subscribe_all(self):
         for sub in self.subscriptions:
             await self._subscribe(sub)
@@ -171,10 +171,9 @@ class MQTTMessageClient(MessageClient):
             await asyncio.sleep(1)  # wait for client to be ready
         if self.client:
             try:
-                await self.client.subscribe(topic)
+                await self.client.unsubscribe(topic)
             except MqttError as error:
                 self.logger.warn("MQTT Client _unsubscribe: {error}")
-
 
     async def run(self):
 
@@ -182,21 +181,35 @@ class MQTTMessageClient(MessageClient):
             try:
                 # async with Client(hostname=self.mqtt_config["hostname"], client_id=self.client_id) as self.client:
                 async with Client(hostname=self.mqtt_config["hostname"]) as self.client:
-                    
+
                     await self._subscribe_all()
-                    
+
                     # async with self.client.unfiltered_messages() as messages:
                     async with self.client.messages() as messages:
                         # print(f"messages: {messages}")
                         self.connected = True
                         async for message in messages:
-                            self.logger.debug("MQTT Client - recv message", extra={"topic": message.topic})
+                            # self.logger.debug(
+                            #     "MQTT Client - recv message",
+                            #     extra={"topic": message.topic},
+                            # )
                             if self.do_run:
                                 # print(f"listen: {self.do_run}, {self.connected}")
-                                msg  = Message(data=from_json(message.payload), source_path=message.topic)
-                                self.logger.debug("mqtt receive message:", extra={"data": msg.data})
+                                msg = Message(
+                                    data=from_json(message.payload),
+                                    source_path=message.topic,
+                                )
+                                # self.logger.debug(
+                                #     "mqtt receive message:", extra={"data": msg.data}
+                                # )
                                 await self.sub_data.put(msg)
-                                self.logger.debug("MQTT Client - recv message", extra={"payload": message.topic})
+                                self.logger.debug(
+                                    "MQTT Client - recv message",
+                                    extra={
+                                        "q": self.sub_data.qsize(),
+                                        "payload": message.topic,
+                                    },
+                                )
                                 # print(
                                 #     f"message received: {msg.data}"
                                 #     # f"topic: {message.topic}, message: {message.payload.decode()}"
@@ -218,7 +231,7 @@ class MQTTMessageClient(MessageClient):
             except Exception as e:
                 self.logger.error("MQTT Client - Exception", extra={"error": e})
                 # print(e)
-        self.logger.info("MQTT Client - done")
+        # self.logger.info("MQTT Client - done")
         # print("done with run")
         self.run_state = "SHUTDOWN"
 
@@ -239,14 +252,24 @@ class MQTTMessageClient(MessageClient):
                 # payload = bpayload.decode()
                 # print(f"payload = {payload}")
                 try:
-                    await self.client.publish(msg.dest_path, payload=to_json(msg.data))
+                    dest_path = msg.dest_path
+                    if dest_path[0] != "/":
+                        dest_path = f"/{dest_path}"
+                    await self.client.publish(dest_path, payload=to_json(msg.data))
                     # await self.client.publish(msg.dest_path, payload=payload)
                 except MqttError as error:
                     self.logger.error("MQTT Client - MQTTError", extra={"error": error})
-                    await asyncio.sleep(1)
-             
+                
+                await asyncio.sleep(.1)
+
             else:
-                self.logger.debug("MQTT Client", extra={"self.do_run": self.do_run, "self.connected": self.connected})
+                self.logger.debug(
+                    "MQTT Client",
+                    extra={
+                        "self.do_run": self.do_run,
+                        "self.connected": self.connected,
+                    },
+                )
                 await asyncio.sleep(1)
             # try:
             #     async with Client(self.mqtt_config["hostname"]) as client:

@@ -1,30 +1,34 @@
 import asyncio
-import uvicorn
-from uvicorn.config import LOGGING_CONFIG
+import signal
+# import uvicorn
+# from uvicorn.config import LOGGING_CONFIG
 import sys
 import os
 import logging
-from logfmter import Logfmter
+# from logfmter import Logfmter
 import logging.config
-from pydantic import BaseSettings, Field
-import json
+# from pydantic import BaseSettings, Field
+# import json
 import yaml
 import random
-from envds.core import envdsBase, envdsLogger, envdsStatus
+from envds.core import envdsLogger #, envdsBase, envdsStatus
 from envds.util.util import (
-    get_datetime_format,
+    # get_datetime_format,
     time_to_next,
     get_datetime,
     get_datetime_string,
 )
 from envds.daq.sensor import Sensor, SensorConfig, SensorVariable
+
 # from envds.event.event import create_data_update, create_status_update
-from envds.event.event import envdsEvent as et
+from envds.daq.types import DAQEventType as det
+from envds.daq.event import DAQEvent
 from envds.message.message import Message
-from envds.exceptions import envdsRunTransitionException
+# from envds.exceptions import envdsRunTransitionException
+
 # from typing import Union
-from cloudevents.http import CloudEvent, from_dict, from_json
-from cloudevents.conversion import to_json, to_structured
+# from cloudevents.http import CloudEvent, from_dict, from_json
+# from cloudevents.conversion import to_json, to_structured
 
 from pydantic import BaseModel
 
@@ -85,20 +89,25 @@ class Mock1(Sensor):
         self.data_rate = 1
         # self.configure()
 
+        self.default_data_buffer = asyncio.Queue()
+
         # self.data_loop_task = None
 
-        self.configure()
+        # all handled in run_setup ----
+        # self.configure()
 
-        # self.logger = logging.getLogger(f"{self.config.make}-{self.config.model}-{self.config.serial_number}")
-        self.logger = logging.getLogger(self.build_app_uid())
+        # # self.logger = logging.getLogger(f"{self.config.make}-{self.config.model}-{self.config.serial_number}")
+        # self.logger = logging.getLogger(self.build_app_uid())
 
-        # self.update_id("app_uid", f"{self.config.make}-{self.config.model}-{self.config.serial_number}")
-        self.update_id("app_uid", self.build_app_uid())
+        # # self.update_id("app_uid", f"{self.config.make}-{self.config.model}-{self.config.serial_number}")
+        # self.update_id("app_uid", self.build_app_uid())
 
         # self.logger.debug("id", extra={"self.id": self.id})
-        print(f"config: {self.config}")
+        # print(f"config: {self.config}")
+        # ----
 
-        self.sampling_task_list.append(self.data_loop())
+        # self.sampling_task_list.append(self.data_loop())
+        self.enable_task_list.append(self.default_data_loop())
 
     def configure(self):
         super(Mock1, self).configure()
@@ -113,7 +122,7 @@ class Mock1(Sensor):
         if "metadata_interval" in conf:
             self.include_metadata_interval = conf["metadata_interval"]
 
-        # create SensorConfig      
+        # create SensorConfig
         var_list = []
         var_map = dict()
         for name, val in Mock1.metadata["variables"].items():
@@ -140,7 +149,7 @@ class Mock1(Sensor):
             serial_number=conf["serial_number"],
             variables=var_map,
             interfaces=conf["interfaces"],
-            daq_id=conf["daq_id"]
+            daq_id=conf["daq_id"],
         )
         print(f"self.config: {self.config}")
 
@@ -149,57 +158,112 @@ class Mock1(Sensor):
             extra={"conf": conf, "var_map": var_map, "self.config": self.config},
         )
 
-        if "interfaces" in self.config:
-            for name, iface in conf.items():
-                self.iface_map[name] = iface
+        try:
+
+            # for name, iface in self.config.interfaces.items():
+            #     # for name, iface in conf.items():
+            #     print(f"add: {name}, {iface}")
+            #     self.add_interface(name, iface)
+
+            if "interfaces" in conf:
+                for name, iface in conf["interfaces"].items():
+                    print(f"add: {name}, {iface}")
+                    self.add_interface(name, iface)
+                    # self.iface_map[name] = iface
+        except Exception as e:
+            print(e)
 
         self.logger.debug("iface_map", extra={"map": self.iface_map})
-                # if name == "default":
-                #     pass
-                # elif name == "serial":
-                #     iface["dest_path"] = f"/envds/interface/{iface[]}"
+        # if name == "default":
+        #     pass
+        # elif name == "serial":
+        #     iface["dest_path"] = f"/envds/interface/{iface[]}"
 
-    # async def do_start(self):
-
-    #     try:
-    #         await super(Mock1, self).do_start()
-    #     except envdsRunTransitionException:
-    #         return
-            
-    #     self.sampling_tasks.append(asyncio.create_task(self.data_loop()))
-
-    # async def do_stop(self):
-
-    #     # do Mock1 specific stop tasks first then call super
-
-    #     try:
-    #         await super(Mock1, self).stop()
-    #     except envdsRunTransitionException:
-    #         return
-
-        # # print("start: 1")
-        # super(Mock1, self).start()
-        # # print("start: 2")
-
-        # self.data_loop_task.cancel()
-        # # print("start: 3")
-
-        # self.status.set_actual(Sensor.SAMPLING, envdsStatus.TRUE)
-
-    # def handle_interface_connect(self, message):
-    #     pass
-
-    # def handle_connect(self, message):
-    #     pass
 
     async def handle_interface_message(self, message: Message):
         pass
 
-    async def handle_serial(self, message: Message):
-        pass
+    # async def handle_serial(self, message: Message):
+    #     pass
 
-    async def parse_serial(self, data: CloudEvent):
-        pass
+    # async def parse_serial(self, data: CloudEvent):
+        # pass
+
+    async def handle_interface_data(self, message: Message):
+        await super(Mock1, self).handle_interface_data(message)
+
+        # self.logger.debug("interface_recv_data", extra={"data": message.data})
+        if message.data["type"] == det.interface_data_recv():
+            try:
+                path_id = message.data["path_id"]
+                iface_path = self.config.interfaces["default"]["path"]
+                # if path_id == "default":
+                if path_id == iface_path:
+                    self.logger.debug(
+                        "interface_recv_data", extra={"data": message.data.data}
+                    )
+                    await self.default_data_buffer.put(message.data)
+            except KeyError:
+                pass
+
+    async def default_data_loop(self):
+
+        while True:
+            data = await self.default_data_buffer.get()
+            # self.logger.debug("default_data_loop", extra={"data": data})
+            record = self.default_parse(data)
+
+            # print(record)
+            # print(self.sampling())
+            if record and self.sampling():
+                event = DAQEvent.create_data_update(
+                    # source="sensor.mockco-mock1-1234", data=record
+                    source=self.get_id_as_source(),
+                    data=record,
+                )
+                dest_path = f"/{self.get_id_as_topic()}/data/update"
+                self.logger.debug("default_data_loop", extra={"data": event, "dest_path": dest_path})
+                message = Message(data=event, dest_path=dest_path)
+                # self.logger.debug("default_data_loop", extra={"m": message})
+                await self.send_message(message)
+
+            # self.logger.debug("default_data_loop", extra={"record": record})
+            await asyncio.sleep(0.1)
+
+    def default_parse(self, data):
+        if data:
+
+            # variables = [
+            #     "time",
+            #     "temperature",
+            #     "rh",
+            #     "pressure",
+            #     "wind_speed",
+            #     "wind_direction",
+            # ]
+            variables = list(self.config.variables.keys())
+            # print(f"variables: \n{variables}\n{variables2}")
+            variables.remove("time")
+            # variables2.remove("time")
+            # print(f"variables: \n{variables}\n{variables2}")
+
+            # print(f"include metadata: {self.include_metadata}")
+            record = self.build_data_record(meta=self.include_metadata)
+            self.include_metadata = False
+            try:
+                record["variables"]["time"]["data"] = data.data["timestamp"]
+                parts = data.data["data"].split(",")
+                for index, name in enumerate(variables):
+                    if name in record["variables"]:
+                        instvar = self.config.variables[name]
+                        record["variables"][name]["data"] = eval(instvar.type)(
+                            parts[index]
+                        )
+                return record
+            except KeyError:
+                pass
+        # else:
+        return None
 
     async def data_loop(self):
         # print(f"data_loop:1 - {self.config}")
@@ -212,7 +276,6 @@ class Mock1(Sensor):
         # print(f"data_rate: {self.data_rate} ready")
         while True:
             variables = dict()
-
 
             dt = get_datetime()
             dt_str = get_datetime_string()
@@ -256,9 +319,10 @@ class Mock1(Sensor):
             # print(f"data record: {record}")
             src = self.get_id_as_source()
             # print(src)
-            event = et.create_data_update(
+            event = DAQEvent.create_data_update(
                 # source="sensor.mockco-mock1-1234", data=record
-                source=src, data=record
+                source=src,
+                data=record,
             )
             # print(f"ce: {event.data}")
             # event = et.create_data_update(
@@ -269,7 +333,7 @@ class Mock1(Sensor):
             # message=Message(data=event, dest_path="/sensor/mockco/mock1/1234/update")
             # message=Message(data=event, dest_path=f"/{src.replace('.', '/')}/update")
             self.logger.debug("data record event", extra={"data": event})
-            message=Message(data=event, dest_path=f"/{self.get_id_as_topic()}/update")
+            message = Message(data=event, dest_path=f"/{self.get_id_as_topic()}/update")
             # print(f"to_json: {event.data}")
             # _, body = to_structured(event)
             # print(f"body: {body}")
@@ -293,6 +357,9 @@ class Mock1(Sensor):
             await asyncio.sleep(time_to_next(self.data_rate))
             # await asyncio.sleep(.1)
 
+    # def start(self):
+    #     super().start()
+    #     self.logger.debug("mock1.start", extra={"status": self.status.get_status()})
 
 class ServerConfig(BaseModel):
     host: str = "localhost"
@@ -330,23 +397,6 @@ async def main(server_config: ServerConfig = None):
     # test = envdsBase()
     # task_list.append(asyncio.create_task(test_task()))
 
-    envdsLogger(level=logging.DEBUG).init_logger()
-    logger = logging.getLogger("mockco-mock1")
-
-    # test = envdsBase()
-    # task_list.append(asyncio.create_task(test_task()))
-
-    # print("instantiate")
-    logger.debug("Starting Mock1")
-    inst = Mock1()
-    # print(inst)
-    inst.run()
-    # print("running")
-    # task_list.append(asyncio.create_task(inst.run()))
-    # await asyncio.sleep(2)
-    inst.start()
-    # logger.debug("Starting Mock1")
-
     # get config from file
     sn = "9999"
     try:
@@ -359,27 +409,61 @@ async def main(server_config: ServerConfig = None):
     except FileNotFoundError:
         pass
 
-    root_path=f"/envds/sensor/MockCo/Mock1/{sn}"
-    print(f"root_path: {root_path}")
+    envdsLogger(level=logging.DEBUG).init_logger()
+    logger = logging.getLogger(f"mockco::mock1::{sn}")
 
-    #TODO: get serial number from config file
-    config = uvicorn.Config(
-        "main:app",
-        host=server_config.host,
-        port=server_config.port,
-        log_level=server_config.log_level,
-        root_path=f"/envds/sensor/MockCo/Mock1/{sn}",
-        # log_config=dict_config,
-    )
+    # test = envdsBase()
+    # task_list.append(asyncio.create_task(test_task()))
 
-    server = uvicorn.Server(config)
-    # test = logging.getLogger()
-    # test.info("test")
-    await server.serve()
+    # print("instantiate")
+    logger.debug("Starting Mock1")
+    inst = Mock1()
+    # print(inst)
+    # await asyncio.sleep(2)
+    inst.run()
+    # print("running")
+    # task_list.append(asyncio.create_task(inst.run()))
+    # await asyncio.sleep(2)
+    inst.start()
+    # logger.debug("Starting Mock1")
 
-    print("starting shutdown...")
+    # remove fastapi ---- 
+    # root_path = f"/envds/sensor/MockCo/Mock1/{sn}"
+    # # print(f"root_path: {root_path}")
+
+    # # TODO: get serial number from config file
+    # config = uvicorn.Config(
+    #     "main:app",
+    #     host=server_config.host,
+    #     port=server_config.port,
+    #     log_level=server_config.log_level,
+    #     root_path=f"/envds/sensor/MockCo/Mock1/{sn}",
+    #     # log_config=dict_config,
+    # )
+
+    # server = uvicorn.Server(config)
+    # # test = logging.getLogger()
+    # # test.info("test")
+    # await server.serve()
+    # ----
+
+    event_loop = asyncio.get_event_loop()
+    global do_run 
+    do_run = True
+    def shutdown_handler(*args):
+        global do_run
+        do_run = False
+
+    event_loop.add_signal_handler(signal.SIGINT, shutdown_handler)
+    event_loop.add_signal_handler(signal.SIGTERM, shutdown_handler)
+
+    while do_run:
+        logger.debug("mock1.run", extra={"do_run": do_run})
+        await asyncio.sleep(1)
+
+    logger.info("starting shutdown...")
     await shutdown(inst)
-    print("done.")
+    logger.info("done.")
 
 
 if __name__ == "__main__":

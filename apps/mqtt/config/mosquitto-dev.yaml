@@ -43,6 +43,35 @@ data:
     # keyfile /certs/server.key
     # require_certificate false
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mosquitto-pv-volume-dev
+  namespace: default
+  labels:
+    type: local
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/envds/mqtt/dev"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-pv-claim
+  namespace: default
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -84,6 +113,8 @@ spec:
             - name: mosquitto-config
               mountPath: /mosquitto/config/mosquitto.conf
               subPath: mosquitto.conf
+            - name: mosquitto-pv-storage
+              mountPath: /mosquitto/data
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -97,6 +128,9 @@ spec:
         - name: mosquitto-config
           configMap:
             name: mosquitto-config
+        - name: mosquitto-pv-storage
+          persistentVolumeClaim:
+            claimName: mosquitto-pv-claim
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -120,9 +154,9 @@ spec:
   # - name: https
   #   port: 8883
   #   targetPort: 8883
-  type: LoadBalancer
-  # type: ClusterIP
-# ---
+  # type: LoadBalancer
+  type: ClusterIP
+---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
@@ -143,3 +177,18 @@ spec:
 #               name: mosquitto
 #               port: 
 #                 number: 9001
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: mosquitto
+  namespace: default
+
+spec:
+  entryPoints:
+    - mosquitto
+
+  routes:
+  - match: HostSNI(`*`)
+    services:
+    - name: mosquitto
+      port: 1883

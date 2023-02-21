@@ -1,0 +1,89 @@
+{# templates/envds/base.html #}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="envDS applications">
+    <meta charset="utf-8">
+    
+    <title>{% block title %}{{title}}{% endblock title %}</title>
+    <link href="{{ url_for('static', path='css/envds.css') }}" rel="stylesheet">
+
+</head>
+
+<body>
+    <div class="w3-top">
+        <div class="w3-bar w3-theme-l5">
+            <div class="w3-third w3-bar-item">
+                <a style="text-decoration:none" href="https://github.com/NOAA-PMEL/envDS">envDS</a>
+            </div>
+        </div>
+        <div class="w3-bar w3-theme">
+            <div class="w3-bar-item w3-left">
+                <a href="javascript:void(0)" class="w3-hide-large" onclick="w3_open()">
+                    <i style="position:relative;left:10px" class="material-icons">menu</i>
+                </a>
+            </div>
+            <div class="w3-bar-item w3-left">
+                {% block navpath %}Home{% endblock navpath %}
+            </div>
+        </div>
+    </div>
+
+
+        <nav class="w3-sidebar w3-bar-block w3-bar-right w3-collapse w3-animate-left w3-left w3-border-right" id="menuBar">
+            <a class="w3-right w3-hide-large w3-large" href="javascript:void(0)" onclick="w3_close()" title="Close">
+                <i style="position:relative;left:10px;vertical-align:middle;" class="material-icons">close</i>
+            </a>
+            {% block localmenu %}{% endblock localmenu %}
+            <a class="w3-bar-item w3-button" href="/">Home</a>
+            <a class="w3-bar-item w3-button" href="/envdaq">DAQ</a>
+            <a class="w3-bar-item w3-button" href="#">Data Server</a>
+            <div>
+                <a class="w3-bar-item w3-button" onclick="doAccordion('datamanagement-menu')" href="javascript:void(0)">Data Management<i id="datamanagement-menu-icon" style="position:relative;left:10px;vertical-align:middle;" class="material-icons">expand_more</i></a>
+                <div id="datamanagement-menu" class="w3-hide">
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="#">Projects</a>
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="#">Sampling Systems</a>
+                </div>
+            </div>
+
+            <div>
+                <a class="w3-bar-item w3-button" onclick="doAccordion('services-menu')" href="javascript:void(0)">Services<i id="services-menu-icon" style="position:relative;left:10px;vertical-align:middle;" class="material-icons">expand_more</i></a>
+                <div id="services-menu" class="w3-hide">
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="/envnet">Network</a>
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="/envdaq">InstrumentInterfaces</a>
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="/envcontacts">Contacts</a>
+                <a style="text-indent:10px;" class="w3-bar-item w3-button" href="/envinventory">Inventory</a>
+                </div>
+            </div>
+            <a class="w3-bar-item w3-button" href="/admin">Admin</a>
+        </nav>
+
+        <div id="dataIntro" class="w3-overlay w3-hide-large w3-animate-opacity" onclick="w3_close()" style="cursor:pointer" id="menuOverlay"></div>
+
+        <div class="w3-main" style="margin-left:200px;margin-top:75px" id="main-window">
+            <div id="content-top" class="w3-container">
+                {% block content %} Main content goes here {% endblock content %}
+            </div>
+        </div>
+
+        <script type="text/javascript">
+
+            function w3_open() {
+                document.getElementById("menuBar").style.display = "block";
+                document.getElementById("menuOverlay").style.display = "block";
+            }
+        
+            function w3_close() {
+                document.getElementById("menuBar").style.display = "none";
+                document.getElementById("menuOverlay").style.display = "none";
+            }
+        
+        </script>
+
+        <script src="{{ url_for('static', path='js/envdsys.js') }}"></script>
+
+</body>
+</html>
+       

@@ -19,7 +19,7 @@ from envds.event.event import envdsEvent, EventRouter
 from envds.event.types import BaseEventType as et
 
 from envds.message.client import MessageClientManager
-from envds.exceptions import envdsRunTransitionException
+from envds.exceptions import envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException
 
 
 class envdsLogger(object):
@@ -233,6 +233,9 @@ class envdsBase(abc.ABC):
     Args:
         object (envdsBase): This is a descpription
     """
+    
+    # default delim for building UIDs
+    ID_DELIM = "::"
 
     def __init__(self, config=None, **kwargs):
         """_summary_
@@ -252,10 +255,10 @@ class envdsBase(abc.ABC):
             app_uid=f"envdsBase-{ULID()}",
         )
 
-        if envds_id := os.getenv("ENVDS_ID"):
-            self.update_id("app_env_id", envds_id)
+        if envds_env_id := os.getenv("ENVDS_ENV_ID"):
+            self.update_id("app_env_id", envds_env_id)
 
-        self.status = envdsStatus()
+        # self.status = envdsStatus()
 
         # self.id = {
         #     "type": "core",
@@ -286,16 +289,21 @@ class envdsBase(abc.ABC):
         self.buffer_tasks = []
 
         self.message_client = None
-        self.start_message_bus()
+        # self.start_message_bus()
         # self.start_message_buffers()
 
         # self.base_tasks = []
         # self.loop.create_task(self.heartbeat())
         # self.do_run = True
 
+        # start status monitor (only loop started in init)
+        self.status = envdsStatus()
+        self.status_monitor_task = None
+        self.status_monitor_task = asyncio.create_task(self.status_monitor())
+
         self.run_task_list = []
         self.run_tasks = []
-        self.run_tasks.append(asyncio.create_task(self.status_monitor()))
+        # self.run_tasks.append(asyncio.create_task(self.status_monitor()))
         self.run_task_list.append(self.heartbeat())
 
         self.enable_task_list = []
@@ -317,6 +325,22 @@ class envdsBase(abc.ABC):
 
     def configure(self):
         pass
+
+    
+    def run_setup(self):
+        
+        # if self.status_monitor_task is None:
+        #     self.status_monitor_task = asyncio.create_task(self.status_monitor())
+            
+        self.start_message_bus()
+
+        self.configure()
+
+        # self.status.set_id_AppID(self.id)
+        # self.logger.debug("init_status", extra={"status": self.status.get_id()})
+
+
+
 
     def set_core_routes(self, enable: bool=True):
 
@@ -352,8 +376,11 @@ class envdsBase(abc.ABC):
         #     self.message_client.unsubscribe(f"{topic_base}/control/request")
         #     self.router.deregister_route(key=et.control_request(), route=self.handle_control)
 
-    def set_route(self, subscription: str, route_key: str, route, enable: bool=True):
+    def set_route(self, subscription: str, route_key: str, route, enable: bool=True, absolute=True, delim="/"):
         
+        if absolute and subscription[0] != delim:
+            subscription = f"{delim}{subscription}"
+        self.logger.debug("set_route", extra={"sub": subscription, "route_key": route_key, "route": route})
         if enable:
             self.message_client.subscribe(subscription)
             self.router.register_route(key=route_key, route=route)
@@ -435,26 +462,35 @@ class envdsBase(abc.ABC):
         if not self.status.get_health():  # something has changed
             # self.logger.debug("status_monitor", extra={"health": self.status.get_health()})
             if not self.status.get_health_state(envdsStatus.ENABLED):
+                print("check:1")
                 if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
                     try:  # exception raised if already enabling
+                        print("check:2")
                         await self.do_enable()
                         # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
-                    except envdsRunTransitionException:
+                    except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
+                        # except Exception as e:
+                        print(f"check:3")
                         pass
                 else:
                     try:
+                        print("check:4")
                         await self.do_disable()
                     except envdsRunTransitionException:
+                        print("check:5")
                         pass
 
             if not self.status.get_health_state(envdsStatus.RUNNING):
                 if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
                     # self.do_run = True
+                    print("check:6")
                     asyncio.create_task(self.do_run())
                     # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRUE)
                 else:
+                    print("check:7")
                     await self.do_shutdown()
                     # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
+            print("check:8")
         self.logger.debug("monitor", extra={"status": self.status.get_status()})
         # self.do_run = False
         # except Exception as e:
@@ -462,37 +498,89 @@ class envdsBase(abc.ABC):
 
         # await asyncio.sleep(1)
 
+    def enabled(self) -> bool:
+        # self.logger.debug("core.enabled")
+        if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
+            return self.status.get_health_state(envdsStatus.ENABLED)
+
     def enable(self):
+        # print('core.enable:1')
         self.status.set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
+        # print('core.enable:2')
 
     async def do_enable(self):
+        try:
+            # print("do_enable:1")
+            requested = self.status.get_requested(envdsStatus.ENABLED)
+            actual = self.status.get_actual(envdsStatus.ENABLED)
 
-        requested = self.status.get_requested(envdsStatus.ENABLED)
-        actual = self.status.get_actual(envdsStatus.ENABLED)
+            if requested != envdsStatus.TRUE:
+                raise envdsRunTransitionException(envdsStatus.ENABLED)
 
-        if requested != envdsStatus.TRUE:
+            if actual != envdsStatus.FALSE:
+                raise envdsRunTransitionException(envdsStatus.ENABLED)
+
+            # if not (
+            #     self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE
+            #     and self.status.get_health_state(envdsStatus.RUNNING)
+            # ):
+            #     return
+            # if not self.status.get_health_state(envdsStatus.RUNNING):
+            #     return
+            # print("do_enable:2")
+
+            # await asyncio.sleep(2)
+            # try:
+            if not self.running():
+                raise envdsRunWaitException(envdsStatus.ENABLED)
+            # except TypeError:
+            #     raise envdsRunWaitException(envdsStatus.ENABLED)
+                # return
+            # while not self.running():
+            #     self.logger.info(f"waiting for {self.id} to be running")
+            #     await asyncio.sleep(1)
+            # print("do_enable:3")
+
+            self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRANSITION)
+            # print("do_enable:4")
+
+            # add routes
+            self.set_routes(True)
+            # print("do_enable:5")
+
+            for task in self.enable_task_list:
+                # print("do_enable:6")
+                self.enable_tasks.append(asyncio.create_task(task))
+                # print("do_enable:7")
+
+            self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
+            # print("do_enable:8")
+            self.logger.debug("do_enable complete", extra={"status": self.status.get_status()})
+
+        except (envdsRunWaitException, TypeError) as e:
+            self.logger.warn("do_enable", extra={"error": e})
+            # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+            # for task in self.enable_task_list:
+            #     if task:
+            #         task.cancel()
+            raise envdsRunWaitException(envdsStatus.ENABLED)
+
+        except envdsRunTransitionException as e:
+            self.logger.warn("do_enable", extra={"error": e})
+            # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+            # for task in self.enable_task_list:
+            #     if task:
+            #         task.cancel()
             raise envdsRunTransitionException(envdsStatus.ENABLED)
 
-        if actual != envdsStatus.FALSE:
-            raise envdsRunTransitionException(envdsStatus.ENABLED)
-
-        if not (
-            self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE
-            and self.status.get_health_state(envdsStatus.RUNNING)
-        ):
-            return
-        # if not self.status.get_health_state(envdsStatus.RUNNING):
-        #     return
-
-        self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRANSITION)
-
-        # add routes
-        self.set_routes(True)
-
-        for task in self.enable_task_list:
-            self.enable_tasks.append(asyncio.create_task(task))
-
-        self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
+        except (envdsRunErrorException, Exception) as e:
+            self.logger.error("do_enable", extra={"error": e})
+            self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+            for task in self.enable_task_list:
+                if task:
+                    task.cancel()
+            raise envdsRunErrorException(envdsStatus.ENABLED)
+            # raise e(envdsStatus.ENABLED)
 
         # while not self.status.get_health_state(envdsStatus.RUNNING):
         #     print("do_enable: 4")
@@ -535,6 +623,7 @@ class envdsBase(abc.ABC):
                 task.cancel()
 
         self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+        self.logger.debug("do_disable complete", extra={"status": self.status.get_status()})
 
     async def handle_status(self, message: Message):
 
@@ -575,9 +664,13 @@ class envdsBase(abc.ABC):
     async def rec_message_loop(self):
 
         while True:
+            # self.logger.debug("rec_message_loop")
             if self.message_client:
                 data = await self.message_client.get()
+                self.logger.debug("rec_message_loop", extra={"recv_data": data.data})
                 await self.rec_buffer.put(data)
+                self.logger.debug("rec_message_loop", extra={"q": self.rec_buffer.qsize()})
+
             await asyncio.sleep(0.01)
 
     async def message_handler(self):
@@ -588,26 +681,45 @@ class envdsBase(abc.ABC):
         """
         while True:
             # data = await self.rec_buffer.get()
+            # if not self.rec_buffer or self.rec_buffer.qsize() < 1:
+            #     self.logger.debug("message_handler", extra={"q": self.rec_buffer.qsize()})
+            #     await asyncio.sleep(.5)
+            #     continue
+            # self.logger.debug("message_handler", extra={"q": self.rec_buffer.qsize()})
             msg = await self.rec_buffer.get()
+            self.logger.debug("message_handler", extra={"msg type": type(msg)})
             try:
                 # print(f"message_handler: {msg}")
                 # route = self.router.get_event_route(msg.data)
                 # print(f"message_handler: {type(msg)}, {msg.data['type']}")
+                # self.logger.debug("message_handler:1", extra={"data": msg.data})
                 route = self.router.route_event(msg.data)
+                # self.logger.debug("message_handler:2", extra={"route": route})
                 if route:
+                    # self.logger.debug("message_handler:3")
                     await route(msg)
+                    # self.logger.debug("message_handler:4")
                 else:
+                    # self.logger.debug("message_handler:5")
                     await self.handle_message(msg)
+                    # self.logger.debug("message_handler:1")
 
                 # message = data.pop("message")
                 # await self.route(message, extra=data)
-            except (TypeError, KeyError):
+            except (TypeError, KeyError, Exception) as e:
                 self.logger.warn(
-                    "messages not in standard format, override 'message_handler'"
+                    "messages not in standard format, override 'message_handler'",
+                    extra={"data": msg.data, "message_error": e}
                 )
+            await asyncio.sleep(0.01)
+
+    async def update_registry(self):
+        # each type of app should update itself
+        pass
 
     async def heartbeat(self):
         print("heartbeat")
+        do_registry_update = True
         while True:
             event = envdsEvent.create_status_update(
                 # source="envds.core", data={"test": "one", "test2": 2}
@@ -618,49 +730,84 @@ class envdsBase(abc.ABC):
             message = Message(data=event, dest_path="/envds/status/update")
             await self.send_message(message)
             # self.logger.debug("heartbeat", extra={"msg": message})
+
+            # only send every other heartbeat
+            if do_registry_update:
+                await self.update_registry()
+                do_registry_update = False
+            else:
+                do_registry_update = True
+
             await asyncio.sleep(5)
 
     def init_status(self):
         self.status.set_id_AppID(self.id)
         self.logger.debug("init_status", extra={"status": self.status.get_id()})
 
+    def running(self) -> bool:
+        self.logger.debug("core.running", extra={"status": self.status.get_status()})
+        if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
+            return self.status.get_health_state(envdsStatus.RUNNING)
+
     def run(self):
+
+        self.run_setup()
+
         self.status.set_requested(envdsStatus.RUNNING, envdsStatus.TRUE)
         self.logger.debug("run requested", extra={"status": self.status.get_status()})
 
     async def do_run(self):
+        try:
+            # print("do_run:1")
+            requested = self.status.get_requested(envdsStatus.RUNNING)
+            actual = self.status.get_actual(envdsStatus.RUNNING)
 
-        requested = self.status.get_requested(envdsStatus.RUNNING)
-        actual = self.status.get_actual(envdsStatus.RUNNING)
+            if requested != envdsStatus.TRUE:
+                return
+                # raise envdsRunTransitionException(envdsStatus.RUNNING)
 
-        if requested != envdsStatus.TRUE:
+            if actual != envdsStatus.FALSE:
+                return
+                # raise envdsRunTransitionException(envdsStatus.RUNNING)
+            # print("do_run:2")
+
+            self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRANSITION)
+            # print("do_run:3")
+
+            # set status id
+            # self.init_status()
+            self.status.set_id_AppID(self.id)
+            # print("do_run:4")
+
+            # self.
+
+            # add core routes
+            self.set_core_routes(True)
+            # print("do_run:5")
+
+            # start loop to send status as a heartbeat
+            # self.loop.create_task(self.heartbeat())
+
+            for task in self.run_task_list:
+                # print("do_run:6")
+                self.run_tasks.append(asyncio.create_task(task))
+                # print("do_run:7")
+                # self.logger.debug("run_task_list", extra={"data": self.run_tasks})
+                # print("do_run:8")
+
+            self.keep_running = True
+            # print("do_run:9")
+            self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRUE)
+            # print("do_run:10")
+            self.logger.debug("do_run initial complete", extra={"status": self.status.get_status()})
+
+        except Exception as e:
+            self.logger.error("do_run", extra={"error": e})
+            self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
+            for task in self.run_task_list:
+                if task:
+                    task.cancel()
             return
-            # raise envdsRunTransitionException(envdsStatus.RUNNING)
-
-        if actual != envdsStatus.FALSE:
-            return
-            # raise envdsRunTransitionException(envdsStatus.RUNNING)
-
-        self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRANSITION)
-
-        # set status id
-        self.init_status()
-        # self.status.set_id_AppID(self.id)
-
-        # self.
-
-        # add core routes
-        self.set_core_routes(True)
-
-        # start loop to send status as a heartbeat
-        # self.loop.create_task(self.heartbeat())
-
-        for task in self.run_task_list:
-            self.run_tasks.append(asyncio.create_task(task))
-            self.logger.debug("run_task_list", extra={"data": self.run_tasks})
-
-        self.keep_running = True
-        self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRUE)
 
         while self.keep_running:
             # print(self.do_run)
@@ -669,9 +816,19 @@ class envdsBase(abc.ABC):
 
         self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
 
+        # except Exception as e:
+        #     self.logger.error("do_run", extra={"error": e})
+        #     self.shutdown()
+        # while self.keep_running:
+        #     # print(self.do_run)
+
+        #     await asyncio.sleep(1)
+
+        # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
         # cancel tasks
 
     async def shutdown(self):
+        self.disable()
         self.status.set_requested(envdsStatus.RUNNING, envdsStatus.FALSE)
 
         timeout = 0
@@ -699,10 +856,18 @@ class envdsBase(abc.ABC):
             if task:
                 task.cancel()
 
+        if self.status_monitor_task:
+            self.status_monitor_task.cancel()
+
         self.status.set_requested(envdsStatus.RUNNING, envdsStatus.FALSE)
+
+        # give things time to shutdown gracefully
+        await asyncio.sleep(5)
+
         self.keep_running = False
         # for task in self.base_tasks:
         #     task.cancel()
+
 
 
 async def run():

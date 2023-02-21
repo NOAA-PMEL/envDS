@@ -25,15 +25,26 @@ class DAQEventType(BaseEventType):
     def interface_data_send():
         return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), BaseEventType.TYPE_DATA, DAQEventType.ACTION_SEND])
 
-    @staticmethod
-    def interface_connect_request():
-        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, BaseEventType.ACTION_REQUEST])
+    # @staticmethod
+    # def interface_connect_request():
+    #     return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, BaseEventType.ACTION_REQUEST])
+
+    # @staticmethod
+    # def interface_connect_update():
+    #     return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, BaseEventType.ACTION_UPDATE])
+
+    # @staticmethod
+    # def interface_connect_keepalive():
+    #     return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, DAQEventType.ACTION_KEEPALIVE])
 
     @staticmethod
-    def interface_connect_update():
-        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, BaseEventType.ACTION_UPDATE])
+    def interface_keepalive_request():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_KEEPALIVE, DAQEventType.ACTION_REQUEST])
 
     @staticmethod
-    def interface_connect_keepalive():
-        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONNECT, DAQEventType.ACTION_KEEPALIVE])
+    def interface_status_request():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_STATUS, DAQEventType.ACTION_REQUEST])
 
+    @staticmethod
+    def interface_status_update():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_STATUS, DAQEventType.ACTION_UPDATE])

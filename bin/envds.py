@@ -21,6 +21,8 @@ from cloudevents.exceptions import InvalidStructuredJSON
 # from typing import Union
 from pydantic import BaseModel
 
+global cluster_id
+
 class MessageBusConfig(BaseModel):
     type: str | None = "mqtt"
     config: dict | None = {
@@ -86,7 +88,7 @@ def set_kubeconfig():
 
 
 def get_registry_port() -> int:
-    args = ["docker", "ps", "--format", "'{{.Ports}}:'", "-f", "name=envds-registry"]
+    args = ["docker", "ps", "--format", "'{{.Ports}}:'", "-f", f"name=envds-registry-{get_cluster_id()}"]
     # args = ["docker", "ps", "--format", "'{{.Ports}}:'", "-f", f"name={get_cluster_name()}-registry"]
     print(f"get_registry_port: args: {args}")
     res = subprocess.run(args, capture_output=True, text=True)
@@ -135,9 +137,13 @@ def register_image(image: str):
     # print(f"ouput(error): {res.stderr}")
     # print(f"ouput(out): {res.stdout}")
 
-def get_cluster_name() -> str:
+def get_cluster_name(envds_id: str = None) -> str:
     cfg = get_config("cluster")
     return "-".join(["envds", cfg["envds_id"]])
+
+def get_cluster_id() -> str:
+    cfg = get_config("cluster")
+    return cfg["envds_id"]
 
 def create_cluster(args) -> bool:
     # print("init")
@@ -158,6 +164,13 @@ def create_cluster(args) -> bool:
         cluster_config.https_port = args.https_port
     if args.envds_id:
         cluster_config.envds_id = args.envds_id
+
+    mbconfig = MessageBusConfig()
+    if args.mqtt_port:
+        mbconfig.config["mqtt_port"] = args.mqtt_port
+    if args.https_port:
+        mbconfig.config["mqtts_port"] = args.mqtts_port
+    cluster_config.message_bus = mbconfig
 
     Path(cluster_config.envds_data_dir).mkdir(parents=True, exist_ok=True)
     Path(cluster_config.config_dir).mkdir(parents=True, exist_ok=True)
@@ -214,7 +227,7 @@ def create_cluster(args) -> bool:
             "--port",
             f"{host}{mb_config.config['mqtts_port']}:{8883}@loadbalancer",
             "--registry-create",
-            "envds-registry",
+            f"envds-registry-{get_cluster_id()}",
             # f"{cluster_name}-registry",
             "--servers",
             "1",
@@ -231,6 +244,17 @@ def create_cluster(args) -> bool:
         print(f"stdout: {res.stdout}")
 
         print("done.")
+
+        # # set kubeconfig
+        # kubeconfig_args = [
+        #     "k3d",
+        #     "kubeconfig",
+        #     "write",
+        #     cluster_name
+        # ]
+        # res = subprocess.run(k3d_args, capture_output=True, text=True)
+        # print(f"res: {res}")
+
         # set kubeconfig
         set_kubeconfig()
 
@@ -263,6 +287,7 @@ def create_cluster(args) -> bool:
 # )
 # print(res.stdout)
 
+# TODO: add init/start erddap
 
 def init_message_bus():
 
@@ -304,7 +329,7 @@ def init_message_bus():
         # register_image(img)
 
         # start mosquitto
-        filename = f"./apps/{system_config.message_bus}/config/"
+        filename = f"./apps/{system_config.message_bus}/config/{get_cluster_id()}/"
         cfg = ApplyConfig(file=filename)
         # cfg.file = os.path.join(os.getcwd(),"mqtt", "config", "mosquitto.yaml")
         cfg.namespace = "default"
@@ -355,7 +380,7 @@ def init_db():
         # register_image(img)
 
         # start mosquitto
-        filename = f"./apps/{system_config.db}/config/"
+        filename = f"./apps/{system_config.db}/config/{get_cluster_id()}/"
         cfg = ApplyConfig(file=filename)
         # cfg.file = os.path.join(os.getcwd(),"mqtt", "config", "mosquitto.yaml")
         cfg.namespace = "default"
@@ -368,6 +393,8 @@ def init_db():
 # def save_cluster_config(config: ClusterConfig):
 def save_config(config: dict, cfg_type: str = None):
     # print(config)
+    global cluster_id
+    envds_id = cluster_id
 
     if cfg_type is None or cfg_type not in ["cluster", "system"]:
         print(f"can't save config of type {cfg_type}")
@@ -378,13 +405,14 @@ def save_config(config: dict, cfg_type: str = None):
         p = Path(os.path.join(os.getcwd(), "config", cfg_type))
         p.mkdir(parents=True, exist_ok=True)
 
-        # save as current config
-        name = f"envds_{cfg_type}.json"
-        # print(p)
-        with open(os.path.join(p, name), "w") as f:
-            # print(config.dict())
-            # json.dump(config.dict(), f)
-            json.dump(config, f)
+        # # save as current config
+        # # name = f"envds_{cfg_type}.json"
+        # name = f"envds-{envds_id}_{cfg_type}.json"
+        # # print(p)
+        # with open(os.path.join(p, name), "w") as f:
+        #     # print(config.dict())
+        #     # json.dump(config.dict(), f)
+        #     json.dump(config, f)
         
         if cfg_type == "cluster":
             cluster_name = f"envds-{config['envds_id']}"
@@ -405,15 +433,20 @@ def save_config(config: dict, cfg_type: str = None):
 
 # def get_cluster_config() -> ClusterConfig:
 def get_config(cfg_type: str = None, envds_id:str=None) -> dict:
+    global cluster_id
 
     if cfg_type is None or cfg_type not in ["cluster", "system"]:
         print(f"can't get config of type {cfg_type}")
         return None
 
+    if envds_id is None:
+        envds_id = cluster_id
+
     name = f"envds_{cfg_type}.json"
     if envds_id:
         name = f"envds-{envds_id}_{cfg_type}.json"
 
+    print(f"get_config: {cfg_type}, {name}")
     try:
         with open(os.path.join(os.getcwd(), "config", cfg_type, name), "r") as f:
             config = json.load(f)
@@ -467,10 +500,10 @@ def init_envds(update: bool = True):
     init_db()
     start_core_services()
 
-    # create ingress
-    folder = "./config/cluster/ingress"
-    config = ApplyConfig(file=folder)
-    apply(config)
+    # # create ingress
+    # folder = "./config/cluster/ingress"
+    # config = ApplyConfig(file=folder)
+    # apply(config)
 
     pass
 
@@ -607,7 +640,8 @@ def start_service(service: str = None, update: bool = True):
     if service is None:
         return
 
-    filename = f"./apps/{service}/config/"
+    filename = f"./apps/{service}/config/{get_cluster_id()}/"
+    print(f"filename: {filename}")
     cfg = ApplyConfig(file=filename)
     cfg.namespace = "default"
     apply(cfg)
@@ -628,7 +662,7 @@ def start_sensor(make: str, model:str, serial_number:str):
     #     return
 
     # filename = f"./apps/{service}/config/"
-    filename = os.path.join(".", "apps", "daq", "sensors", make, model, "config", f"{model.lower()}-{serial_number}.yaml")
+    filename = os.path.join(".", "apps", "daq", "sensors", make, model, "config", get_cluster_id(), f"{model.lower()}-{serial_number}.yaml")
 
     cfg = ApplyConfig(file=filename)
     cfg.namespace = "default"
@@ -649,7 +683,7 @@ def start_interface(type: str, name:str, uid:str):
     #     return
 
     # filename = f"./apps/{service}/config/"
-    filename = os.path.join(".", "apps", "daq", "interfaces", type, name, "config", f"{name.lower()}-{uid}.yaml")
+    filename = os.path.join(".", "apps", "daq", "interfaces", type, name, "config", get_cluster_id(), f"{name.lower()}-{uid}.yaml")
 
     cfg = ApplyConfig(file=filename)
     cfg.namespace = "default"
@@ -666,7 +700,7 @@ def start_core_services(update: bool = True):
     for service in system_config.core_services:
         # build_core_package(pkg=service)
         print(f"\tworking on {service}")
-        filename = f"./apps/{service}/config/"
+        filename = f"./apps/{service}/config/{get_cluster_id()}"
         cfg = ApplyConfig(file=filename)
         # cfg.file = os.path.join(os.getcwd(),"mqtt", "config", "mosquitto.yaml")
         cfg.namespace = "default"
@@ -701,6 +735,7 @@ def add_service_image(app: str = "envds-manage") -> str:
                     )
                     # os.remove(os.path.join(wheel_path, f))
     client = docker.from_env()
+    # print(f"client: {client}, {client.info()}")
 
     print(f"Build {img}")
     res = client.images.build(path=f"./apps/{app}", tag=img)
@@ -912,6 +947,9 @@ def apply(apply_config: ApplyConfig):
 
 def run(*args):
 
+    global cluster_id
+    cluster_id = "default"
+    
     # bootstrap_envds()
     # exit(1)
 
@@ -961,6 +999,20 @@ def run(*args):
         "--https_port",
         type=str,
         help="https port",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+    init_parser.add_argument(
+        "-mqtt",
+        "--mqtt_port",
+        type=str,
+        help="mqtt port",
+        # default=(os.path.join(os.getcwd(), "data")),
+    )
+    init_parser.add_argument(
+        "-mqtts",
+        "--mqtts_port",
+        type=str,
+        help="mqtts port",
         # default=(os.path.join(os.getcwd(), "data")),
     )
 
@@ -1072,6 +1124,9 @@ def run(*args):
     # wd = os.getcwd()
     # os.chdir("..")
     # print(wd, os.getcwd())
+
+    if cl_args.envds_id:
+        cluster_id = cl_args.envds_id
 
     if cl_args.command == "init":
         if create_cluster(cl_args):
