@@ -38,7 +38,10 @@ data:
     # connection 172.23.140.152
     # address 172.23.140.152:1884
     connection cloudbase
-    address 10.55.169.40:1883
+    # address 10.55.169.40:1883
+    # connection uasbase1-owa
+    address 10.10.20.165:1883
+    # address 10.55.169.164:1883
     topic /envds/cloudy/sensor/+/data/update out 0 "" ""
     topic /envds/cloudy/sensor/+/settings/update out 0 "" ""
     topic /envds/cloudy/sensor/+/settings/request both 0 "" ""
