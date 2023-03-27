@@ -69,10 +69,10 @@ class SystemConfig(BaseModel):
     namespace: str | None = "envds"
 
 class GPIOConfig(BaseModel):
-    # based on BOARD numbers and GPIO_A
+    # based on BOARD numbers and GPIO_B
     cdp_enable_pin: int = 31
-    power_bus_28v_pin: int = 29
-    power_bus_12v_pin: int = 11
+    power_bus_28v_pin: int = 13
+    power_bus_12v_pin: int = 22
     dryer_pump_pin: int = 16
 
 
