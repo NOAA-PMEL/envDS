@@ -5,6 +5,7 @@ class BaseEventType(object):
     TYPE_DATA = "data"
     TYPE_STATUS = "status"
     TYPE_REGISTRY = "registry"
+    TYPE_SERVICE = "service"
     TYPE_CONTROL = "control"
     TYPE_MANAGE = "manage"
     TYPE_PING = "ping"
@@ -12,6 +13,7 @@ class BaseEventType(object):
 
     ACTION_REQUEST = "request"
     ACTION_UPDATE = "update"
+    ACTION_BCAST = "broadcast"
 
     def __init__(self):
         super(BaseEventType, self).__init__()
@@ -29,8 +31,13 @@ class BaseEventType(object):
         return ".".join([BaseEventType.get_type(BaseEventType.TYPE_STATUS), BaseEventType.ACTION_REQUEST])
 
     @staticmethod
+    def registry_bcast():
+        return ".".join([BaseEventType.get_type(BaseEventType.TYPE_REGISTRY), BaseEventType.ACTION_BCAST])
+
+    @staticmethod
     def registry_update():
         return ".".join([BaseEventType.get_type(BaseEventType.TYPE_REGISTRY), BaseEventType.ACTION_UPDATE])
+
     @staticmethod
     def registry_request():
         return ".".join([BaseEventType.get_type(BaseEventType.TYPE_REGISTRY), BaseEventType.ACTION_REQUEST])
@@ -50,6 +57,14 @@ class BaseEventType(object):
     @staticmethod
     def keepalive_update():
         return ".".join([BaseEventType.TYPE_BASE, BaseEventType.TYPE_KEEPALIVE, BaseEventType.ACTION_UPDATE])
+
+    @staticmethod
+    def service_registry_update():
+        return ".".join([BaseEventType.get_type(BaseEventType.TYPE_SERVICE), BaseEventType.TYPE_REGISTRY, BaseEventType.ACTION_UPDATE])
+
+    @staticmethod
+    def service_registry_request():
+        return ".".join([BaseEventType.get_type(BaseEventType.TYPE_SERVICE), BaseEventType.TYPE_REGISTRY, BaseEventType.ACTION_REQUEST])
 
     @staticmethod
     def get_type(type: str):

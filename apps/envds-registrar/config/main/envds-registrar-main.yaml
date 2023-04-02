@@ -12,7 +12,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/data/envds/data/registrar/main"
+    path: "/data/envds/registrar/main"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -50,6 +50,8 @@ spec:
         env:
           - name: ENVDS_ENV_ID
             value: main
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
             value: DEBUG
           # - name: REDIS_OM_URL
@@ -133,7 +135,7 @@ spec:
   - http:
       paths:
       # - path: /erddap
-      - path: /envds/files
+      - path: /envds/registrar
         pathType: Prefix
         # pathType: Exact
         backend:

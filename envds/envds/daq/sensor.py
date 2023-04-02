@@ -7,7 +7,8 @@ import asyncio
 import logging
 from logfmter import Logfmter
 # from typing import Union
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, validator
+from typing import Any
 from cloudevents.http import CloudEvent
 from envds.core import envdsBase, envdsAppID, envdsStatus
 from envds.message.message import Message
@@ -23,35 +24,107 @@ from envds.util.util import (
     get_datetime_string,
 )
 
-from envds.daq.registration import init_sensor_registration, register_sensor #, get_sensor_registration, get_sensor_metadata
+from envds.daq.db import init_db_models, register_sensor_type
+
+# from envds.daq.registration import init_sensor_registration, register_sensor #, get_sensor_registration, get_sensor_metadata
+
+# class SensorVariable(BaseModel):
+#     """docstring for SensorVariable."""
+#     name: str
+#     type: str | None = "str"
+#     shape: list[str] | None = ["time"]
+#     attributes: dict | None = dict()
+#     modes: list[str] | None = ["default"]
+
+# class SensorAttribute(BaseModel):
+#     name: str
+#     type: str | None = "str"
+#     value: Any
+    
+#     @validator("value")
+#     def value_check(cls, v, values):
+#         if "type" in values and not isinstance(v, eval(values["type"])):
+#             raise ValueError('attribute value is wrong type')
+#         return v
+
+
+# class SensorSetting(BaseModel):
+#     name: str
+#     type: str | None = "str"
+
+
+# # # class InstrumentInterface(BaseModel):
+# # #     """docstring for InstrumentInterface."""
+# # #     name: str
+# # #     interface_id: str
+# # #     port: str | None = None
+
+# # TODO: This could be BaseSettings?
+# class SensorConfig(BaseModel):
+#     """docstring for SensorConfig."""
+#     make: str
+#     model: str
+#     serial_number: str
+#     # variables: list | None = []
+#     variables: dict | None = {}
+#     interfaces: dict | None = {}
+#     daq: str | None = "default"
+
+
+class SensorAttribute(BaseModel):
+    # name: str
+    type: str | None = "str"
+    data: Any
+
+    @validator("data")
+    def data_check(cls, v, values):
+        if "type" in values:
+            data_type = values["type"]
+            if data_type == "char":
+                data_type = "str"
+                
+            if "type" in values and not isinstance(v, eval(data_type)):
+                raise ValueError("attribute data is wrong type")
+        return v
 
 class SensorVariable(BaseModel):
     """docstring for SensorVariable."""
-    name: str
+
+    # name: str
     type: str | None = "str"
     shape: list[str] | None = ["time"]
-    attributes: dict | None = dict()
-    modes: list[str] | None = ["default"]
+    attributes: dict[str, SensorAttribute]
+    # attributes: dict | None = dict()
+    # modes: list[str] | None = ["default"]
 
 class SensorSetting(BaseModel):
-    name: str
+    """docstring for SensorSetting."""
+
+    # name: str
     type: str | None = "str"
+    shape: list[str] | None = ["time"]
+    attributes: dict[str, SensorAttribute]
+    # attributes: dict | None = dict()
+    # modes: list[str] | None = ["default"]
 
+class SensorMetadata(BaseModel):
+    """docstring for SensorMetadata."""
+    attributes: dict[str, SensorAttribute]
+    variables: dict[str, SensorVariable]
+    settings: dict[str, SensorSetting]
 
-# # class InstrumentInterface(BaseModel):
-# #     """docstring for InstrumentInterface."""
-# #     name: str
-# #     interface_id: str
-# #     port: str | None = None
-
-# TODO: This could be BaseSettings?
 class SensorConfig(BaseModel):
     """docstring for SensorConfig."""
+
     make: str
     model: str
     serial_number: str
-    # variables: list | None = []
-    variables: dict | None = {}
+    metadata: SensorMetadata
+    # # variables: list | None = []
+    # attributes: dict[str, SensorAttribute]
+    # variables: dict[str, SensorVariable]
+    # # # variables: dict | None = {}
+    # settings: dict[str, SensorSetting]
     interfaces: dict | None = {}
     daq: str | None = "default"
 
@@ -154,6 +227,9 @@ class Sensor(envdsBase):
         self.model = "DefaultModel"
         self.sn = str(ULID())
         
+        # default format version, inherited can override
+        self.sensor_format_version = "1.0.0"
+
         self.iface_map = dict()
 
         # list of sampling tasks to start/stop in do_start
@@ -204,18 +280,36 @@ class Sensor(envdsBase):
         self.logger = logging.getLogger(self.build_app_uid())
         self.update_id("app_uid", self.build_app_uid())
 
-        init_sensor_registration()
-        register_sensor(
-            make=self.config.make,
-            model=self.config.model,
-            metadata=self.get_metadata()
+        asyncio.create_task(self.register_sensor_type())
+
+        # TODO: decide if sensor self registers or send registry request (I think latter)
+        # init_sensor_registration()
+        # register_sensor(
+        #     make=self.config.make,
+        #     model=self.config.model,
+        #     metadata=self.get_metadata()
+        # )
+
+    async def register_sensor_type(self):
+        await init_db_models()
+        await register_sensor_type(
+            make=self.get_make(), model=self.get_model(), metadata=self.get_metadata()
         )
+
+    def get_make(self):
+        return self.config.make
+    
+    def get_model(self):
+        return self.config.model
+
+    def get_serial_number(self):
+        return self.config.serial_number
 
     def build_app_uid(self):
         parts = [
-            self.config.make,
-            self.config.model,
-            self.config.serial_number
+            self.get_make(),
+            self.get_model(),
+            self.get_serial_number()
         ]
         return (Sensor.ID_DELIM).join(parts)
 
@@ -678,6 +772,29 @@ class Sensor(envdsBase):
         # update sensor instance on db/redis
         # send registry_update message
 
+        dest_path = f"/envds/{self.id.app_env_id}/sensor/registry/update"
+        event = DAQEvent.create_sensor_registry_update(
+            # source="envds.core", data={"test": "one", "test2": 2}
+            source=self.get_id_as_source(),
+            # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+            data={
+                "make": self.get_make(),
+                "model": self.get_model(),
+                "serial_number": self.get_serial_number(),
+            },
+            # extra_header=extra_header
+        )
+        # # event = DAQEvent.create_interface_connect_request(
+        # event = DAQEvent.create_interface_keepalive_request(
+        #     # source="envds.core", data={"test": "one", "test2": 2}
+        #     source=self.get_id_as_source(),
+        #     data={"path_id": iface["path"]} #, "state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+        # )
+        self.logger.debug("sensor registry update", extra={"e": event})
+        message = Message(data=event, dest_path=dest_path)
+        await self.send_message(message)
+
+
     async def send_metadata_loop(self):
 
         while True:
@@ -693,25 +810,61 @@ class Sensor(envdsBase):
                 await asyncio.sleep(1)
 
     def build_data_record(self, meta: bool = False, mode: str = "default") -> dict:
-        record = {
-            "attributes": {
-                "make": self.config.make,
-                "model": self.config.model,
-                "serial_number": self.config.serial_number,
-                "sampling_mode": mode,
-                "data_format": "envds-1.0",
-            },
-            "variables": {},
-        }
+        #TODO: change data_format -> format_version
 
+        record = {
+            # "time": get_datetime_string(),
+            "timestamp": get_datetime_string(),
+            # "instance": {
+            #     "serial_number": self.config.serial_number,
+            #     "sampling_mode": mode,
+            # }
+        }
         # print(record)
-        for name, var in self.config.variables.items():
-            # print(f"name: {name}, var: {var}")
-            record["variables"][name] = {"data": None}
-            if meta:
-                record["variables"][name]["type"] = var.type
-                record["variables"][name]["shape"] = var.shape
-                record["variables"][name]["attributes"] = var.attributes
+        if meta:
+            record["attributes"] = self.config.metadata.dict()["attributes"]
+            # print(record)
+            record["attributes"]["serial_number"] = {
+                "type": "char",
+                }
+            record["attributes"]["mode"] = {
+                "type": "char",
+                }
+        else:
+            record["attributes"] = {
+                "make": {"data": self.config.make},
+                "model": {"data": self.config.model},
+                # "serial_number": self.config.serial_number,
+                # "sampling_mode": mode,
+                "format_version": {"data": self.sensor_format_version},
+            }
+        record["attributes"]["serial_number"] = {"data": self.config.serial_number}
+        record["attributes"]["mode"] = {"data": mode}
+
+        print(record)
+        
+        #     "variables": {},
+        # }
+
+        # record["variables"] = dict()
+        if meta:
+            record["variables"] = self.config.metadata.dict()["variables"]
+            # print(record)
+            for name,_ in record["variables"].items():
+                record["variables"][name]["data"] = None
+            # print(record)
+        else:
+            record["variables"] = dict()
+            for name,_ in self.config.metadata.variables.items():
+                record["variables"][name] = {"data": None}
+        # # print(record)
+        # for name, var in self.config.variables.items():
+        #     # print(f"name: {name}, var: {var}")
+        #     record["variables"][name] = {"data": None}
+        #     if meta:
+        #         record["variables"][name]["type"] = var.type
+        #         record["variables"][name]["shape"] = var.shape
+        #         record["variables"][name]["attributes"] = var.attributes
         return record
     
     # async def send_interface_data(self, data: CloudEvent, interface: SensorInterface):

@@ -49,3 +49,33 @@ class DAQEvent(envdsEvent):
     @staticmethod
     def create_interface_status_update(source: str, data: dict = {}, extra_header: dict = None):
         return DAQEvent.create(type=et.interface_status_update(), source=source, data=data, extra_header=extra_header)
+
+    @staticmethod
+    def create_sensor_registry_update(source: str, data: dict = {}, extra_header: dict = None):
+        return envdsEvent.create(
+            type=et.sensor_registry_update(), source=source, data=data, extra_header=extra_header
+        )
+
+    @staticmethod
+    def create_sensor_registry_request(source: str, data: dict = {}, extra_header: dict = None):
+        return envdsEvent.create(
+            type=et.sensor_registry_request(),
+            source=source,
+            data=data,
+            extra_header=extra_header,
+        )
+
+    @staticmethod
+    def create_interface_registry_update(source: str, data: dict = {}, extra_header: dict = None):
+        return envdsEvent.create(
+            type=et.interface_registry_update(), source=source, data=data, extra_header=extra_header
+        )
+
+    @staticmethod
+    def create_interface_registry_request(source: str, data: dict = {}, extra_header: dict = None):
+        return envdsEvent.create(
+            type=et.interface_registry_request(),
+            source=source,
+            data=data,
+            extra_header=extra_header,
+        )

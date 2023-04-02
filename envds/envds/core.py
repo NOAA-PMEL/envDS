@@ -258,6 +258,10 @@ class envdsBase(abc.ABC):
         if envds_env_id := os.getenv("ENVDS_ENV_ID"):
             self.update_id("app_env_id", envds_env_id)
 
+        # # TODO: make this dynamic
+        # # set REDIS-OM env
+        # os.environ["REDIS_OM_URL"] = "redis://redis.default"
+        # print(f'redis url: {os.getenv("REDIS_OM_URL")}')
         # self.status = envdsStatus()
 
         # self.id = {

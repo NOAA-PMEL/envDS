@@ -50,6 +50,8 @@ spec:
         env:
           - name: ENVDS_ENV_ID
             value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
             value: DEBUG
         resources:
@@ -62,9 +64,17 @@ spec:
         - name: http
           containerPort: 9080
           protocol: TCP
-      #   volumeMounts:
-      #     - name: envds-dataserver-dev-pv-storage
-      #       mountPath: /data
+        volumeMounts:
+          - name: envds-dataserver-main-pv-storage
+            mountPath: /data
+            subPath: data
+          - name: envds-dataserver-main-pv-storage
+            mountPath: /datasets.d
+            subPath: datasets.d
+      volumes:
+        - name: envds-dataserver-main-pv-storage
+          persistentVolumeClaim:
+            claimName: dataserver-data-pv-claim-main
       # volumes:
       #   - name: envds-dataserver-dev-pv-storage
       #     persistentVolumeClaim:

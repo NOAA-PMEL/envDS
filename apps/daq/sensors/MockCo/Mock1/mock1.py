@@ -1,29 +1,33 @@
 import asyncio
 import signal
+
 # import uvicorn
 # from uvicorn.config import LOGGING_CONFIG
 import sys
 import os
 import logging
+
 # from logfmter import Logfmter
 import logging.config
+
 # from pydantic import BaseSettings, Field
 # import json
 import yaml
 import random
-from envds.core import envdsLogger #, envdsBase, envdsStatus
+from envds.core import envdsLogger  # , envdsBase, envdsStatus
 from envds.util.util import (
     # get_datetime_format,
     time_to_next,
     get_datetime,
     get_datetime_string,
 )
-from envds.daq.sensor import Sensor, SensorConfig, SensorVariable
+from envds.daq.sensor import Sensor, SensorConfig, SensorVariable, SensorMetadata
 
 # from envds.event.event import create_data_update, create_status_update
 from envds.daq.types import DAQEventType as det
 from envds.daq.event import DAQEvent
 from envds.message.message import Message
+
 # from envds.exceptions import envdsRunTransitionException
 
 # from typing import Union
@@ -31,6 +35,8 @@ from envds.message.message import Message
 # from cloudevents.conversion import to_json, to_structured
 
 from pydantic import BaseModel
+
+# from envds.daq.db import init_sensor_type_registration, register_sensor_type
 
 task_list = []
 
@@ -48,37 +54,77 @@ class Mock1(Sensor):
                 "data": "Simulates a meterological type of sensor for the purposes of testing. Data records are emitted once per second.",
             },
             "tags": {"type": "char", "data": "testing, mock, meteorology, sensor"},
+            "format_version": {"type": "char", "data": "1.0.0"},
         },
         "variables": {
             "time": {
                 "type": "str",
                 "shape": ["time"],
-                "attributes": {"long_name": "Time"},
+                "attributes": {"long_name": {"type": "char", "data": "Time"}},
             },
             "temperature": {
                 "type": "float",
                 "shape": ["time"],
-                "attributes": {"long_name": "Temperature", "units": "degree_C"},
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Temperature"},
+                    "units": {"type": "char", "data": "degree_C"},
+                },
             },
             "rh": {
                 "type": "float",
                 "shape": ["time"],
-                "attributes": {"long_name": "RH", "units": "percent"},
+                "attributes": {
+                    "long_name": {"type": "char", "data": "RH"},
+                    "units": {"type": "char", "data": "percent"},
+                },
             },
             "pressure": {
                 "type": "float",
                 "shape": ["time"],
-                "attributes": {"long_name": "Pressure", "units": "hPa"},
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Pressure"},
+                    "units": {"type": "char", "data": "hPa"},
+                },
             },
             "wind_speed": {
                 "type": "float",
                 "shape": ["time"],
-                "attributes": {"long_name": "Wind Speed", "units": "m s-1"},
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Wind Speed"},
+                    "units": {"type": "char", "data": "m s-1"},
+                },
             },
             "wind_direction": {
                 "type": "float",
                 "shape": ["time"],
-                "attributes": {"long_name": "Wind Direction", "units": "degree"},
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Wind Direction"},
+                    "units": {"type": "char", "data": "degree"},
+                    "valid_min": {"type": "float", "data": 0.0},
+                    "valid_max": {"type": "float", "data": 360.0},
+                },
+            },
+            "flow_rate": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Flow Rate"},
+                    "units": {"type": "char", "data": "l min-1"},
+                    "valid_min": {"type": "float", "data": 0.0},
+                    "valid_max": {"type": "float", "data": 5.0},
+                },
+            },
+        },
+        "settings": {
+            "flow_rate": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Flow Rate"},
+                    "units": {"type": "char", "data": "l min-1"},
+                    "valid_min": {"type": "float", "data": 0.0},
+                    "valid_max": {"type": "float", "data": 5.0},
+                },
             },
         },
     }
@@ -90,6 +136,8 @@ class Mock1(Sensor):
         # self.configure()
 
         self.default_data_buffer = asyncio.Queue()
+
+        # os.environ["REDIS_OM_URL"] = "redis://redis.default"
 
         # self.data_loop_task = None
 
@@ -122,40 +170,64 @@ class Mock1(Sensor):
         if "metadata_interval" in conf:
             self.include_metadata_interval = conf["metadata_interval"]
 
-        # create SensorConfig
-        var_list = []
-        var_map = dict()
-        for name, val in Mock1.metadata["variables"].items():
-            var_list.append(
-                SensorVariable(
-                    name=name,
-                    type=val["type"],
-                    shape=val["shape"],
-                    attributes=val["attributes"],
-                )
-            )
-            var_map[name] = SensorVariable(
-                name=name,
-                type=val["type"],
-                shape=val["shape"],
-                attributes=val["attributes"],
-            )
-        # print(f"var_list: {var_list}")
+        # # create SensorConfig
+        # var_list = []
+        # var_map = dict()
+        # for name, val in Mock1.metadata["variables"].items():
+        #     var_list.append(
+        #         SensorVariable(
+        #             name=name,
+        #             type=val["type"],
+        #             shape=val["shape"],
+        #             attributes=val["attributes"],
+        #         )
+        #     )
+        #     var_map[name] = SensorVariable(
+        #         name=name,
+        #         type=val["type"],
+        #         shape=val["shape"],
+        #         attributes=val["attributes"],
+        #     )
+        # # print(f"var_list: {var_list}")
 
-        atts = Mock1.metadata["attributes"]
+        # atts = Mock1.metadata["attributes"]
+        # self.config = SensorConfig(
+        #     make=atts["make"]["data"],
+        #     model=atts["model"]["data"],
+        #     serial_number=conf["serial_number"],
+        #     variables=var_map,
+        #     interfaces=conf["interfaces"],
+        #     daq_id=conf["daq_id"],
+        # )
+
+        meta = SensorMetadata(
+            attributes=Mock1.metadata["attributes"],
+            variables=Mock1.metadata["variables"],
+            settings=Mock1.metadata["settings"]
+        )
+
         self.config = SensorConfig(
-            make=atts["make"]["data"],
-            model=atts["model"]["data"],
+            make=Mock1.metadata["attributes"]["make"]["data"],
+            model=Mock1.metadata["attributes"]["model"]["data"],
             serial_number=conf["serial_number"],
-            variables=var_map,
+            metadata=meta,
             interfaces=conf["interfaces"],
             daq_id=conf["daq_id"],
-        )
+        )    
+
+
+
         print(f"self.config: {self.config}")
+
+        try:
+            # self.sensor_format_version = atts["format_version"]
+            self.sensor_format_version = self.config.metadata.attributes["format_version"].data
+        except KeyError:
+            pass
 
         self.logger.debug(
             "configure",
-            extra={"conf": conf, "var_map": var_map, "self.config": self.config},
+            extra={"conf": conf, "self.config": self.config},
         )
 
         try:
@@ -179,6 +251,15 @@ class Mock1(Sensor):
         # elif name == "serial":
         #     iface["dest_path"] = f"/envds/interface/{iface[]}"
 
+    # def run_setup(self):
+    #     super().run_setup()
+    #     asyncio.create_task(self.register_sensor_type())
+
+    # async def register_sensor_type(self):
+    #     await init_sensor_type_registration()
+    #     await register_sensor_type(
+    #         make=self.get_make(), model=self.get_model(), metadata=self.get_metadata()
+    #     )
 
     async def handle_interface_message(self, message: Message):
         pass
@@ -187,7 +268,7 @@ class Mock1(Sensor):
     #     pass
 
     # async def parse_serial(self, data: CloudEvent):
-        # pass
+    # pass
 
     async def handle_interface_data(self, message: Message):
         await super(Mock1, self).handle_interface_data(message)
@@ -222,7 +303,9 @@ class Mock1(Sensor):
                     data=record,
                 )
                 dest_path = f"/{self.get_id_as_topic()}/data/update"
-                self.logger.debug("default_data_loop", extra={"data": event, "dest_path": dest_path})
+                self.logger.debug(
+                    "default_data_loop", extra={"data": event, "dest_path": dest_path}
+                )
                 message = Message(data=event, dest_path=dest_path)
                 # self.logger.debug("default_data_loop", extra={"m": message})
                 await self.send_message(message)
@@ -241,7 +324,8 @@ class Mock1(Sensor):
             #     "wind_speed",
             #     "wind_direction",
             # ]
-            variables = list(self.config.variables.keys())
+            # variables = list(self.config.variables.keys())
+            variables = list(self.config.metadata.variables.keys())
             # print(f"variables: \n{variables}\n{variables2}")
             variables.remove("time")
             # variables2.remove("time")
@@ -251,11 +335,13 @@ class Mock1(Sensor):
             record = self.build_data_record(meta=self.include_metadata)
             self.include_metadata = False
             try:
+                record["timestamp"] = data.data["timestamp"]
                 record["variables"]["time"]["data"] = data.data["timestamp"]
                 parts = data.data["data"].split(",")
                 for index, name in enumerate(variables):
                     if name in record["variables"]:
-                        instvar = self.config.variables[name]
+                        # instvar = self.config.variables[name]
+                        instvar = self.config.metadata.variables[name]
                         record["variables"][name]["data"] = eval(instvar.type)(
                             parts[index]
                         )
@@ -293,6 +379,7 @@ class Mock1(Sensor):
             variables["pressure"] = str(round(1000 + random.uniform(-5, 5), 3))
             variables["wind_speed"] = str(round(10 + random.uniform(-5, 5), 3))
             variables["wind_direction"] = str(round(90 + random.uniform(-20, 20), 3))
+            variables["flow_rate"] = str(round(2 + random.uniform(-.1, .1), 3))
 
             # print(f"variables: {variables}")
             # send_meta = False
@@ -307,7 +394,7 @@ class Mock1(Sensor):
             for name, val in record["variables"].items():
                 # print(name, val)
                 if name in variables:
-                    instvar = self.config.variables[name]
+                    instvar = self.config.metadata.variables[name]
                     # print(f"instvar: {instvar}")
                     # print(f"type: {instvar.type}, {eval(instvar.type)(variables[name])}")
                     # print(f"name: {name}, val: {val}, instvar: {instvar}")
@@ -316,7 +403,7 @@ class Mock1(Sensor):
                     val["data"] = eval(instvar.type)(variables[name])
                     # print(f"record: {record}")
 
-            # print(f"data record: {record}")
+            print(f"data record: {record}")
             src = self.get_id_as_source()
             # print(src)
             event = DAQEvent.create_data_update(
@@ -360,6 +447,7 @@ class Mock1(Sensor):
     # def start(self):
     #     super().start()
     #     self.logger.debug("mock1.start", extra={"status": self.status.get_status()})
+
 
 class ServerConfig(BaseModel):
     host: str = "localhost"
@@ -427,7 +515,7 @@ async def main(server_config: ServerConfig = None):
     inst.start()
     # logger.debug("Starting Mock1")
 
-    # remove fastapi ---- 
+    # remove fastapi ----
     # root_path = f"/envds/sensor/MockCo/Mock1/{sn}"
     # # print(f"root_path: {root_path}")
 
@@ -448,8 +536,9 @@ async def main(server_config: ServerConfig = None):
     # ----
 
     event_loop = asyncio.get_event_loop()
-    global do_run 
+    global do_run
     do_run = True
+
     def shutdown_handler(*args):
         global do_run
         do_run = False

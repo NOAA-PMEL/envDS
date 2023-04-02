@@ -236,7 +236,7 @@ class envdsFiles(envdsBase):
             "envds-files",
             self.id.app_env_id,
         ]
-        return (Sensor.ID_DELIM).join(parts)
+        return (envdsFiles.ID_DELIM).join(parts)
 
     async def handle_data(self, message: Message):
         # print(f"handle_data: {message.data}")
@@ -272,13 +272,19 @@ class envdsFiles(envdsBase):
 
         print(f"set_routes: {enable}")
 
+        self.set_route(
+            subscription=f"/envds/{self.id.app_env_id}/sensor/+/data/update",
+            route_key=bet.data_update(),
+            route=self.handle_data,
+            enable=enable,
+        )
 
-        if enable:
-            self.message_client.subscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
-            self.router.register_route(key=bet.data_update(), route=self.handle_data)
-        else:
-            self.message_client.unsubscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
-            self.router.deregister_route(key=bet.data_update(), route=self.handle_data)
+        # if enable:
+        #     self.message_client.subscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
+        #     self.router.register_route(key=bet.data_update(), route=self.handle_data)
+        # else:
+        #     self.message_client.unsubscribe(f"/envds/{self.id.app_env_id}/sensor/+/data/update")
+        #     self.router.deregister_route(key=bet.data_update(), route=self.handle_data)
        
         # self.message_client.subscribe(f"{topic_base}/status/request")
         # self.router.register_route(key=det.status_request(), route=self.handle_status)

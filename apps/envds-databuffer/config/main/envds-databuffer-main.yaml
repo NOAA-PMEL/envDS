@@ -1,36 +1,62 @@
 # apiVersion: v1
-# kind: Namespace
+# kind: PersistentVolume
 # metadata:
-#   name: envds
+#   name: envds-databuffer-main-pv-volume
+#   namespace: envds
 #   labels:
-#     name: envds
+#     type: local
+# spec:
+#   storageClassName: local-path
+#   capacity:
+#     storage: 10Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     # path: "/data/envds/data/registrar/main"
+#     path: "/data/envds/registrar/main"
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: envds-databuffer-main-pv-claim
+#   namespace: envds
+# spec:
+#   storageClassName: local-path
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 10Gi
 # ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: envds-manage-dev
+  name: envds-databuffer-main
   namespace: envds
   labels:
-    app: envds
+    app: envds-databuffer-main
 spec:
   selector:
     matchLabels:
-      app: envds-manage-dev
+      app: envds-databuffer-main
   template:
     metadata:
       labels:
-        app: envds-manage-dev
+        app: envds-databuffer-main
     spec:
       containers:
-      - name: envds-manage-dev
-        # image: envds-registry:5000/core/envds-manage:0.1.0
-        image: envds-registry:5000/envds/envds-manage:0.1.0
+      - name: envds-databuffer-main
+        image: envds-registry-main:5000/envds/envds-databuffer:0.1.0
         imagePullPolicy: "Always"
         env:
-          - name: ENVDS_ID
-            value: dev
+          - name: ENVDS_ENV_ID
+            value: main
           - name: REDIS_OM_URL
             value: redis://redis.default
+          - name: LOG_LEVEL
+            value: DEBUG
+          # - name: REDIS_OM_URL
+          #   value: redis://redis.default
         resources:
           requests:
             cpu: "50m"
@@ -41,7 +67,14 @@ spec:
         - name: http
           containerPort: 9080
           protocol: TCP
-        # - name: https
+        # volumeMounts:
+        #   - name: envds-databuffer-main-pv-storage
+        #     mountPath: /data
+      # volumes:
+      #   - name: envds-databuffer-main-pv-storage
+      #     persistentVolumeClaim:
+      #       claimName: envds-databuffer-main-pv-claim
+         # - name: https
         #   containerPort: 8883
         #   protocol: TCP
       #   volumeMounts:
@@ -68,13 +101,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: envds-manage-dev
+  name: envds-databuffer-main
   namespace: envds
   labels:
-    app: envds-manage-dev
+    app: envds-databuffer-main
 spec:
   selector:
-    app: envds-manage-dev
+    app: envds-databuffer-main
   ports:
   - name: http
     protocol: TCP
@@ -85,6 +118,32 @@ spec:
   #   targetPort: 8883
   # type: LoadBalancer
   type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: envds-databuffer-ingress
+  namespace: envds
+  # labels:
+  #   app: envds
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares:
+      envds-envds-databuffer-stripprefix@kubernetescrd
+      # default-erddap-rewrite@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      # - path: /erddap
+      - path: /envds/databuffer
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-databuffer-main
+            port:
+              number: 8080
 # # ---
 # # apiVersion: networking.k8s.io/v1
 # # kind: Ingress

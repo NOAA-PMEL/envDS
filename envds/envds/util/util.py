@@ -2,6 +2,7 @@ from datetime import datetime
 import time
 import math
 import json
+import hashlib
 
 def time_to_next(sec: float) -> float:
     now = time.time()
@@ -39,5 +40,12 @@ def seconds_elapsed(inital_dt: datetime) -> float:
     delta = get_datetime() - inital_dt
     return delta.total_seconds()
 
-def get_checksum(data: dict) -> int:
-    return hash(json.dumps(data, sort_keys=True))
+def get_checksum(data: dict) -> str:
+    # return hash(json.dumps(data, sort_keys=True))
+
+    dhash = hashlib.md5()
+    # We need to sort arguments so {'a': 1, 'b': 2} is
+    # the same as {'b': 2, 'a': 1}
+    encoded = json.dumps(data, sort_keys=True).encode()
+    dhash.update(encoded)
+    return dhash.hexdigest()

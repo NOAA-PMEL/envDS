@@ -59,6 +59,7 @@ class _MockClient(_BaseClient):
         variables.append(str(round(1000 + random.uniform(-5, 5), 3)))
         variables.append(str(round(10 + random.uniform(-5, 5), 3)))
         variables.append(str(round(90 + random.uniform(-20, 20), 3)))
+        variables.append(str(round(2 + random.uniform(-.1, .1), 3)))
 
         data = ",".join(variables)
         # print(f"_MockClient.1D: {data}")
