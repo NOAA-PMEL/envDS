@@ -311,7 +311,7 @@ class Sensor(envdsBase):
             self.get_model(),
             self.get_serial_number()
         ]
-        return (Sensor.ID_DELIM).join(parts)
+        return (self.ID_DELIM).join(parts)
 
     def set_routes(self, enable: bool=True):
         super(Sensor, self).set_routes()

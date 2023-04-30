@@ -23,7 +23,7 @@ from cloudevents.conversion import to_json, to_structured
 from envds.event.event import envdsEvent, EventRouter
 from envds.event.types import BaseEventType as bet
 
-from envds.daq.sensor import Sensor
+# from envds.daq.sensor import Sensor
 
 # from typing import Union
 
@@ -254,7 +254,7 @@ class envdsFiles(envdsBase):
             src = message.data["source"]
             if src not in self.file_map:
                 parts = src.split(".")
-                sensor_name = parts[-1].split(Sensor.ID_DELIM)
+                sensor_name = parts[-1].split(self.ID_DELIM)
                 file_path = os.path.join("/data", "sensor", *sensor_name)
 
                 self.file_map[src] = DataFile(base_path=file_path)

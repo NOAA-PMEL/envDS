@@ -1,61 +1,68 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mockco-mock1-2346-config
+  name: system-mock-uas1-config
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: system-mock-uas1
 data:
-  sensor.conf: |
-    serial_number: "2346"
-    daq_id: cloudysky
-    interfaces:
-      # default: serial
-      default:
-        interface_env_id: dev # if omitted, defaults to envds_id of sensor
-        interface_id: system::mock::uas1
-        # path: port, channel, etc
-        path: port-02
-        connection-properties:
-          baudrate: 9600
-          bytesize: 8
-          parity: N
-          stopbit: 1
-        # read-properties:
-          # terminator: "\r"
-          # binary: true
-          # num-bytes: 1
-          # decode-errors: strict
-      # power: # example of second interface (e.g., CDP enable signal)
-      #   interface_id: system::mock::localhost
-      #   path: port-01
+  interface.conf: |
+    uid: uas1
+    # serial_number: "1234"
+    # daq_id: cloudysky
+    paths:
+      - port-01:
+          filepath: /dev/mock/iface02
+      # - port-02:
+      #     address: 
+      #       host: 10.55.169.54
+      #       port: 21
+      # - port-03:
+      #     uri: /dev/mock/iface01
+
+    # interfaces:
+    #   # default: serial
+    #   serial:
+    #     interface_id: mock-interface-01
+    #     # path: port, channel, etc
+    #     path: "02"
+    #     connection-properties:
+    #       baudrate: 9600
+    #       bytesize: 8
+    #       parity: N
+    #       stopbit: 1
+    #     # read-properties:
+    #       # terminator: "\r"
+    #       # binary: true
+    #       # num-bytes: 1
+    #       # decode-errors: strict
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mockco-mock1-2346
+  name: system-mock-uas1
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: system-mock-uas1
 spec:
   selector:
     matchLabels:
-      app: mockco-mock1-2346
+      app: system-mock-uas1
   template:
     metadata:
       labels:
-        app: mockco-mock1-2346
+        app: system-mock-uas1
     spec:
       containers:
-      - name: mockco-mock1-2346
-        image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
+      - name: system-mock-uas1
+        image: envds-registry:5000/envds/interface/system-mock:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
             value: dev
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
         resources:
           requests:
             cpu: "50m"
@@ -70,9 +77,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: mockco-mock1-2346-config
-              mountPath: /app/config/sensor.conf
-              subPath: sensor.conf
+            - name: system-mock-uas1-config
+              mountPath: /app/config/interface.conf
+              subPath: interface.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -83,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: mockco-mock1-2346-config
+        - name: system-mock-uas1-config
           configMap:
-            name: mockco-mock1-2346-config
+            name: system-mock-uas1-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -93,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mockco-mock1-2346
+  name: system-mock-uas1
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: system-mock-uas1
 spec:
   selector:
-    app: mockco-mock1-2346
+    app: system-mock-uas1
   ports:
   - name: http
     protocol: TCP
@@ -114,34 +121,35 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: mockco-mock1-2346-stripprefix
+#   name: system-mock-uas1-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/sensor/MockCo/Mock1/2346
+#       - /envds/interface/system/mock/01
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: mockco-mock1-2346-ingress
+#   name: system-mock-uas1-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-mockco-mock1-2346-stripprefix@kubernetescrd
+#       envds-system-mock-uas1-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/MockCo/Mock1/2346
+#       - path: /envds/interface/system/mock/01
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: mockco-mock1-2346
+#             name: system-mock-uas1
 #             port:
 #               number: 9080
+

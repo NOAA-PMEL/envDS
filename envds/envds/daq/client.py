@@ -503,6 +503,17 @@ class _BaseClient(abc.ABC):
             actual=envdsStatus.TRUE
         )
         # print("_BaseClient.init:2")
+        default_log_level = logging.INFO
+        if ll := os.getenv("LOG_LEVEL"):
+            try:
+                log_level = eval(f"logging.{ll.upper()}")
+            except AttributeError:
+                log_level = default_log_level
+        else:
+            log_level = default_log_level
+        envdsLogger(level=log_level).init_logger()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info(f"Starting {self.__class__.__name__}")
 
         self.keep_connected = False
 
@@ -510,6 +521,12 @@ class _BaseClient(abc.ABC):
         self.enable_tasks = []
         # self.enable_task_list.append(self.do_connect())
         # print("_BaseClient.init:3")
+        
+        self.configure()
+    
+    def configure(self):
+        # do client config
+        pass
     
     def enabled(self) -> bool:
         # print("_daqclient.enabled")
@@ -590,11 +607,20 @@ class _BaseClient(abc.ABC):
 
 class _StreamClient(_BaseClient):
     """docstring for StreamClient."""
+
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
+
     def __init__(self, config=None):
         super(_BaseClient, self).__init__(config)
         
         self.reader = None
         self.writer = None
+
+        self.connection_state = self.DISCONNECTED
+        self.keep_connected = False
 
     # abc.abstractmethod
     # async def connect(self, **kwargs):
@@ -637,9 +663,28 @@ class _StreamClient(_BaseClient):
             sent_bytes = self.writer.write(msg)
             await self.writer.drain()
 
-    async def close(self):
+    async def disconnect(self):
         # self.connect_state = ClientConnection.CLOSED
+        if self.connection_state == self.DISCONNECTING or self.connection_state == self.DISCONNECTED:
+            return
+        
+        self.connection_state = self.DISCONNECTING
         if self.writer:
             self.writer.close()
             await self.writer.wait_closed()
-        self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+        self.connection_state = self.DISCONNECTED
+        # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+
+    async def do_disable(self):
+        await self.disconnect()
+        try:
+            await super().do_disable()
+        # except envdsRunTransitionException:
+        except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException) as e:
+            raise e
+        print("_StreamClient.disable")
+        # simulate connect delay
+        await asyncio.sleep(1)
+        self.keep_connected = False
+        
+        # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)

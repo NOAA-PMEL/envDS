@@ -1,76 +1,77 @@
 import asyncio
-from envds.daq.client import DAQClient, DAQClientConfig, _BaseClient
+from envds.daq.client import DAQClient, DAQClientConfig, _StreamClient
 from envds.core import envdsStatus
 from envds.exceptions import envdsRunTransitionException, envdsRunWaitException, envdsRunErrorException
 import random
 
 from envds.util.util import time_to_next
 
-class _TCPClient(_BaseClient):
+class _TCPClient(_StreamClient):
     """docstring for _TCPClient."""
 
     def __init__(self, config=None):
         super().__init__(config)
 
-        self.mock_data_type = "1D"
+        # self.mock_data_type = "1D"
         # print("_MockClient.init")
-        # self.enable_task_list.append(self.connect())
+        self.enable_task_list.append(self.connection_monitor())
         # self.enable_task_list.append(asyncio.create_task(asyncio.sleep(1)))
+        self.connected = False
+        self.keep_connected = False
 
+        self.host = "test.org"
+        self.port = 1234
+        self.reconnect_delay = 1
+
+        # self.send_method = send_method
+        # self.read_method = read_method
+        # self.read_terminator = read_terminator
+        # self.read_num_bytes = read_num_bytes
+        # self.decode_errors = decode_errors
+
+        # self.return_packet_bytes = deque(maxlen=25000)
+
+    def configure(self):
+        super().configure()
+        # parse self.config
+
+    async def connnection_monitor(self):
+
+        while True:
+
+            while self.keep_connected:
+
+                if self.connection_state == self.DISCONNECTED:
+                    # connect
+                    self.connection_state = self.CONNECTING
+                    try:
+                        self.reader, self.writer = await asyncio.open_connection(
+                            host=self.host,
+                            port=self.port
+                        )
+                        self.logger.debug("_TCPClient: connect", extra={"host": self.host, "port": self.port} )
+                        self.connection_state = self.CONNECTED
+                    except (asyncio.TimeoutError, ConnectionRefusedError) as e:
+                        self.logger.error("_TCPClient connection error", extra={"error": e})
+                        self.reader = None
+                        self.writer = None
+                        self.connection_state = self.DISCONNECTED
+                await asyncio.sleep(self.reconnect_delay)
+            await asyncio.sleep(self.reconnect_delay)            
+            
     async def do_enable(self):
         try:
             await super().do_enable()
         # except envdsRunTransitionException:
         except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException) as e:
             raise e
-        print("_Mockclient.enable")
+        print("_TCPlient.enable")
         # simulate connect delay
         await asyncio.sleep(1)
-
+        self.keep_connected = True
+        
         # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
 
-    async def readline(self, decode_errors="strict"):
-        # print("readline")
-        try:
-            if self.mock_data_type == "1D":
-                data = self.mock_data_1D().decode(errors=decode_errors)
-                # print(f"data: {data}")
-                return self.mock_data_1D().decode(errors=decode_errors)
-            elif self.mock_data_type == "2D":
-                return self.mock_data_2D().decode(errors=decode_errors)
-        except Exception as e:
-            print(f"readline error: {e}")
-
-        return None
-
-    async def readbinary(self, num_bytes=1, decode_errors='strict'):
-        return self.mock_data_binary()
-
-    def mock_data_1D(self):
-        variables = []
-        # variables["temperature"] = str(round(25 + random.uniform(-3, 3), 3))
-        # variables["rh"] = str(round(60 + random.uniform(-5, 5), 3))
-        # variables["pressure"] = str(round(1000 + random.uniform(-5, 5), 3))
-        # variables["wind_speed"] = str(round(10 + random.uniform(-5, 5), 3))
-        # variables["wind_direction"] = str(round(90 + random.uniform(-20, 20), 3))
-
-        variables.append(str(round(25 + random.uniform(-3, 3), 3)))
-        variables.append(str(round(60 + random.uniform(-5, 5), 3)))
-        variables.append(str(round(1000 + random.uniform(-5, 5), 3)))
-        variables.append(str(round(10 + random.uniform(-5, 5), 3)))
-        variables.append(str(round(90 + random.uniform(-20, 20), 3)))
-
-        data = ",".join(variables)
-        # print(f"_MockClient.1D: {data}")
-        return data.encode()
-
-    def mock_data_2D(self):
-        variables = []
-        return "".encode()
-
-    def mock_data_binary(self):
-        variables = []
-        return "".encode()
 
 # async def do_run(self):
 #     try:

@@ -1,4 +1,5 @@
 import asyncio
+import glob
 from typing import Tuple
 import uvicorn
 from uvicorn.config import LOGGING_CONFIG
@@ -288,26 +289,6 @@ class envdsDataserver(envdsBase):
             # parts = src.split(".")
             # sensor_name = parts[-1].split(Sensor.ID_DELIM)
 
-            # self.logger.debug(
-            #     "dataserver.handle_data",
-            #     extra={
-            #         "sensor": parts[-1].split(Sensor.ID_DELIM),
-            #         "data": message.data.data,
-            #     },
-            # )
-        #    if src not in self.file_map:
-        #         parts = src.split(".")
-        #         sensor_name = parts[-1].split(Sensor.ID_DELIM)
-        #         file_path = os.path.join("/data", "sensor", *sensor_name)
-
-        #         self.file_map[src] = DataFile(base_path=file_path)
-        #         # await asyncio.sleep(1)
-        #         # if self.file_map[src]:
-        #         #     self.file_map[src].open()
-        #         # await asyncio.sleep(1)
-        #     # print(self.file_map[src].base_path)
-        #     await self.file_map[src].write_message(message)
-
     def set_routes(self, enable: bool = True):
         super(envdsDataserver, self).set_routes(enable)
 
@@ -326,13 +307,6 @@ class envdsDataserver(envdsBase):
             )
             self.router.deregister_route(key=bet.data_update(), route=self.handle_data)
 
-        # self.message_client.subscribe(f"{topic_base}/status/request")
-        # self.router.register_route(key=det.status_request(), route=self.handle_status)
-        # # self.router.register_route(key=et.status_update, route=self.handle_status)
-
-        # self.router.register_route(key=et.control_request(), route=self.handle_control)
-        # # self.router.register_route(key=et.control_update, route=self.handle_control)
-
     async def check_holding_loop(self):
 
         while True:
@@ -344,33 +318,36 @@ class envdsDataserver(envdsBase):
             #   10s - 1hr: retry
             #   >1hr: discard
             delta = get_datetime() - hold_time
-            if delta > 10 and delta < 3600: # how will it ever past 10s?
+            if delta > 10 and delta < 3600:  # how will it ever past 10s?
                 await self.registry_buffer.put(message)
             if delta >= 3600:
-                pass 
+                pass
             else:
                 await self.holding_buffer.put((hold_time, message))
 
-            await asyncio.sleep(.1)
+            await asyncio.sleep(0.1)
 
-    async def create_config_file(self, dataset_id: str, metadata: dict ): #attributes: dict, variables: dict) -> bool:
+    async def create_config_file(
+        self, dataset_id: str, metadata: dict
+    ):  # attributes: dict, variables: dict) -> bool:
 
-        print(f"metadata: {metadata}")
+        # print(f"metadata: {metadata}")
         if metadata:
             attributes = metadata["attributes"]
             variables = metadata["variables"]
         else:
             return False
-        
+
         env = Environment(
             # loader=PackageLoader("envds-dataserver"), autoescape=select_autoescape()
-            loader=FileSystemLoader('templates/'), autoescape=select_autoescape()
+            loader=FileSystemLoader("templates/"),
+            autoescape=select_autoescape(),
         )
 
         template = env.get_template("Make_Model_Version_dataset.xml")
         var_template = env.get_template("Make_Model_Version_variable.xml")
         vars = []
-       
+
         try:
             erddap_version = f'v{attributes["format_version"]["data"].split(".")[0]}'
             make = attributes["make"]["data"]
@@ -404,12 +381,16 @@ class envdsDataserver(envdsBase):
                 # var_context["missing_value"] = missing_value
 
                 if "long_name" in variable["attributes"]:
-                    var_context["long_name"] = variable["attributes"]["long_name"]["data"]
+                    var_context["long_name"] = variable["attributes"]["long_name"][
+                        "data"
+                    ]
                 else:
                     var_context["long_name"] = name.capitalize()
 
                 if "ioos_category" in variable["attributes"]:
-                    var_context["ioos_category"] = variable["attributes"]["ioos_category"]["data"]
+                    var_context["ioos_category"] = variable["attributes"][
+                        "ioos_category"
+                    ]["data"]
                 else:
                     var_context["ioos_category"] = "Unknown"
 
@@ -417,33 +398,39 @@ class envdsDataserver(envdsBase):
                     var_context["units"] = variable["attributes"]["units"]["data"]
 
                 if "valid_min" in variable["attributes"]:
-                    var_context["valid_min"] = variable["attributes"]["valid_min"]["data"]
+                    var_context["valid_min"] = variable["attributes"]["valid_min"][
+                        "data"
+                    ]
 
                 if "valid_max" in variable["attributes"]:
-                    var_context["valid_max"] = variable["attributes"]["valid_max"]["data"]
+                    var_context["valid_max"] = variable["attributes"]["valid_max"][
+                        "data"
+                    ]
 
                 if "description" in variable["attributes"]:
-                    var_context["description"] = variable["attributes"]["description"]["data"]
+                    var_context["description"] = variable["attributes"]["description"][
+                        "data"
+                    ]
 
-                vars.append(
-                    var_template.render(variable=var_context)
-                )
-        
+                vars.append(var_template.render(variable=var_context))
+
             out = template.render(dataset=ds_context, variables=vars)
             # print(f"template: {out}")
             filename = ".".join([dataset_id, "xml"])
             configfile = os.path.join("/datasets.d", filename)
-            print(f"{dataset_id}: {filename}, {configfile}")
+            # print(f"{dataset_id}: {filename}, {configfile}")
             with open(configfile, "w") as f:
                 f.write(out)
 
-            # TODO: check if data dirs are there with example data
-            #       if not, build and add data using reg format
-            data_dir = os.path.join("/data", "storage", "envds", "sensor", make, model, erddap_version)
-            print(f"data_dir: {data_dir}")
-            os.makedirs(data_dir, exist_ok=True)
-            print(f"data_dir: done")
-            
+            # # TODO: check if data dirs are there with example data
+            # #       if not, build and add data using reg format
+            # data_dir = os.path.join(
+            #     "/data", "storage", "envds", "sensor", make, model, erddap_version
+            # )
+            # print(f"data_dir: {data_dir}")
+            # os.makedirs(data_dir, exist_ok=True)
+            # print(f"data_dir: done")
+
             return True
         except KeyError as e:
             self.logger.error("create_config_file", extra={"error": e})
@@ -452,8 +439,126 @@ class envdsDataserver(envdsBase):
     def check_config_file(self, basename) -> bool:
         filename = ".".join([basename, "xml"])
         configfile = os.path.join("/datasets.d", filename)
-        print(f"configfile: {configfile}, exists: {os.path.isfile(configfile)}")
+        # print(f"configfile: {configfile}, exists: {os.path.isfile(configfile)}")
         return os.path.isfile(configfile)
+
+    async def create_init_datafile(
+        self, source: str, erddap_version: str, message: Message
+    ) -> bool:
+        try:
+            reg = self.data_registry[source][erddap_version]
+
+            make = reg["attributes"]["make"]["data"]
+            model = reg["attributes"]["model"]["data"]
+
+            data_dir = os.path.join(
+                "/data", "storage", "envds", "sensor", make, model, erddap_version
+            )
+            os.makedirs(data_dir, exist_ok=True)
+            init_data_file = os.path.join(data_dir, "init_data.jsonl")
+            # print(f"data_dir: {data_dir}")
+            # result = glob.glob(init_data_search)
+            # if result:
+            #     return True
+            # else:
+
+            format = self.get_erddap_insert_sensor_format(
+                data_source=source, erddap_version=erddap_version
+            )
+            # print(f"format: {format}")
+            if not format:
+                return False
+
+            format["serial_number"] = message.data.data["attributes"]["serial_number"][
+                "data"
+            ]
+            # print(f"format: {format}")
+
+            # format = {
+            #     "dataset_id": reg["dataset_id"],
+            #     "make": reg["attributes"]["make"]["data"],
+            #     "model": reg["attributes"]["model"]["data"],
+            #     "version": reg["attributes"]["format_version"]["data"],
+            #     "serial_number": "",
+            #     "variables": {},
+            # }
+
+            header = []
+            for key in format.keys():
+                if key == "dataset_id":
+                    pass
+                elif key == "variables":
+                    # print(f'variables: {format}, {format[key]}')
+                    for variable in format["variables"].keys():
+                        header.append(variable)
+                else:
+                    header.append(key)
+            header.append("timestamp")
+            header.append("author")
+            header.append("command")
+
+            _, init_params = await self.get_erddap_insert_sensor_data(message=message)
+            data = []
+            for key in header:
+                try:
+                    d = init_params[key]
+                    print(f"d: {d}")
+                    if isinstance(d, list):
+                        data.append(f"[{','.join([str(x) for x in d])}]")
+                        print(f"[{','.join([str(x) for x in d])}]")
+                    elif type(d) != str:
+                        data.append(str(d))
+                    else:
+                        data.append(d)
+                    # data.append(init_params[key])
+                except KeyError:
+                    data.append("0")
+
+            self.logger.debug("init_data", extra={"header": header, "data": data})
+            # return True
+
+            header_line = ",".join(header)
+
+            # data_line = ",".join(data)
+            # self.logger.debug("init_data_lines", extra={"header": header_line, "data": data})
+            # TODO: Create init data file
+            with open(init_data_file, "w") as f:
+                f.write(",".join(header))
+                f.write("\n")
+                # f.write(data)
+                f.write(",".join(data))
+                f.write("\n")
+                # f.writelines([header, data])
+            self.logger.debug(
+                "create_init_datafile - init file created",
+                extra={"file": init_data_file},
+            )
+            return True
+
+            # TODO: check if data dirs are there with example data
+            #       if not, build and add data using reg format
+            # data_dir = os.path.join(
+            #     "/data", "storage", "envds", "sensor", make, model, erddap_version
+            # )
+            # print(f"data_dir: {data_dir}")
+            # os.makedirs(data_dir, exist_ok=True)
+            # print(f"data_dir: done")
+
+        except KeyError as e:
+            self.logger.error("create_init_datafile", extra={"error": e})
+            return False
+
+    def check_init_datafile(self, make: str, model: str, erddap_version: str) -> bool:
+
+        data_dir = os.path.join(
+            "/data", "storage", "envds", "sensor", make, model, erddap_version
+        )
+        init_data_search = os.path.join(data_dir, "init_data.jsonl")
+
+        # result = glob.glob(init_data_search)
+        result = os.path.isfile(init_data_search)
+        # print(f"init_data_file: {init_data_search}, exists: {os.path.isfile(result)}")
+        return result
 
     async def check_registration_loop(self):
 
@@ -463,30 +568,13 @@ class envdsDataserver(envdsBase):
 
                 if message:
 
-                    # src = message.data["source"]
-                    # parts = src.split(".")
-                    # sensor_name = parts[-1].split(Sensor.ID_DELIM)
-
-                    # self.logger.debug(
-                    #     "dataserver.handle_data",
-                    #     extra={
-                    #         "sensor": parts[-1].split(Sensor.ID_DELIM),
-                    #         "data": message.data.data,
-                    #     },
-                    # )
                     try:
                         atts = message.data.data["attributes"]
                         variables = message.data.data["variables"]
 
-                        # print(f"get data format from meta_registry if not in local reg: {atts['make']}, {atts['model']}, {atts['serial_number']}")
-
-                        # output = []
-                        # output.append(atts["make"])
-                        # output.append(atts["model"])
-                        # output.append(atts["serial_number"])
-                        print("here:1")
-                        erddap_version = f'v{atts["format_version"]["data"].split(".")[0]}'
-                        print(f"here:2 {erddap_version}")
+                        erddap_version = (
+                            f'v{atts["format_version"]["data"].split(".")[0]}'
+                        )
                         source = message.data["source"]
                         make = atts["make"]["data"]
                         model = atts["model"]["data"]
@@ -499,10 +587,9 @@ class envdsDataserver(envdsBase):
                             # 'serial_number': atts["serial_number"],
                             "version": version,
                         }
-                        print(f"params: {params}")
+                        # print(f"params: {params}")
 
                         reg = await get_sensor_type_registration(**params)
-                        print(f"reg: {reg}")
                         if reg:
                             self.logger.debug(
                                 "register_sensor_loop", extra={"reg": reg.dict()}
@@ -531,21 +618,30 @@ class envdsDataserver(envdsBase):
                             await self.holding_buffer.put((get_datetime(), message))
                             continue
 
-                        if self.check_config_file(dataset_id):
-                            await self.insert_buffer.put(message)
-                        else: # not self.check_config_file(dataset_id):
-                            print(f"reg.metadata: {reg.dict()}")
-                            if await self.create_config_file(
+                        # make sure config file has been created
+                        if not self.check_config_file(dataset_id):  # and
+                            # print(f"reg.metadata: {reg.dict()}")
+                            if not await self.create_config_file(
                                 dataset_id,
                                 metadata=reg.metadata,
                                 # attributes=atts,
                                 # variables=variables
                             ):
-                                await self.insert_buffer.put(message)
-                            else:
                                 await self.holding_buffer.put(message)
-                        # else:
-                        #     await self.holding_buffer.put(message)
+                                continue
+
+                        # check to make sure initial data file on dataserver
+                        if not self.check_init_datafile(
+                            make=make, model=model, erddap_version=erddap_version
+                        ):
+                            if not await self.create_init_datafile(
+                                source, erddap_version, message
+                            ):
+                                await self.holding_buffer.put(message)
+                                continue
+
+                        # if all satisfied, pass along to be inserted into dataserver
+                        await self.insert_buffer.put(message)
 
                     except KeyError as e:
                         self.logger.error("check_registration_loop", extra={"error": e})
@@ -561,57 +657,47 @@ class envdsDataserver(envdsBase):
 
         # pass data to insert or buffer until erddap is ready?
 
-    def get_erddap_insert_sensor_format(self, data_source: str, erddap_version: str) -> dict:
+    def get_erddap_insert_sensor_format(
+        self, data_source: str, erddap_version: str
+    ) -> dict:
 
         try:
-            print(f"data_registry: {self.data_registry}")
-            print(data_source, erddap_version)
+            # print(f"data_registry: {self.data_registry}")
+            # print(data_source, erddap_version)
             reg = self.data_registry[data_source][erddap_version]
-            print(reg)
+            # print(reg)
             format = {
                 "dataset_id": reg["dataset_id"],
                 "make": reg["attributes"]["make"]["data"],
                 "model": reg["attributes"]["model"]["data"],
                 "version": reg["attributes"]["format_version"]["data"],
                 "serial_number": "",
-                "variables": {}
+                "variables": {},
             }
-            print(f"current format: {format}")
+            # print(f"current format: {format}")
 
             for name, variable in reg["variables"].items():
-                print(f"name, variable: {name}, {variable}")
-                # vatts = variable["attributes"]
                 format["variables"][name] = {"shape": variable["shape"]}
-                # if name == "time":
-                #     format["variables"]["time"] = {
 
-                #     }
-                # else:
-                #     vatts = variable["attributes"]
-                #     format["variables"][name] = {
-                #         "type": vatts["type"],
-                #         "shape": vatts["shape"],
-                #     }
-            
             return format
 
         except KeyError:
             return None
-        
-    async def get_erddap_insert_sensor_data(self, message: Message, author: str = "default") -> Tuple[str,dict]:
+
+    async def get_erddap_insert_sensor_data(
+        self, message: Message, author: str = "default"
+    ) -> Tuple[str, dict]:
 
         try:
             source = message.data["source"]
-            print(source)
             data = message.data.data
-            print(data)
             version = data["attributes"]["format_version"]["data"]
             erddap_version = f'v{version.split(".")[0]}'
-            print(erddap_version)
             serial_number = data["attributes"]["serial_number"]["data"]
 
-            format = self.get_erddap_insert_sensor_format(data_source=source, erddap_version=erddap_version)
-            print(f"format: {format}")
+            format = self.get_erddap_insert_sensor_format(
+                data_source=source, erddap_version=erddap_version
+            )
             if format:
                 out = {
                     "make": format["make"],
@@ -647,11 +733,11 @@ class envdsDataserver(envdsBase):
 
                 out["author"] = author
                 return format["dataset_id"], out
-            
+
         except Exception as e:
             self.logger.error("get_erddap_insert_sensor_data error", extra={"error": e})
             pass
-            
+
         return None, None
 
     async def erddap_insert_loop(self):
@@ -661,72 +747,87 @@ class envdsDataserver(envdsBase):
                 message = await self.insert_buffer.get()
                 if message:
                     source = message.data["source"]
-                    parts = source.split(".")
-                    sensor_name = parts[-1].split(Sensor.ID_DELIM)
+                    # author = "super_secret_author"
 
-                    self.logger.debug(
-                        "dataserver.handle_data",
-                        extra={
-                            "sensor": parts[-1].split(Sensor.ID_DELIM),
-                            "data": message.data.data,
-                        },
-                    )
-                    try:
-                        atts = message.data.data["attributes"]
-                        variables = message.data.data["variables"]
+                    # parts = source.split(".")
+                    # sensor_name = parts[-1].split(Sensor.ID_DELIM)
 
-                        print(
-                            f"get data format from meta_registry if not in local reg: {atts['make']}, {atts['model']}, {atts['serial_number']}"
-                        )
+                    # self.logger.debug(
+                    #     "dataserver.handle_data",
+                    #     extra={
+                    #         "sensor": parts[-1].split(Sensor.ID_DELIM),
+                    #         "data": message.data.data,
+                    #     },
+                    # )
+                    # try:
+                    #     atts = message.data.data["attributes"]
+                    #     variables = message.data.data["variables"]
 
-                        # output = []
-                        # output.append(atts["make"])
-                        # output.append(atts["model"])
-                        # output.append(atts["serial_number"])
-                        version = atts["format_version"]["data"]
-                        # erddap version format: v<major version>, e.g., v1
-                        erddap_version = f'v{version.split(".")[0]}'
-                        # source = message.data["source"]
-                        make = atts["make"]["data"]
-                        model = atts["model"]["data"]
-                        
-                        dataset_id = f"{make}_{model}_{erddap_version}"
+                    #     # print(
+                    #     #     f"get data format from meta_registry if not in local reg: {atts['make']}, {atts['model']}, {atts['serial_number']}"
+                    #     # )
 
-                        try:
-                            reg = self.data_registry[source][erddap_version]
-                        except KeyError:
-                            self.logger.warn("dataserver - data not registered", extra={"source": source, "version": version})
-                            await self.holding_buffer.put((get_datetime(), message))
-                            continue
+                    #     version = atts["format_version"]["data"]
+                    #     # erddap version format: v<major version>, e.g., v1
+                    #     erddap_version = f'v{version.split(".")[0]}'
+                    #     # source = message.data["source"]
+                    #     make = atts["make"]["data"]
+                    #     model = atts["model"]["data"]
 
-                        #TODO: check subversions and replace config if necessary
-                        params = {
-                            "make": make,
-                            "model": model,
-                            "version": version,
-                            "serial_number": atts["serial_number"]["data"],
-                        }
+                    #     dataset_id = f"{make}_{model}_{erddap_version}"
 
-                        for name, variable in variables.items():
-                            params[name] = variable["data"]
+                    #     try:
+                    #         reg = self.data_registry[source][erddap_version]
+                    #     except KeyError:
+                    #         self.logger.warn(
+                    #             "dataserver - data not registered",
+                    #             extra={"source": source, "version": version},
+                    #         )
+                    #         await self.holding_buffer.put((get_datetime(), message))
+                    #         continue
 
-                        author = "super_secret_author"
-                        params["author"] = author
-                    except KeyError:
-                        pass
+                    #     # TODO: check subversions and replace config if necessary
+                    #     params = {
+                    #         "make": make,
+                    #         "model": model,
+                    #         "version": version,
+                    #         "serial_number": atts["serial_number"]["data"],
+                    #     }
 
+                    #     for name, variable in variables.items():
+                    #         params[name] = variable["data"]
+
+                    #     author = "super_secret_author"
+                    #     params["author"] = author
+                    # except KeyError:
+                    #     pass
+
+                    # TODO: find better way to set author
+                    author = "super_secret_author"
                     hardcode_url = "https://erddap.envds:8443/erddap/tabledap"
-                    erddap_dataset = f"{params['make']}_{params['model']}"
+                    # erddap_dataset = f"{params['make']}_{params['model']}"
                     # dataset_id = f"{make}_{model}_{erddap_version}"
-                    url = f"{hardcode_url}/{dataset_id}.insert"
+                    # url = f"{hardcode_url}/{dataset_id}.insert"
 
                     # TODO: make sure local reg is using full metadata (type, shape, etc)
-                    test_id, test_params = await self.get_erddap_insert_sensor_data(message=message, author=author)
-                    self.logger.debug("test_params", extra={"id": test_id, "test_params": test_params})
-                    url = f"{hardcode_url}/{test_id}.insert"
-                    params = test_params
+                    dataset_id, params = await self.get_erddap_insert_sensor_data(
+                        message=message, author=author
+                    )
+                    if dataset_id is None or params is None:
+                        self.logger.warn(
+                            "dataserver - data not registered",
+                            extra={"source": source},
+                        )
+                        await self.holding_buffer.put((get_datetime(), message))
+                        continue
+
+                    self.logger.debug(
+                        "insert data", extra={"id": dataset_id, "params": params}
+                    )
+                    url = f"{hardcode_url}/{dataset_id}.insert"
+                    # params = params
                     try:
-                        self.logger.debug("POST", extra={"url": url, "params": params})
+                        # self.logger.debug("POST", extra={"url": url, "params": params})
                         r = httpx.post(url, params=params, verify=False)
                         self.logger.info(f"Sent POST to ERRDAP @ {r.url}", extra=params)
                         r.raise_for_status()
