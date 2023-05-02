@@ -34,96 +34,77 @@ from pydantic import BaseModel
 task_list = []
 
 
-class Mock(Interface):
-    """docstring for Mock."""
+class SB70LC(Interface):
+    """docstring for SB70LC."""
 
     metadata = {
         "attributes": {
             # "name": {"type"mock1",
-            "type": {"type": "char", "data": "system"},
-            "name": {"type": "char", "data": "mock"},
+            "type": {"type": "char", "data": "NetBurner"},
+            "name": {"type": "char", "data": "SB70LC"},
+            "host": {"type": "char", "data": "localhost"},
             "description": {
                 "type": "char",
-                "data": "Simulates a system based interface like serial",
+                "data": "Netburner SB70LC serial to ethernet server with i2c",
             },
-            "tags": {"type": "char", "data": "testing, mock, serial, sensor"},
+            "tags": {"type": "char", "data": "testing, netburner, SB70LC, serial, tcp, ethernet, i2c, sensor"},
         },
         "paths": {
-            "port-01": {
+            "port-1": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.tcp_client"},
+                    "client_class": {"type": "string", "data": "TCPClient"},
+                    "host": {"type": "string", "data": "localhost"},
+                    "port": {"type": "int", "data": 23},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock01"
+                    "client_module": "envds.daq.clients.tcp_client",
+                    "client_class": "TCPClient",
+                    "address": {"host": "localhost", "port": 23}
                 },
             },
-            "port-02": {
+            "port-2": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.tcp_client"},
+                    "client_class": {"type": "string", "data": "TCPClient"},
+                    "host": {"type": "string", "data": "localhost"},
+                    "port": {"type": "int", "data": 24},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock02"
+                    "client_module": "envds.daq.clients.tcp_client",
+                    "client_class": "TCPClient",
+                    "address": {"host": "localhost", "port": 24}
                 },
             },
-            "port-03": {
+            "port-I2C": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.tcp_client"},
+                    "client_class": {"type": "string", "data": "TCPClient"},
+                    "host": {"type": "string", "data": "localhost"},
+                    "port": {"type": "int", "data": 26},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock03"
+                    "client_module": "envds.daq.clients.tcp_client",
+                    "client_class": "TCPClient",
+                    "address": {"host": "localhost", "port": 26}
                 },
             },
-            "port-04": {
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock04"
-                },
-            },
-            "port-05": {
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock05"
-                },
-            },
-            "port-06": {
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.mock_client",
-                    "client_class": "MockClient",
-                    "filepath": "/dev/mock/mock06"
-                },
-            },
-            # "port-02": {
-            #     "data": {
-            #         "address": {"host": "10.55.169.54", "port": "41"}
-            #     }
-            # },
-            # "port-03": {
-            #     "data": {
-            #         "uri": "ws://localhost:19292/mock/socket"
-            #     }
-            # }
-            # "port01-1D": {"data": "path/to/port-01"},
-            # "port02-2D": {"data": "path/to/port-02"},
-            # "port03-i2c": {"data": "path/to/port-03"},
-        # }
         }
     }
 
     def __init__(self, config=None, **kwargs):
         # print("mock:1")
-        super(Mock, self).__init__(config=config, **kwargs)
+        super(SB70LC, self).__init__(config=config, **kwargs)
         # print("mock:2")
         self.data_task = None
         self.data_rate = 1
         # self.configure()
 
-        self.default_client_module = "envds.daq.clients.mock_client"
-        self.default_client_class = "MockClient"
+        self.default_client_module = "envds.daq.clients.tcp_client"
+        self.default_client_class = "TCPClient"
 
         self.data_loop_task = None
         # print("mock:3")
@@ -147,7 +128,7 @@ class Mock(Interface):
     def configure(self):
 
         # print("configure:1")
-        super(Mock, self).configure()
+        super(SB70LC, self).configure()
 
         try:
             # get config from file
@@ -159,6 +140,16 @@ class Mock(Interface):
                 # print("configure:4")
             except FileNotFoundError:
                 conf = {"uid": "UNKNOWN", "paths": {}}
+
+            # add hosts to each path if not present
+            try:
+                host = conf["host"]
+            except KeyError as e:
+                self.logger.debug("no host - default to localhost")
+                host = "localhost"
+            for name, path in conf["paths"].items():
+                if "host" not in path:
+                    path["host"] = host
 
             # print("configure:5")
             self.logger.debug("conf", extra={"data": conf})
@@ -185,32 +176,44 @@ class Mock(Interface):
             #     )
             # # print(f"var_list: {var_list}")
 
+            # TODO: configure Interface
+            # TODO: configure each path(client)
+
             # print("configure:6")
-            atts = Mock.metadata["attributes"]
+            atts = SB70LC.metadata["attributes"]
 
             # print("configure:7")
             path_map = dict()
-            for name, val in Mock.metadata["paths"].items():
+            for name, val in SB70LC.metadata["paths"].items():
                 # path_map[name] = InterfacePath(name=name, path=val["data"])
                 # print("configure:8")
 
-                if "client_module" not in val:
-                    val["client_module"] = self.default_client_module
-                if "client_class" not in val:
-                    val["client_class"] = self.default_client_class
+                if "client_module" not in val["attributes"]:
+                    val["attributes"]["client_module"]["data"] = self.default_client_module
+                if "client_class" not in val["attributes"]:
+                    val["attributes"]["client_class"]["data"] = self.default_client_class
                 # print("configure:9")
 
+                # set path host from interface attributes
+                if "host" in atts:
+                    val["attributes"]["host"]["data"] = atts["host"]
+
                 client_config = val
-                if "path" in conf and name in conf["paths"]:
-                    client_config = conf["paths"][name]
+                # override values from yaml config
+                if "paths" in conf and name in conf["paths"]:
+                    self.logger.debug("yaml conf", extra={"id": name, "conf['paths']": conf['paths'], })
+                    for attname, attval in conf["paths"][name].items():
+                        self.logger.debug("config paths", extra={"id": name, "attname": attname, "attval": attval})
+                        client_config["attributes"][attname]["data"] = attval
                 # print("configure:10")
+                self.logger.debug("config paths", extra={"client_config": client_config})
                     
                 path_map[name] = {
                     "client_id": name,
                     "client": None,
                     "client_config": client_config,
-                    "client_module": val["client_module"],
-                    "client_class": val["client_class"],
+                    "client_module": val["attributes"]["client_module"]["data"],
+                    "client_class": val["attributes"]["client_class"]["data"],
                     # "data_buffer": asyncio.Queue(),
                     "recv_handler": self.recv_data_loop(name),
                     "recv_task": None,
@@ -246,7 +249,7 @@ class Mock(Interface):
             #         # elif name == "serial":
             #         #     iface["dest_path"] = f"/envds/interface/{iface[]}"
         except Exception as e:
-            self.logger.debug("mock:configure", extra={"error": e})
+            self.logger.debug("sb70lc:configure", extra={"error": e})
 
 
     async def recv_data_loop(self, client_id: str):
@@ -284,7 +287,7 @@ async def test_task():
         await asyncio.sleep(1)
         # print("daq test_task...")
         logger = logging.getLogger("envds.info")
-        logger.info("mock_test_task", extra={"test": "mock task"})
+        logger.info("sb70lc_test_task", extra={"test": "sb70lc task"})
 
 
 async def shutdown(interface):
@@ -310,17 +313,17 @@ async def main(server_config: ServerConfig = None):
     # task_list.append(asyncio.create_task(test_task()))
 
     envdsLogger(level=logging.DEBUG).init_logger()
-    logger = logging.getLogger("interface::mock::localhost")
+    logger = logging.getLogger("interface::sb70lc::53")
 
     # test = envdsBase()
     # task_list.append(asyncio.create_task(test_task()))
 
-    iface = Mock()
+    iface = SB70LC()
     iface.run()
     # task_list.append(asyncio.create_task(iface.run()))
     # await asyncio.sleep(2)
     iface.enable()
-    logger.debug("Starting Mock Interface")
+    logger.debug("Starting SB70LC Interface")
 
     # remove fastapi ----
     # # get config from file
@@ -364,7 +367,7 @@ async def main(server_config: ServerConfig = None):
     event_loop.add_signal_handler(signal.SIGTERM, shutdown_handler)
 
     while do_run:
-        logger.debug("mock.run", extra={"do_run": do_run})
+        logger.debug("sb70lc.run", extra={"do_run": do_run})
         await asyncio.sleep(1)
 
 

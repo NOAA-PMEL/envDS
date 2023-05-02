@@ -8,7 +8,8 @@ class DAQEventType(BaseEventType):
     TYPE_SENSOR = "sensor"
     TYPE_INTERFACE = "interface"
     TYPE_CONNECT = "connect"
-
+    TYPE_CONFIG = "config"
+    
     ACTION_RECV = "recv"
     ACTION_SEND = "send"
     ACTION_KEEPALIVE = "keepalive"
@@ -41,6 +42,10 @@ class DAQEventType(BaseEventType):
     @staticmethod
     def interface_keepalive_request():
         return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_KEEPALIVE, DAQEventType.ACTION_REQUEST])
+
+    @staticmethod
+    def interface_config_request():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_CONFIG, DAQEventType.ACTION_REQUEST])
 
     @staticmethod
     def interface_status_request():

@@ -203,6 +203,14 @@ class Interface(envdsBase):
             enable=enable,
         )
 
+        self.logger.debug("set_config_request", extra={"sub": f"/{topic_base}/+/config/request"})
+        self.set_route(
+            subscription=f"/{topic_base}/+/config/request",
+            route_key=det.interface_config_request(),
+            route=self.handle_config,
+            enable=enable,
+        )
+
         # TODO: remove this route if not needed
         # self.set_route(
         #     subscription=f"{topic_base}/+/connect/keepalive",
@@ -362,6 +370,12 @@ class Interface(envdsBase):
 
     #         # parse message.data to get path and connect appropriate client
 
+    async def handle_config(self, message: Message):
+        self.logger.debug("interface.handle_config", extra={"config": message.data})
+        # self.logger.debug("handle_status:1", extra={"data": message.data})
+        # await super(Interface, self).handle_status(message)
+        pass
+
     async def handle_status(self, message: Message):
 
         # self.logger.debug("handle_status:1", extra={"data": message.data})
@@ -513,11 +527,11 @@ class Interface(envdsBase):
 
                         try:
                             # print("here:1")
-                            client_module = path["client_config"]["data"]["client_module"]
+                            client_module = path["client_config"]["attributes"]["client_module"]["data"]
                             # print("here:2")
-                            client_class = path["client_config"]["data"]["client_class"]
+                            client_class = path["client_config"]["attributes"]["client_class"]["data"]
                             # print("here:3")
-                            client_config = DAQClientConfig(uid=id)
+                            client_config = DAQClientConfig(uid=id, properties=path["client_config"]["attributes"].copy())
                             # print("here:4")
                             mod_ = importlib.import_module(client_module)
                             # print(f"here:5 {client_module}, {client_class}, {mod_}")

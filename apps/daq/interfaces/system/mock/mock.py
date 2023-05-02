@@ -50,14 +50,24 @@ class Mock(Interface):
         },
         "paths": {
             "port-01": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock01"},
+                },
+                # "type": "could add type here in case different types of client"
                 "data": {
-                    # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",
                     "client_class": "MockClient",
                     "filepath": "/dev/mock/mock01"
                 },
             },
             "port-02": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock02"},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",
@@ -66,6 +76,11 @@ class Mock(Interface):
                 },
             },
             "port-03": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock03"},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",
@@ -74,6 +89,11 @@ class Mock(Interface):
                 },
             },
             "port-04": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock04"},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",
@@ -82,6 +102,11 @@ class Mock(Interface):
                 },
             },
             "port-05": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock05"},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",
@@ -90,6 +115,11 @@ class Mock(Interface):
                 },
             },
             "port-06": {
+                "attributes": {
+                    "client_module": {"type": "string", "data": "envds.daq.clients.mock_client"},
+                    "client_class": {"type": "string", "data": "MockClient"},
+                    "file_path": {"type": "string", "data": "/dev/mock/mock06"},
+                },
                 "data": {
                     # "type": "could add type here in case different types of client"
                     "client_module": "envds.daq.clients.mock_client",

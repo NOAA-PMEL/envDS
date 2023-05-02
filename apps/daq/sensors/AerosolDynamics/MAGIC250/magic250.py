@@ -41,96 +41,281 @@ from pydantic import BaseModel
 task_list = []
 
 
-class Mock1(Sensor):
-    """docstring for Mock1."""
+class MAGIC250(Sensor):
+    """docstring for MAGIC250."""
 
     metadata = {
         "attributes": {
             # "name": {"type"mock1",
-            "make": {"type": "char", "data": "MockCo"},
-            "model": {"type": "char", "data": "Mock1"},
+            "make": {"type": "string", "data": "AerosolDynamics"},
+            "model": {"type": "string", "data": "MAGIC250"},
             "description": {
-                "type": "char",
-                "data": "Simulates a meterological type of sensor for the purposes of testing. Data records are emitted once per second.",
+                "type": "string",
+                "data": "Water based Condensation Particle Counter (CPC) manufactured by Aerosol Dyanamics and distributed by Aerosol Devices/Handix",
             },
-            "tags": {"type": "char", "data": "testing, mock, meteorology, sensor"},
+            "tags": {
+                "type": "char",
+                "data": "aerosol, cpc, particles, concentration, sensor",
+            },
             "format_version": {"type": "char", "data": "1.0.0"},
         },
         "variables": {
             "time": {
                 "type": "str",
                 "shape": ["time"],
-                "attributes": {"long_name": {"type": "char", "data": "Time"}},
+                "attributes": {"long_name": {"type": "string", "data": "Time"}},
             },
-            "temperature": {
-                "type": "float",
+            "magic_timestamp": {
+                "type": "str",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Temperature"},
-                    "units": {"type": "char", "data": "degree_C"},
+                    "long_name": {"type": "string", "data": "Internal Timestamp"}
                 },
             },
-            "rh": {
+            "concentration": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "RH"},
+                    "long_name": {"type": "char", "data": "Concentration"},
+                    "units": {"type": "char", "data": "cm-3"},
+                },
+            },
+            "dew_point": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Dew Point"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "input_T": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Input T"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "input_rh": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Input RH"},
                     "units": {"type": "char", "data": "percent"},
                 },
             },
-            "pressure": {
+            "cond_T": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Pressure"},
-                    "units": {"type": "char", "data": "hPa"},
+                    "long_name": {"type": "char", "data": "Conditioner T"},
+                    "units": {"type": "char", "data": "degrees_C"},
                 },
             },
-            "wind_speed": {
+            "init_T": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Wind Speed"},
-                    "units": {"type": "char", "data": "m s-1"},
+                    "long_name": {"type": "char", "data": "Initiator T"},
+                    "units": {"type": "char", "data": "degrees_C"},
                 },
             },
-            "wind_direction": {
+            "mod_T": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Wind Direction"},
-                    "units": {"type": "char", "data": "degree"},
-                    "valid_min": {"type": "float", "data": 0.0},
-                    "valid_max": {"type": "float", "data": 360.0},
+                    "long_name": {"type": "char", "data": "Moderator T"},
+                    "units": {"type": "char", "data": "degrees_C"},
                 },
             },
-            "flow_rate": {
+            "opt_T": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Flow Rate"},
-                    "units": {"type": "char", "data": "l min-1"},
-                    "valid_min": {"type": "float", "data": 0.0},
-                    "valid_max": {"type": "float", "data": 5.0},
+                    "long_name": {"type": "char", "data": "Optics Head T"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "heatsink_T": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Heat Sink T"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "case_T": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Case T"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "wick_sensor": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Wick Sensor"},
+                    "units": {"type": "char", "data": "percent"},
+                },
+            },
+            "mod_T_sp": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Moderator Set Point T"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "humid_exit_dew_point": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {
+                        "type": "char",
+                        "data": "Humidifier Exit Dew Point (estimated)",
+                    },
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "abs_pressure": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Absolute Pressure"},
+                    "units": {"type": "char", "data": "mbar"},
+                },
+            },
+            "flow": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Volumetric Flow Rate"},
+                    "units": {"type": "char", "data": "cm3 min-1"},
+                    # "valid_min": {"type": "float", "data": 0.0},
+                    # "valid_max": {"type": "float", "data": 5.0},
+                },
+            },
+            "log_interval": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Logging Interval"},
+                    "units": {"type": "char", "data": "seconds"},
+                },
+            },
+            "corr_live_time": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Corrected Live Time"},
+                    "description": {
+                        "type": "char",
+                        "data": "Live Time as a fraction of interval, x10000, corrected for coincidence",
+                    },
+                    "units": {"type": "char", "data": "count"},
+                    # "valid_min": {"type": "float", "data": 0.0},
+                    # "valid_max": {"type": "float", "data": 360.0},
+                },
+            },
+            "meas_dead_time": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Measured Dead Time"},
+                    "description": {
+                        "type": "char",
+                        "data": "Dead Time as a fraction of interval, x10000, raw measurement",
+                    },
+                    "units": {"type": "char", "data": "count"},
+                    # "valid_min": {"type": "float", "data": 0.0},
+                    # "valid_max": {"type": "float", "data": 360.0},
+                },
+            },
+            "raw_counts": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {
+                        "type": "char",
+                        "data": "Raw Counts during logging interval",
+                    },
+                    "units": {"type": "char", "data": "count"},
+                    # "valid_min": {"type": "float", "data": 0.0},
+                    # "valid_max": {"type": "float", "data": 360.0},
+                },
+            },
+            "dthr2_pctl": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Upper Threshold.Percentile"},
+                    "description": {
+                        "type": "char",
+                        "data": "Two pieces of information. The number before the decimal is the upper threshold in mV. The number after the decimal represents the percentage of light-scattering pulses that were large enough to exceed the upper threshold. Under default settings dhtr2 represents the median puls height.",
+                    },
+                },
+            },
+            "status_hex": {
+                "type": "string",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {
+                        "type": "char",
+                        "data": "Compact display of status codes",
+                    },
+                },
+            },
+            "status_ascii": {
+                "type": "string",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {
+                        "type": "char",
+                        "data": "Alphabetic list of all abnormal status codes",
+                    },
+                },
+            },
+            "serial_number": {
+                "type": "string",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {
+                        "type": "char",
+                        "data": "Serial Number",
+                    },
                 },
             },
         },
         "settings": {
-            "flow_rate": {
-                "type": "float",
+            "pump_power": {
+                "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Flow Rate"},
-                    "units": {"type": "char", "data": "l min-1"},
-                    "valid_min": {"type": "float", "data": 0.0},
-                    "valid_max": {"type": "float", "data": 5.0},
+                    "long_name": {"type": "char", "data": "Pump Power"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 1},
+                    "step_increment": {"type": "int", "data": 1},
+                },
+            },
+            "q_target": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Target Volumetric Flow Rate"},
+                    "units": {"type": "char", "data": "cm3 min-1"},
+                    "valid_min": {"type": "int", "data": 240},
+                    "valid_max": {"type": "int", "data": 360},
+                    "step_increment": {"type": "int", "data": 10},
                 },
             },
         },
     }
 
     def __init__(self, config=None, **kwargs):
-        super(Mock1, self).__init__(config=config, **kwargs)
+        super(MAGIC250, self).__init__(config=config, **kwargs)
         self.data_task = None
         self.data_rate = 1
         # self.configure()
@@ -156,9 +341,10 @@ class Mock1(Sensor):
 
         # self.sampling_task_list.append(self.data_loop())
         self.enable_task_list.append(self.default_data_loop())
+        self.enable_task_list.append(self.sampling_monitor())
 
     def configure(self):
-        super(Mock1, self).configure()
+        super(MAGIC250, self).configure()
 
         # get config from file
         try:
@@ -200,44 +386,15 @@ class Mock1(Sensor):
         #     daq_id=conf["daq_id"],
         # )
 
-        # TODO: add info to interface config (e.g., connection properties, read_method, etc)
-        sensor_iface_properties = {
-            "default": {
-                "sensor-interface-properties": {
-                    "connection-properties": {
-                        "baudrate": 9600,
-                        "bytesize": 8,
-                        "parity": "N",
-                        "stopbit": 1,
-                    },
-                    "read-properties": {
-                        "read_method": "readline",  # readline, read_until, binary
-                        "terminator": "\r",  # only used for read_until
-                        "decode-errors": "strict",
-                    },
-                }
-            }
-        }
-
-        if "interfaces" in conf:
-            for name, iface in conf["interfaces"].items():
-                if name in sensor_iface_properties:
-                    for propname, prop in sensor_iface_properties[name].items():
-                        iface[propname] = prop
-
-            self.logger.debug(
-                "mock1.configure", extra={"interfaces": conf["interfaces"]}
-            )
-
         meta = SensorMetadata(
-            attributes=Mock1.metadata["attributes"],
-            variables=Mock1.metadata["variables"],
-            settings=Mock1.metadata["settings"],
+            attributes=MAGIC250.metadata["attributes"],
+            variables=MAGIC250.metadata["variables"],
+            settings=MAGIC250.metadata["settings"],
         )
 
         self.config = SensorConfig(
-            make=Mock1.metadata["attributes"]["make"]["data"],
-            model=Mock1.metadata["attributes"]["model"]["data"],
+            make=MAGIC250.metadata["attributes"]["make"]["data"],
+            model=MAGIC250.metadata["attributes"]["model"]["data"],
             serial_number=conf["serial_number"],
             metadata=meta,
             interfaces=conf["interfaces"],
@@ -300,7 +457,7 @@ class Mock1(Sensor):
     # pass
 
     async def handle_interface_data(self, message: Message):
-        await super(Mock1, self).handle_interface_data(message)
+        await super(MAGIC250, self).handle_interface_data(message)
 
         # self.logger.debug("interface_recv_data", extra={"data": message.data})
         if message.data["type"] == det.interface_data_recv():
@@ -315,6 +472,36 @@ class Mock1(Sensor):
                     await self.default_data_buffer.put(message.data)
             except KeyError:
                 pass
+
+    async def sampling_monitor(self):
+
+        collecting = False
+        # init to stopped
+        # await self.stop_command()
+
+        while True:
+            
+            while self.sampling():
+                if not collecting:
+                    await self.start_command()
+                    collecting = True
+
+            if collecting:
+                await self.stop_command()
+                collecting = False
+
+            await asyncio.sleep(.1)
+
+
+    async def start_command(self):
+        pass # Log,{sampling interval}
+
+    async def stop_command(self):
+        pass # Log,0
+
+    def stop(self):
+        asyncio.create_task(self.stop_sampling())
+        super().start()
 
     async def default_data_loop(self):
 
@@ -534,7 +721,7 @@ async def main(server_config: ServerConfig = None):
 
     # print("instantiate")
     logger.debug("Starting Mock1")
-    inst = Mock1()
+    inst = MAGIC250()
     # print(inst)
     # await asyncio.sleep(2)
     inst.run()

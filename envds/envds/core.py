@@ -286,7 +286,7 @@ class envdsBase(abc.ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Starting envds")
 
-        self.config = config
+        self.runtime_config = config
         self.router = EventRouter()
         self.send_buffer = asyncio.Queue()
         self.rec_buffer = asyncio.Queue()

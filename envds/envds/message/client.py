@@ -256,6 +256,7 @@ class MQTTMessageClient(MessageClient):
                     if dest_path[0] != "/":
                         dest_path = f"/{dest_path}"
                     await self.client.publish(dest_path, payload=to_json(msg.data))
+                    self.logger.debug("MQTT.publisher", extra={"dest_path": dest_path, "payload": to_json(msg.data), "client": self.client})
                     # await self.client.publish(msg.dest_path, payload=payload)
                 except MqttError as error:
                     self.logger.error("MQTT Client - MQTTError", extra={"error": error})

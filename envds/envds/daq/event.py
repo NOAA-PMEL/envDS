@@ -43,6 +43,10 @@ class DAQEvent(envdsEvent):
         return DAQEvent.create(type=et.interface_keepalive_request(), source=source, data=data, extra_header=extra_header)
 
     @staticmethod
+    def create_interface_config_request(source: str, data: dict = {}, extra_header: dict = None):
+        return DAQEvent.create(type=et.interface_config_request(), source=source, data=data, extra_header=extra_header)
+
+    @staticmethod
     def create_interface_status_request(source: str, data: dict = {}, extra_header: dict = None):
         return DAQEvent.create(type=et.interface_status_request(), source=source, data=data, extra_header=extra_header)
 

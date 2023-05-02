@@ -10,8 +10,10 @@ class _TCPClient(_StreamClient):
     """docstring for _TCPClient."""
 
     def __init__(self, config=None):
+        # self.logger.debug("_TCPClient.init before super")
         super().__init__(config)
 
+        self.logger.debug("_TCPClient.init")
         # self.mock_data_type = "1D"
         # print("_MockClient.init")
         self.enable_task_list.append(self.connection_monitor())
@@ -19,9 +21,10 @@ class _TCPClient(_StreamClient):
         self.connected = False
         self.keep_connected = False
 
-        self.host = "test.org"
-        self.port = 1234
+        self.host = "192.168.86.46"
+        self.port = 23
         self.reconnect_delay = 1
+        self.logger.debug("_TCPClient.init done")
 
         # self.send_method = send_method
         # self.read_method = read_method
@@ -34,8 +37,16 @@ class _TCPClient(_StreamClient):
     def configure(self):
         super().configure()
         # parse self.config
+        self.logger.debug("_TCPClient: configure")
+        if "attributes" in self.config.properties:
+            if "host" in self.config.properties["attributes"]:
+                self.host = self.config.properties["attributes"]["host"]["data"]
+            if "port" in self.config.properties["attributes"]:
+                self.port = self.config.properties["attributes"]["port"]["data"]
+            self.logger.debug("_TCPClient: configure", extra={"host": self.host, "port": self.port})
 
-    async def connnection_monitor(self):
+
+    async def connection_monitor(self):
 
         while True:
 
@@ -89,16 +100,18 @@ class TCPClient(DAQClient):
         # print("mock_client: 1")
         super(TCPClient, self).__init__(config=config)
         # print("mock_client: 2")
-
-        self.client_class = "_MockClient"
+        self.logger.debug("TCPClient.init")
+        self.client_class = "_TCPClient"
+        self.logger.debug("TCPClient.init", extra={"config": config})
 
         # TODO: set uid here? or let caller do it?
         self.config = config
         # print("mock_client: 3")
 
-        self.mock_type = "1D"  # 2D, i2c
+        # self.mock_type = "1D"  # 2D, i2c
         self.read_method = "readline"
         # print("mock_client: 4")
+        self.logger.debug("TCPClient.init", extra={'config': self.config})
 
         # self.enable_task_list.append(self.recv_loop())
 

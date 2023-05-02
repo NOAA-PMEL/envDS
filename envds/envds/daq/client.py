@@ -65,7 +65,7 @@ class DAQClient(abc.ABC):
             log_level = default_log_level
         envdsLogger(level=log_level).init_logger()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info("Starting client")
+        self.logger.info(f"Starting {self.__class__.__name__}")
         # print("daqclient: 2")
 
         self.client_module = self.__class__.__module__
@@ -302,11 +302,11 @@ class DAQClient(abc.ABC):
         try:
             # if not self.client_class:
             #     self.client_class = f"_{self.__class__.__name__}"
-            # print(f"mod: {self.client_module}, cls: {self.client_class}")
+            print(f"mod: {self.client_module}, cls: {self.client_class}, config: {config}")
             mod_ = importlib.import_module(self.client_module)
-            # print(f"mod_: {mod_}")
+            print(f"mod_: {mod_}")
             self.client = getattr(mod_, self.client_class)(config)
-            # print(f"self.client: {self.client}")
+            print(f"self.client: {self.client}")
         except Exception as e:
             self.logger.error("enable client", extra={"error": e})
             self.client = None
@@ -424,6 +424,7 @@ class DAQClient(abc.ABC):
 
             # Instantiate the underlying client
             # self.client = await self.enable_client(config=self.config)
+            self.logger.debug("DAQClient - do_run", extra={"config": self.config})
             await self.create_client(config=self.config)
 
             # self.
@@ -493,7 +494,6 @@ class _BaseClient(abc.ABC):
     """docstring for _BaseClient."""
     def __init__(self, config=None):
         super(_BaseClient, self).__init__()
-
         # print("_BaseClient.init:1")
         self.config = config
         self.status = envdsStatus()
@@ -512,8 +512,11 @@ class _BaseClient(abc.ABC):
         else:
             log_level = default_log_level
         envdsLogger(level=log_level).init_logger()
+        print("logger?")
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"Starting {self.__class__.__name__}")
+
+        self.logger.debug("_BaseClient.init", extra={"config": config})
 
         self.keep_connected = False
 
@@ -604,7 +607,6 @@ class _BaseClient(abc.ABC):
             # return
 
         actual = self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)    
-
 class _StreamClient(_BaseClient):
     """docstring for StreamClient."""
 
@@ -614,7 +616,8 @@ class _StreamClient(_BaseClient):
     DISCONNECTED = "disconnected"
 
     def __init__(self, config=None):
-        super(_BaseClient, self).__init__(config)
+        super().__init__(config)
+        self.logger.debug("_StreamClient.init", extra={"config": config})
         
         self.reader = None
         self.writer = None
