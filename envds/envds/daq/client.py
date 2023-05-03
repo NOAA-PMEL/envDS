@@ -1,4 +1,5 @@
 import abc
+from collections import deque
 import importlib
 import os
 import ulid
@@ -17,7 +18,11 @@ import asyncio
 from pydantic import BaseModel
 
 from envds.core import envdsAppID, envdsLogger, envdsStatus
-from envds.exceptions import envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException
+from envds.exceptions import (
+    envdsRunTransitionException,
+    envdsRunErrorException,
+    envdsRunWaitException,
+)
 from envds.message.message import Message
 from envds.daq.event import DAQEvent as de
 from envds.daq.types import DAQEventType as det
@@ -29,14 +34,17 @@ from envds.util.util import (
     get_datetime_string,
 )
 
+
 class DAQClientConfig(BaseModel):
     """docstring for ClientConfig."""
+
     uid: str
     properties: dict | None = {}
 
-    
+
 class DAQClientManager(object):
     """docstring for ClientManager."""
+
     # def __init__(self):
     #     super(ClientManager, self).__init__()
 
@@ -44,12 +52,13 @@ class DAQClientManager(object):
     def create(config: DAQClientConfig, **kwargs):
         pass
 
+
 class DAQClient(abc.ABC):
     """docstring for Client."""
 
     # CONNECTED = "connected"
 
-    def __init__(self, config: DAQClientConfig=None, **kwargs):
+    def __init__(self, config: DAQClientConfig = None, **kwargs):
         super(DAQClient, self).__init__()
 
         self.min_recv_delay = 0.1
@@ -74,8 +83,8 @@ class DAQClient(abc.ABC):
         if config is None:
             config = DAQClientConfig(uid=ulid.ULID())
         self.config = config
-        if "connect_properties" not in self.config.properties:
-            self.config.properties["connect_properties"] = dict()
+        if "sensor-interface-properties" not in self.config.properties:
+            self.config.properties["sensor-interface-properties"] = dict()
         # print("daqclient: 3")
 
         self.send_buffer = asyncio.Queue()
@@ -138,6 +147,17 @@ class DAQClient(abc.ABC):
     #             self.recv_buffer.put(data)
     #         await asyncio.sleep(.1)
 
+    def set_sensor_interface_properties(self, iface_props: dict = None):
+        self.logger.debug(
+            "set_sensor_interface_properties", extra={"iface_props": iface_props}
+        )
+        if iface_props:
+            self.config.properties["sensor-interface-properties"] = iface_props
+            self.logger.debug(
+                "set_sensor_interface_properties",
+                extra={"props": self.config.properties},
+            )
+
     def enable(self) -> None:
         self.status.set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
 
@@ -165,7 +185,6 @@ class DAQClient(abc.ABC):
             #     await asyncio.sleep(1)
             if not self.running():
                 raise envdsRunWaitException(envdsStatus.ENABLED)
-
 
             self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRANSITION)
 
@@ -209,7 +228,6 @@ class DAQClient(abc.ABC):
                     task.cancel()
             raise envdsRunErrorException(envdsStatus.ENABLED)
 
-        
     def disable(self) -> None:
         self.status.set_requested(envdsStatus.ENABLED, envdsStatus.FALSE)
 
@@ -264,7 +282,11 @@ class DAQClient(abc.ABC):
                         await self.do_enable()
                         # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
                         self.logger.debug("status_check: enable")
-                    except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
+                    except (
+                        envdsRunTransitionException,
+                        envdsRunErrorException,
+                        envdsRunWaitException,
+                    ):
                         pass
                 else:
                     try:
@@ -285,10 +307,11 @@ class DAQClient(abc.ABC):
 
         if self.client:
             if not self.client.status.get_health():
-                if self.client.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
+                if (
+                    self.client.status.get_requested(envdsStatus.ENABLED)
+                    == envdsStatus.TRUE
+                ):
                     self.client.enable()
-                
-
 
         self.logger.debug("status_check", extra={"status": self.status.get_status()})
 
@@ -302,7 +325,9 @@ class DAQClient(abc.ABC):
         try:
             # if not self.client_class:
             #     self.client_class = f"_{self.__class__.__name__}"
-            print(f"mod: {self.client_module}, cls: {self.client_class}, config: {config}")
+            print(
+                f"mod: {self.client_module}, cls: {self.client_class}, config: {config}"
+            )
             mod_ = importlib.import_module(self.client_module)
             print(f"mod_: {mod_}")
             self.client = getattr(mod_, self.client_class)(config)
@@ -327,7 +352,9 @@ class DAQClient(abc.ABC):
 
     def enabled(self) -> bool:
         # self.logger.debug("daqclient.enabled")
-        if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE and self.status.get_health_state(envdsStatus.ENABLED):
+        if self.status.get_requested(
+            envdsStatus.ENABLED
+        ) == envdsStatus.TRUE and self.status.get_health_state(envdsStatus.ENABLED):
             if self.client:
                 # self.logger.debug("daqclient.enabled", extra={"_client.enabled": self.client.enabled()})
                 return self.client.enabled()
@@ -338,12 +365,19 @@ class DAQClient(abc.ABC):
         while True:
             if self.client:
                 if not self.client.status.get_health():
-                    if self.client.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
+                    if (
+                        self.client.status.get_requested(envdsStatus.ENABLED)
+                        == envdsStatus.TRUE
+                    ):
                         try:  # exception raised if already enabling
                             # self.logger.debug("client", extra={"status": self.client.status.get_status()})
                             await self.client.do_enable()
                             # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
-                        except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
+                        except (
+                            envdsRunTransitionException,
+                            envdsRunErrorException,
+                            envdsRunWaitException,
+                        ):
                             pass
                     else:
                         try:
@@ -364,10 +398,7 @@ class DAQClient(abc.ABC):
                 msg = await self.recv_from_client()
                 # self.logger.debug("client.recv_loop:2", extra={"m": msg})
                 if msg:
-                    data = {
-                        "timestamp": get_datetime_string(),
-                        "data": msg
-                    }
+                    data = {"timestamp": get_datetime_string(), "data": msg}
                     self.logger.debug("client.recv_loop", extra={"data": data})
                     await self.recv_buffer.put(data)
                     # self.logger.debug("client.recv_loop:4")
@@ -492,6 +523,7 @@ class DAQClient(abc.ABC):
 
 class _BaseClient(abc.ABC):
     """docstring for _BaseClient."""
+
     def __init__(self, config=None):
         super(_BaseClient, self).__init__()
         # print("_BaseClient.init:1")
@@ -500,7 +532,7 @@ class _BaseClient(abc.ABC):
         self.status.set_state_param(
             param=envdsStatus.RUNNING,
             requested=envdsStatus.TRUE,
-            actual=envdsStatus.TRUE
+            actual=envdsStatus.TRUE,
         )
         # print("_BaseClient.init:2")
         default_log_level = logging.INFO
@@ -524,20 +556,20 @@ class _BaseClient(abc.ABC):
         self.enable_tasks = []
         # self.enable_task_list.append(self.do_connect())
         # print("_BaseClient.init:3")
-        
+
         self.configure()
-    
+
     def configure(self):
         # do client config
         pass
-    
+
     def enabled(self) -> bool:
         # print("_daqclient.enabled")
         if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
             # print(f"_daqclient.enabled {self.status.get_health()}")
             return self.status.get_health()
         return False
-            
+
     def enable(self):
         self.status.set_requested(envdsStatus.ENABLED, envdsStatus.TRUE)
 
@@ -582,7 +614,7 @@ class _BaseClient(abc.ABC):
         #     self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE
         #     and self.status.get_health_state(envdsStatus.RUNNING)
         # ):
-            # return
+        # return
 
     # async def do_enable(self, **kwargs):
     #     pass
@@ -604,9 +636,11 @@ class _BaseClient(abc.ABC):
         #     self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE
         #     and self.status.get_health_state(envdsStatus.RUNNING)
         # ):
-            # return
+        # return
 
-        actual = self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)    
+        actual = self.status.set_actual(envdsStatus.ENABLED, envdsStatus.FALSE)
+
+
 class _StreamClient(_BaseClient):
     """docstring for StreamClient."""
 
@@ -618,12 +652,20 @@ class _StreamClient(_BaseClient):
     def __init__(self, config=None):
         super().__init__(config)
         self.logger.debug("_StreamClient.init", extra={"config": config})
-        
+
         self.reader = None
         self.writer = None
 
         self.connection_state = self.DISCONNECTED
         self.keep_connected = False
+
+        self.send_method = "ascii"
+        self.read_method = "readline"
+        self.read_terminator = "\n"
+        self.read_num_bytes = 1
+        self.decode_errors = "strict"
+
+        self.return_packet_bytes = deque(maxlen=25000)
 
     # abc.abstractmethod
     # async def connect(self, **kwargs):
@@ -637,23 +679,19 @@ class _StreamClient(_BaseClient):
             msg = await self.reader.readline()
             return msg.decode(errors=decode_errors)
 
-    async def readuntil(
-        self,
-        terminator='\n',
-        decode_errors='strict'
-    ):
+    async def readuntil(self, terminator="\n", decode_errors="strict"):
         if self.reader:
             msg = await self.reader.readuntil(terminator.encode())
             return msg.decode(errors=decode_errors)
 
-    async def read(self, num_bytes=1, decode_errors='strict'):
+    async def read(self, num_bytes=1, decode_errors="strict"):
         if self.reader:
             msg = await self.reader.read(num_bytes)
             return msg.decode(errors=decode_errors)
 
-    async def readbinary(self, num_bytes=1, decode_errors='strict'):
+    async def readbinary(self, num_bytes=1, decode_errors="strict"):
         if self.reader:
-            msg = await self.reader.read(num_bytes)
+            msg = await self.reader.read(num_bytes=num_bytes)
             return msg
 
     async def write(self, msg):
@@ -666,11 +704,20 @@ class _StreamClient(_BaseClient):
             sent_bytes = self.writer.write(msg)
             await self.writer.drain()
 
+    async def get_return_packet_size(self):
+
+        while len(self.return_packet_bytes) == 0:
+            await asyncio.sleep(0.1)
+        return self.return_packet_bytes.popleft()
+
     async def disconnect(self):
         # self.connect_state = ClientConnection.CLOSED
-        if self.connection_state == self.DISCONNECTING or self.connection_state == self.DISCONNECTED:
+        if (
+            self.connection_state == self.DISCONNECTING
+            or self.connection_state == self.DISCONNECTED
+        ):
             return
-        
+
         self.connection_state = self.DISCONNECTING
         if self.writer:
             self.writer.close()
@@ -683,11 +730,15 @@ class _StreamClient(_BaseClient):
         try:
             await super().do_disable()
         # except envdsRunTransitionException:
-        except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException) as e:
+        except (
+            envdsRunTransitionException,
+            envdsRunErrorException,
+            envdsRunWaitException,
+        ) as e:
             raise e
         print("_StreamClient.disable")
         # simulate connect delay
         await asyncio.sleep(1)
         self.keep_connected = False
-        
+
         # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)

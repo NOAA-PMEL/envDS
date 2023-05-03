@@ -156,6 +156,7 @@ class Mock1(Sensor):
 
         # self.sampling_task_list.append(self.data_loop())
         self.enable_task_list.append(self.default_data_loop())
+        self.enable_task_list.append(self.test_polling_loop())
 
     def configure(self):
         super(Mock1, self).configure()
@@ -211,9 +212,10 @@ class Mock1(Sensor):
                         "stopbit": 1,
                     },
                     "read-properties": {
-                        "read_method": "readline",  # readline, read_until, binary
-                        "terminator": "\r",  # only used for read_until
+                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
+                        "read-terminator": "\r",  # only used for read_until
                         "decode-errors": "strict",
+                        "send-method": "ascii"
                     },
                 }
             }
@@ -315,6 +317,13 @@ class Mock1(Sensor):
                     await self.default_data_buffer.put(message.data)
             except KeyError:
                 pass
+    
+    async def test_polling_loop(self):
+        while True:
+            poll_cmd = "read\n"
+            await self.interface_send_data(data={"data": poll_cmd})
+            await asyncio.sleep(1)
+
 
     async def default_data_loop(self):
 

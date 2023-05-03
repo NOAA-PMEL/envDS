@@ -1,9 +1,11 @@
-# import abc
+import abc
 import importlib
+
 # import sys
 # import uuid
 from ulid import ULID
 import asyncio
+
 # import logging
 from logfmter import Logfmter
 
@@ -109,7 +111,7 @@ class Interface(envdsBase):
         self.default_client_class = "unknown"
 
         # used in loops to add a little delay for async to release
-        self.min_recv_delay = 0.1 # seconds
+        self.min_recv_delay = 0.1  # seconds
 
         # set interface id
         self.update_id("app_group", "interface")
@@ -136,6 +138,10 @@ class Interface(envdsBase):
             #     "recv_task": None # will be asyncio task create to read client
             # }
         }
+
+        # self.send_data_buffer = asyncio.Queue()
+        # self.run_task_list.append(self.send_data_loop())
+
         self.run_task_list.append(self.client_monitor())
         self.run_task_list.append(self.client_registry_monitor())
 
@@ -148,7 +154,7 @@ class Interface(envdsBase):
 
     def run_setup(self):
         super().run_setup()
-        
+
         for name, path in self.config.paths.items():
             if name not in self.client_map:
                 self.client_map[name] = {
@@ -162,7 +168,7 @@ class Interface(envdsBase):
         self.update_id("app_uid", self.build_app_uid())
 
     def disable(self):
-        
+
         # remove all subscribers to each client to force disable
         for id, client in self.client_registry.items():
             if self.client_map[id]["client"]:
@@ -174,7 +180,7 @@ class Interface(envdsBase):
                     self.client_map[id]["recv_handler"] = None
             # if client:
             #     client = dict()
-        
+
         super().disable()
 
     def build_app_uid(self):
@@ -203,7 +209,9 @@ class Interface(envdsBase):
             enable=enable,
         )
 
-        self.logger.debug("set_config_request", extra={"sub": f"/{topic_base}/+/config/request"})
+        self.logger.debug(
+            "set_config_request", extra={"sub": f"/{topic_base}/+/config/request"}
+        )
         self.set_route(
             subscription=f"/{topic_base}/+/config/request",
             route_key=det.interface_config_request(),
@@ -308,7 +316,10 @@ class Interface(envdsBase):
                             > registry_expiration
                         ):
                             del client[key]
-                    self.logger.debug("client_registry_monitor", extra={"id": id, "connections": len(client)})
+                    self.logger.debug(
+                        "client_registry_monitor",
+                        extra={"id": id, "connections": len(client)},
+                    )
                     if (
                         len(client) == 0
                     ):  # and self.client_map[client_id].client.connected():
@@ -372,6 +383,22 @@ class Interface(envdsBase):
 
     async def handle_config(self, message: Message):
         self.logger.debug("interface.handle_config", extra={"config": message.data})
+
+        if message.data["type"] == det.interface_config_request():
+            try:
+                client_id = message.data["path_id"]
+                # source = message.data["source"]
+                sensor_interface_properties = message.data.data["config"][
+                    "sensor-interface-properties"
+                ]
+
+                self.client_map[client_id]["client"].set_sensor_interface_properties(
+                    iface_props=sensor_interface_properties
+                )
+
+            except KeyError:
+                self.logger.error("handle_config error", extra={"data": message.data})
+
         # self.logger.debug("handle_status:1", extra={"data": message.data})
         # await super(Interface, self).handle_status(message)
         pass
@@ -458,17 +485,22 @@ class Interface(envdsBase):
         await self.send_message(message)
 
     # @abc.abstractmethod
+    # override this to handle send_data
+    async def send_data(self, event: DAQEvent):
+        pass
+
     async def handle_data(self, message: Message):
 
         # await super(Interface, self).handle_data(message)
 
         # TODO: handle send data
+        print(f"handle_data: {message.data}")
         if message.data["type"] == det.interface_data_send():
             self.logger.debug(
-                "interface data send",
-                extra={"dest_path": message["dest_path"], "data": message.data.data},
+                "interface_data_send",
+                extra={"data": message.data.data},
             )
-
+            await self.send_data(message.data)
             # send data to appropriate client
 
     # async def registry_monitor(self):
@@ -527,11 +559,18 @@ class Interface(envdsBase):
 
                         try:
                             # print("here:1")
-                            client_module = path["client_config"]["attributes"]["client_module"]["data"]
+                            client_module = path["client_config"]["attributes"][
+                                "client_module"
+                            ]["data"]
                             # print("here:2")
-                            client_class = path["client_config"]["attributes"]["client_class"]["data"]
+                            client_class = path["client_config"]["attributes"][
+                                "client_class"
+                            ]["data"]
                             # print("here:3")
-                            client_config = DAQClientConfig(uid=id, properties=path["client_config"]["attributes"].copy())
+                            client_config = DAQClientConfig(
+                                uid=id,
+                                properties=path["client_config"]["attributes"].copy(),
+                            )
                             # print("here:4")
                             mod_ = importlib.import_module(client_module)
                             # print(f"here:5 {client_module}, {client_class}, {mod_}")
@@ -539,7 +578,7 @@ class Interface(envdsBase):
                             cls_ = getattr(mod_, client_class)
                             # print(f"here:5.5 {cls_}")
                             self.client_map[id]["client"] = cls_(config=client_config)
-                            
+
                             # TODO: where to start "run"?
                             await asyncio.sleep(1)
                             self.client_map[id]["client"].run()
@@ -547,7 +586,6 @@ class Interface(envdsBase):
                             #     config=client_config
                             # )
                             # print(f"here:6 {self.client_map[id]['client']}")
-
 
                             if self.client_map[id]["recv_task"] is not None:
                                 self.client_map[id]["recv_task"].cancel()
@@ -589,28 +627,28 @@ class Interface(envdsBase):
     #     self.logger.debug("run", extra={"client_map": self.client_map})
     #     super(Interface, self).run()
 
-        # self.message_client.subscribe(f"{topic_base}/connect/request")
-        # self.router.register_route(
-        #     key=det.interface_connect_request(), route=self.handle_connect
-        # )
+    # self.message_client.subscribe(f"{topic_base}/connect/request")
+    # self.router.register_route(
+    #     key=det.interface_connect_request(), route=self.handle_connect
+    # )
 
-        # self.message_client.subscribe(f"{topic_base}/connect/keepalive")
-        # self.router.register_route(
-        #     key=det.interface_connect_keepalive(), route=self.handle_connect
-        # )
+    # self.message_client.subscribe(f"{topic_base}/connect/keepalive")
+    # self.router.register_route(
+    #     key=det.interface_connect_keepalive(), route=self.handle_connect
+    # )
 
-        # self.message_client.subscribe(f"{topic_base}/data/send")
-        # self.router.register_route(
-        #     key=det.interface_data_send(), route=self.handle_data
-        # )
+    # self.message_client.subscribe(f"{topic_base}/data/send")
+    # self.router.register_route(
+    #     key=det.interface_data_send(), route=self.handle_data
+    # )
 
-        # self.message_client.subscribe(f"{topic_base}/status/update")
-        # self.message_client.subscribe(f"{topic_base}/status/update/#")
-        # self.router.register_route(key=det.status_update(), route=self.handle_data)
+    # self.message_client.subscribe(f"{topic_base}/status/update")
+    # self.message_client.subscribe(f"{topic_base}/status/update/#")
+    # self.router.register_route(key=det.status_update(), route=self.handle_data)
 
-        # self.message_client.subscribe(f"{topic_base}/status/update")
-        # self.message_client.subscribe(f"{topic_base}/status/update/#")
-        # self.router.register_route(key=det.status_update(), route=self.handle_data)
+    # self.message_client.subscribe(f"{topic_base}/status/update")
+    # self.message_client.subscribe(f"{topic_base}/status/update/#")
+    # self.router.register_route(key=det.status_update(), route=self.handle_data)
 
     # def enable(self):
     #     pass

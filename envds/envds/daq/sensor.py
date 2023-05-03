@@ -260,7 +260,7 @@ class Sensor(envdsBase):
         self.run_task_list.append(self.send_metadata_loop())
         # asyncio.create_task(self.send_metadata_loop())
 
-        self.enable_task_list.append(self.client_config_monitor())
+        self.enable_task_list.append(self.interface_config_monitor())
         self.run_task_list.append(self.interface_monitor())
         # self.instance_config["daq_id"] = "default"
         # if daq_id := os.getenv("DAQ_ID"):
@@ -482,7 +482,38 @@ class Sensor(envdsBase):
             
     #         iface.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRANSITION)
 
-    async def client_config_monitor(self):
+    async def interface_send_data(self, data: dict, path_id: str = "default"):
+
+        try:
+            iface = self.iface_map[path_id]
+        except KeyError:
+            return
+        
+        try:
+            try:
+                iface_envds_id = iface["interface"]["interface_envds_env_id"]
+            except KeyError:
+                iface_envds_id = self.id.app_env_id
+
+            dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/send"
+            extra_header = {"path_id": iface["interface"]["path"]}
+            # event = DAQEvent.create_interface_connect_request(
+            event = DAQEvent.create_interface_data_send(
+                # source="envds.core", data={"test": "one", "test2": 2}
+                source=self.get_id_as_source(),
+                # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                data={"data": data},
+                extra_header=extra_header
+            )
+            self.logger.debug("interface_send_data", extra={"n": path_id, "e": event, "dest_path": dest_path})
+            message = Message(data=event, dest_path=dest_path)
+            self.logger.debug("interface_send_data", extra={"dest_path": dest_path})
+            await self.send_message(message)
+            send_config = False
+        except Exception as e:
+            self.logger.error("interface_send_data", extra={"error": e})
+
+    async def interface_config_monitor(self):
         # if client enabled, send connection, read/write properties to client(s) one time
         send_config = True
         while True:

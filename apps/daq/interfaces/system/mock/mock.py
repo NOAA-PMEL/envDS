@@ -20,6 +20,7 @@ from envds.core import envdsLogger #, envdsBase
 # )
 # from envds.daq.sensor import Sensor, SensorConfig, SensorVariable
 from envds.daq.interface import Interface, InterfaceConfig #, InterfacePath
+from envds.daq.event import DAQEvent
 # from envds.daq.clients.mock_client import MockClient
 # from envds.daq.types import DAQEventType
 # from envds.event.event import create_data_update, create_status_update
@@ -302,6 +303,21 @@ class Mock(Interface):
 
             # await asyncio.sleep(self.min_recv_delay)
             await asyncio.sleep(0.1)
+
+    async def send_data(self, event: DAQEvent):
+
+            try:
+                print(f"send_data:1 - {event}")
+                client_id = event["path_id"]
+                print("send_data:2")
+                client = self.client_map[client_id]["client"]
+                print("send_data:3")
+                data = event.data["data"]
+                print("send_data:4")
+                await client.send(data)
+                print("send_data:5")
+            except KeyError:
+                pass
 
 class ServerConfig(BaseModel):
     host: str = "localhost"
