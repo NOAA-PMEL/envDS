@@ -128,20 +128,6 @@ class Mock(Interface):
                     "filepath": "/dev/mock/mock06"
                 },
             },
-            # "port-02": {
-            #     "data": {
-            #         "address": {"host": "10.55.169.54", "port": "41"}
-            #     }
-            # },
-            # "port-03": {
-            #     "data": {
-            #         "uri": "ws://localhost:19292/mock/socket"
-            #     }
-            # }
-            # "port01-1D": {"data": "path/to/port-01"},
-            # "port02-2D": {"data": "path/to/port-02"},
-            # "port03-i2c": {"data": "path/to/port-03"},
-        # }
         }
     }
 

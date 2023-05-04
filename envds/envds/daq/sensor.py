@@ -253,7 +253,8 @@ class Sensor(envdsBase):
         self.status.set_id_AppID(self.id)
         self.status.set_state_param(Sensor.SAMPLING, requested=envdsStatus.FALSE, actual=envdsStatus.FALSE)
 
-
+        self.sampling_interval = 1 # default collection interval in seconds
+        
         # set default metadata interval
         self.include_metadata_interval = 60
         self.include_metadata = True

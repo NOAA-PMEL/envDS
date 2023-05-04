@@ -127,19 +127,70 @@ class TCPClient(DAQClient):
     async def recv_from_client(self):
         # print("recv_from_client:1")
         if self.enabled():
+            props = self.config.properties["sensor-interface-properties"]["read-properties"]
+
+            read_method = props.get("read-method", self.read_method)
+            decode_errors = props.get("decode-errors", self.decode_errors)
+
+
             # print(f"recv_from_client:2 -- readmethod={self.read_method}")
             if self.read_method == "readline":
                 # print("recv_from_client:3")
                 data = await self.client.readline()
                 print(f"recv_from_client:4 {data}")
 
-                # simulate 1 sec data
-                await asyncio.sleep(time_to_next(1))
-                return data
+            elif read_method == "read_until":
+                data = await self.client.read_until(
+                    terminator=props.get("read-terminator",self.read_terminator), 
+                    decode_errors=decode_errors) 
+
+            elif read_method == "readbytes":
+                data = await self.client.read(
+                    num_bytes=props.get("read-num-bytes",1),
+                    decode_errors=decode_errors
+                )
+            elif read_method == "readbinary":
+                ret_packet_size = await self.client.get_return_packet_size()
+                data = await self.client.readbinary(
+                    num_bytes=ret_packet_size,
+                    decode_errors=decode_errors
+                )
+
+            return data
         
         # print("recv_from_client:5")
         return None
 
     async def send_to_client(self, data):
         if self.enabled():
-            print(f"mock client send: {data}")
+            try:
+                
+                send_method = data.get("send-method", self.send_method)
+                
+                if send_method == "binary":
+                    # if num of expected bytes not supplied, fail
+                    try:
+                        read_num_bytes = data["read-num-bytes"]
+                        self.client.return_packet_bytes.append(
+                            data["read-num-bytes"]
+                        )
+                        await self.client.writebinary(data["data"])
+                    except KeyError:
+                        self.logger.error("binary write failed - read-num-bytes not specified")
+                        return
+                else:
+                    try:
+                        await self.client.write(data["data"])
+                    except KeyError:
+                        self.logger.error("write failed - data not specified")
+                        return
+
+                self.logger.debug(
+                    "send_to_client",
+                    extra={
+                        "send_method": send_method,
+                        "data": data["data"]
+                    },
+                )
+            except Exception as e:
+                self.logger.error("send_to_client error", extra={"error": e})

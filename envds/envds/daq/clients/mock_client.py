@@ -149,7 +149,7 @@ class MockClient(DAQClient):
 
                 # simulate 1 sec data
                 await asyncio.sleep(time_to_next(1))
-                return data
+                # return data
 
             elif read_method == "read_until":
                 data = await self.client.read_until(

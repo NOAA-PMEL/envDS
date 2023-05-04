@@ -168,8 +168,11 @@ class Mock1(Sensor):
         except FileNotFoundError:
             conf = {"serial_number": "UNKNOWN", "interfaces": {}}
 
-        if "metadata_interval" in conf:
-            self.include_metadata_interval = conf["metadata_interval"]
+        if "sampling-interval" in conf:
+            self.sampling_interval = conf["sampling-interval"]
+
+        if "metadata-interval" in conf:
+            self.include_metadata_interval = conf["metadata-interval"]
 
         # # create SensorConfig
         # var_list = []

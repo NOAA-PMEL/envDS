@@ -356,35 +356,34 @@ class MAGIC250(Sensor):
         if "metadata_interval" in conf:
             self.include_metadata_interval = conf["metadata_interval"]
 
-        # # create SensorConfig
-        # var_list = []
-        # var_map = dict()
-        # for name, val in Mock1.metadata["variables"].items():
-        #     var_list.append(
-        #         SensorVariable(
-        #             name=name,
-        #             type=val["type"],
-        #             shape=val["shape"],
-        #             attributes=val["attributes"],
-        #         )
-        #     )
-        #     var_map[name] = SensorVariable(
-        #         name=name,
-        #         type=val["type"],
-        #         shape=val["shape"],
-        #         attributes=val["attributes"],
-        #     )
-        # # print(f"var_list: {var_list}")
+        sensor_iface_properties = {
+            "default": {
+                "sensor-interface-properties": {
+                    "connection-properties": {
+                        "baudrate": 115200,
+                        "bytesize": 8,
+                        "parity": "N",
+                        "stopbit": 1,
+                    },
+                    "read-properties": {
+                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
+                        # "read-terminator": "\r",  # only used for read_until
+                        "decode-errors": "strict",
+                        "send-method": "ascii"
+                    },
+                }
+            }
+        }
 
-        # atts = Mock1.metadata["attributes"]
-        # self.config = SensorConfig(
-        #     make=atts["make"]["data"],
-        #     model=atts["model"]["data"],
-        #     serial_number=conf["serial_number"],
-        #     variables=var_map,
-        #     interfaces=conf["interfaces"],
-        #     daq_id=conf["daq_id"],
-        # )
+        if "interfaces" in conf:
+            for name, iface in conf["interfaces"].items():
+                if name in sensor_iface_properties:
+                    for propname, prop in sensor_iface_properties[name].items():
+                        iface[propname] = prop
+
+            self.logger.debug(
+                "magcic250.configure", extra={"interfaces": conf["interfaces"]}
+            )
 
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
@@ -404,7 +403,6 @@ class MAGIC250(Sensor):
         print(f"self.config: {self.config}")
 
         try:
-            # self.sensor_format_version = atts["format_version"]
             self.sensor_format_version = self.config.metadata.attributes[
                 "format_version"
             ].data
@@ -417,12 +415,6 @@ class MAGIC250(Sensor):
         )
 
         try:
-
-            # for name, iface in self.config.interfaces.items():
-            #     # for name, iface in conf.items():
-            #     print(f"add: {name}, {iface}")
-            #     self.add_interface(name, iface)
-
             if "interfaces" in conf:
                 for name, iface in conf["interfaces"].items():
                     print(f"add: {name}, {iface}")
@@ -432,29 +424,9 @@ class MAGIC250(Sensor):
             print(e)
 
         self.logger.debug("iface_map", extra={"map": self.iface_map})
-        # if name == "default":
-        #     pass
-        # elif name == "serial":
-        #     iface["dest_path"] = f"/envds/interface/{iface[]}"
-
-    # def run_setup(self):
-    #     super().run_setup()
-    #     asyncio.create_task(self.register_sensor_type())
-
-    # async def register_sensor_type(self):
-    #     await init_sensor_type_registration()
-    #     await register_sensor_type(
-    #         make=self.get_make(), model=self.get_model(), metadata=self.get_metadata()
-    #     )
 
     async def handle_interface_message(self, message: Message):
         pass
-
-    # async def handle_serial(self, message: Message):
-    #     pass
-
-    # async def parse_serial(self, data: CloudEvent):
-    # pass
 
     async def handle_interface_data(self, message: Message):
         await super(MAGIC250, self).handle_interface_data(message)
@@ -479,29 +451,33 @@ class MAGIC250(Sensor):
         # init to stopped
         # await self.stop_command()
 
+        start_command = f"Log,{self.sampling_interval}"
+        stop_command = "Log,0"
         while True:
             
             while self.sampling():
                 if not collecting:
-                    await self.start_command()
+                    # await self.start_command()
+                    await self.interface_send_data(data={"data": start_command})
                     collecting = True
 
             if collecting:
-                await self.stop_command()
+                # await self.stop_command()
+                await self.interface_send_data(data={"data": stop_command})
                 collecting = False
 
             await asyncio.sleep(.1)
 
 
-    async def start_command(self):
-        pass # Log,{sampling interval}
+    # async def start_command(self):
+    #     pass # Log,{sampling interval}
 
-    async def stop_command(self):
-        pass # Log,0
+    # async def stop_command(self):
+    #     pass # Log,0
 
-    def stop(self):
-        asyncio.create_task(self.stop_sampling())
-        super().start()
+    # def stop(self):
+    #     asyncio.create_task(self.stop_sampling())
+    #     super().start()
 
     async def default_data_loop(self):
 
@@ -558,125 +534,28 @@ class MAGIC250(Sensor):
                     if name in record["variables"]:
                         # instvar = self.config.variables[name]
                         instvar = self.config.metadata.variables[name]
-                        record["variables"][name]["data"] = eval(instvar.type)(
-                            parts[index]
-                        )
+                        vartype = instvar.type
+                        if instvar.type == "string":
+                            vartype = "str"
+                        try:
+                            record["variables"][name]["data"] = eval(instvar.type)(
+                                parts[index]
+                            )
+                        except ValueError:
+                            if vartype == "str" or vartype == "char":
+                                record["variables"][name]["data"] = ""
+                            else:
+                                record["variables"][name]["data"] = None
                 return record
             except KeyError:
                 pass
         # else:
         return None
 
-    async def data_loop(self):
-        # print(f"data_loop:1 - {self.config}")
-        # generate mock data at the specified data_rate
-        # put on queue for packaging into cloudevent
-        # self.logger.info("Starting data_loop", extra=self.extra)
-        # print("data_loop:1")
-        # print(f"data_rate: {self.data_rate}")
-        await asyncio.sleep(time_to_next(self.data_rate))
-        # print(f"data_rate: {self.data_rate} ready")
-        while True:
-            variables = dict()
-
-            dt = get_datetime()
-            dt_str = get_datetime_string()
-            # print(f"dt: {dt}, {dt_str}")
-            # self.config.variables["time"]["data"] = dt_str
-
-            variables["time"] = dt_str
-
-            # variables["latitude"] = round(10 + random.uniform(-1, 1) / 10, 3)
-            # variables["longitude"] = round(-150 + random.uniform(-1, 1) / 10, 3)
-            # variables["altitude"] = round(100 + random.uniform(-10, 10), 3)
-
-            variables["temperature"] = str(round(25 + random.uniform(-3, 3), 3))
-            variables["rh"] = str(round(60 + random.uniform(-5, 5), 3))
-            variables["pressure"] = str(round(1000 + random.uniform(-5, 5), 3))
-            variables["wind_speed"] = str(round(10 + random.uniform(-5, 5), 3))
-            variables["wind_direction"] = str(round(90 + random.uniform(-20, 20), 3))
-            variables["flow_rate"] = str(round(2 + random.uniform(-0.1, 0.1), 3))
-
-            # print(f"variables: {variables}")
-            # send_meta = False
-            # if dt.minute % 10 == 0:
-            # # if dt.minute % 1 == 0:
-            #     send_meta = True
-            # print(f"meta: {send_meta}")
-            # record = self.build_data_record(meta=send_meta)
-            record = self.build_data_record(meta=self.include_metadata)
-            self.include_metadata = False
-            # print(f"empty record: {record}")
-            for name, val in record["variables"].items():
-                # print(name, val)
-                if name in variables:
-                    instvar = self.config.metadata.variables[name]
-                    # print(f"instvar: {instvar}")
-                    # print(f"type: {instvar.type}, {eval(instvar.type)(variables[name])}")
-                    # print(f"name: {name}, val: {val}, instvar: {instvar}")
-                    # record["variables"][name]["data"] = eval(self.config.variables[name]["type"])(variables[name])
-                    # record["variables"][name]["data"] = eval(instvar.type)(variables[name])
-                    val["data"] = eval(instvar.type)(variables[name])
-                    # print(f"record: {record}")
-
-            print(f"data record: {record}")
-            src = self.get_id_as_source()
-            # print(src)
-            event = DAQEvent.create_data_update(
-                # source="sensor.mockco-mock1-1234", data=record
-                source=src,
-                data=record,
-            )
-            # print(f"ce: {event.data}")
-            # event = et.create_data_update(
-            #     source="sensor.mockco-mock1-1234", data={"one":"two"}
-            # )
-            # event = et.create(type="type", source="source", data={"one": "two"})
-            # print(type(event))
-            # message=Message(data=event, dest_path="/sensor/mockco/mock1/1234/update")
-            # message=Message(data=event, dest_path=f"/{src.replace('.', '/')}/update")
-            self.logger.debug("data record event", extra={"data": event})
-            message = Message(data=event, dest_path=f"/{self.get_id_as_topic()}/update")
-            # print(f"to_json: {event.data}")
-            # _, body = to_structured(event)
-            # print(f"body: {body}")
-            # print(message.dest_path, to_json(message.data).decode())
-            await self.send_message(message)
-
-            # data = {
-            #     "data": variables,
-            #     "instance": {"make": "MockCo", "model": "Sensor-1", "serial": self.sn},
-            # }
-            # # If we send a message on an even 10-minute mark then
-            # # include the metadata packet. This is meant to mock
-            # # occasionally updating a station-sensors's metadata
-            # if dt.minute % 10 == 0:
-            #     data["metadata"] = self.metadata
-            #     data["metadata"]["attributes"] = data["instance"]
-
-            # if self.data_buffer:
-            #     await self.data_buffer.put(data)
-
-            await asyncio.sleep(time_to_next(self.data_rate))
-            # await asyncio.sleep(.1)
-
-    # def start(self):
-    #     super().start()
-    #     self.logger.debug("mock1.start", extra={"status": self.status.get_status()})
-
-
 class ServerConfig(BaseModel):
     host: str = "localhost"
     port: int = 9080
     log_level: str = "info"
-
-
-async def test_task():
-    while True:
-        await asyncio.sleep(1)
-        # print("daq test_task...")
-        logger = logging.getLogger("envds.info")
-        logger.info("mock1_test_task", extra={"test": "mock1 task"})
 
 
 async def shutdown(sensor):
@@ -714,13 +593,9 @@ async def main(server_config: ServerConfig = None):
         pass
 
     envdsLogger(level=logging.DEBUG).init_logger()
-    logger = logging.getLogger(f"mockco::mock1::{sn}")
+    logger = logging.getLogger(f"AerosolDynamics::MAGIC250::{sn}")
 
-    # test = envdsBase()
-    # task_list.append(asyncio.create_task(test_task()))
-
-    # print("instantiate")
-    logger.debug("Starting Mock1")
+    logger.debug("Starting MAGIC250")
     inst = MAGIC250()
     # print(inst)
     # await asyncio.sleep(2)

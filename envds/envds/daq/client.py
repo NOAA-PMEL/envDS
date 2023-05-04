@@ -86,7 +86,8 @@ class DAQClient(abc.ABC):
         if "sensor-interface-properties" not in self.config.properties:
             self.config.properties["sensor-interface-properties"] = dict()
         # print("daqclient: 3")
-
+        
+        self.multistep_send = []
         self.send_buffer = asyncio.Queue()
         self.recv_buffer = asyncio.Queue()
         # self.buffer_loops = [
@@ -415,7 +416,14 @@ class DAQClient(abc.ABC):
 
     async def send_loop(self):
         while True:
-            data = await self.send_buffer.get()
+            if len(self.multistep_send):
+                data = self.multistep_send.pop(0)
+            else:
+                data = await self.send_buffer.get()
+                if isinstance(data,list) and len(self.multistep_send):
+                    self.multistep_send = data
+                    data = self.multistep_send.pop(0)
+
             await self.send_to_client(data)
             await asyncio.sleep(self.min_recv_delay)
 

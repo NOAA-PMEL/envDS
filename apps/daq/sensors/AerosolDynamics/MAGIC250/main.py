@@ -43,7 +43,7 @@ app.include_router(api_router)#, prefix="/envds/home")
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World from MockCo-Mock1"}
+    return {"message": "Hello World from AerosolDynamics-MAGIC250"}
 
 # @app.post("/ce")
 # async def handle_ce(ce: CloudEvent):

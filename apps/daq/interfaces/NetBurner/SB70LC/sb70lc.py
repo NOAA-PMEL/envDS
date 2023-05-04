@@ -1,38 +1,18 @@
 import asyncio
 import signal
-# import uvicorn
-# from uvicorn.config import LOGGING_CONFIG
 import sys
 import os
 import logging
-# from logfmter import Logfmter
 import logging.config
-# from pydantic import BaseSettings, Field
-# import json
 import yaml
-# import random
-from envds.core import envdsLogger #, envdsBase 
-# from envds.util.util import (
-#     get_datetime_format,
-#     time_to_next,
-#     get_datetime,
-#     get_datetime_string,
-# )
-# from envds.daq.sensor import Sensor, SensorConfig, SensorVariable
+from envds.core import envdsLogger
 from envds.daq.interface import Interface, InterfaceConfig #, InterfacePath
-# from envds.daq.clients.mock_client import MockClient
-# from envds.daq.types import DAQEventType
-# from envds.event.event import create_data_update, create_status_update
-# from envds.daq.event import DAQEvent
-# from envds.message.message import Message
-# from typing import Union
-# from cloudevents.http import CloudEvent, from_dict, from_json
-# from cloudevents.conversion import to_json, to_structured
+from envds.daq.event import DAQEvent
 
 from pydantic import BaseModel
 
-task_list = []
 
+task_list = []
 
 class SB70LC(Interface):
     """docstring for SB70LC."""
@@ -57,12 +37,7 @@ class SB70LC(Interface):
                     "host": {"type": "string", "data": "localhost"},
                     "port": {"type": "int", "data": 23},
                 },
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.tcp_client",
-                    "client_class": "TCPClient",
-                    "address": {"host": "localhost", "port": 23}
-                },
+                "data": [],
             },
             "port-2": {
                 "attributes": {
@@ -71,12 +46,7 @@ class SB70LC(Interface):
                     "host": {"type": "string", "data": "localhost"},
                     "port": {"type": "int", "data": 24},
                 },
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.tcp_client",
-                    "client_class": "TCPClient",
-                    "address": {"host": "localhost", "port": 24}
-                },
+                "data": [],
             },
             "port-I2C": {
                 "attributes": {
@@ -85,12 +55,7 @@ class SB70LC(Interface):
                     "host": {"type": "string", "data": "localhost"},
                     "port": {"type": "int", "data": 26},
                 },
-                "data": {
-                    # "type": "could add type here in case different types of client"
-                    "client_module": "envds.daq.clients.tcp_client",
-                    "client_class": "TCPClient",
-                    "address": {"host": "localhost", "port": 26}
-                },
+                "data": [],
             },
         }
     }
@@ -107,23 +72,6 @@ class SB70LC(Interface):
         self.default_client_class = "TCPClient"
 
         self.data_loop_task = None
-        # print("mock:3")
-
-        # handled in run_setup ----
-        # self.configure()
-
-        # print(f"config: {self.config}")
-        # # self.logger = logging.getLogger(f"{self.config.type}-{self.config.name}-{self.config.uid}")
-        # self.logger = logging.getLogger(self.build_app_uid())
-
-        # # set id
-        # # self.logger.debug("inherited id", extra={"self.id": self.id})
-
-        # # self.update_id("app_uid", f"{self.config.type}-{self.config.name}-{self.config.uid}")
-        # self.update_id("app_uid", self.build_app_uid())
-        # self.logger.debug("id", extra={"self.id": self.id})
-        # ----
-
 
     def configure(self):
 
@@ -153,33 +101,7 @@ class SB70LC(Interface):
 
             # print("configure:5")
             self.logger.debug("conf", extra={"data": conf})
-            # if "metadata_interval" in conf:
-            #     self.include_metadata_interval = conf["metadata_interval"]
 
-            # # create SensorConfig      
-            # var_list = []
-            # var_map = dict()
-            # for name, val in Mock.metadata["variables"].items():
-            #     var_list.append(
-            #         SensorVariable(
-            #             name=name,
-            #             type=val["type"],
-            #             shape=val["shape"],
-            #             attributes=val["attributes"],
-            #         )
-            #     )
-            #     var_map[name] = SensorVariable(
-            #         name=name,
-            #         type=val["type"],
-            #         shape=val["shape"],
-            #         attributes=val["attributes"],
-            #     )
-            # # print(f"var_list: {var_list}")
-
-            # TODO: configure Interface
-            # TODO: configure each path(client)
-
-            # print("configure:6")
             atts = SB70LC.metadata["attributes"]
 
             # print("configure:7")
@@ -225,9 +147,6 @@ class SB70LC(Interface):
                 name=atts["name"]["data"],
                 uid=conf["uid"],
                 paths=path_map
-                # # variables=var_map,
-                # interfaces=conf["interfaces"],
-                # # daq_id=conf["daq_id"]
             )
             # print(f"self.config: {self.config}")
 
@@ -235,23 +154,60 @@ class SB70LC(Interface):
                 "configure",
                 extra={"conf": conf, "self.config": self.config},
             )
-
-            # async def recv_data_loop():
-            #     while True:
-            #         if self.enabled()
-
-
-            # if "interfaces" in self.config:
-            #     for name, iface in conf.items():
-            #         self.iface_map[name] = iface
-            #         # if name == "default":
-            #         #     pass
-            #         # elif name == "serial":
-            #         #     iface["dest_path"] = f"/envds/interface/{iface[]}"
         except Exception as e:
             self.logger.debug("sb70lc:configure", extra={"error": e})
+ 
+    def package_i2c_data(self, data: dict):
 
+        '''
+        example: 
+            {
+                "i2c-command": "read-buffer",
+                "address": "44",
+                "read-length": 6,
+                "delay-ms": 50 # 50ms in seconds
+            }
+        '''
+        # all hex values as hex strings
+        try:
+            i2c_command = data["i2c-command"] 
+            address = data["address"]
+            data = data["data"]
 
+            delay = data["delay-ms", 0] / 1000.0
+
+            if i2c_command == "write-byte":
+                output = f'#WB{address}{data}\n'
+
+            elif i2c_command == "write-buffer":
+                write_length = data.get(
+                    "write-length",
+                    len(bytes.fromhex(data))
+                )
+                length = f"{write_length:02}"
+                output = f'#WW{address}{length}{data}\n'
+
+            elif i2c_command == "read-byte":
+                output = f'#RB{address}\n'
+
+            elif i2c_command == "read-buffer":
+                if "read-length" not in data:
+                    self.logger.error("No read-length specified for i2c read-buffer")
+                    return None, delay
+                read_length = data["read-length"]
+                length = f"{read_length:02}"                
+                output = f'#RR{address}{length}\n'
+
+            return output, delay
+        
+        except KeyError:
+            return None, delay
+
+    def unpack_i2c_data(self, data):
+
+        self.logger.debug("unpack_i2c_data", extra={"data": data})
+        return data
+    
     async def recv_data_loop(self, client_id: str):
         
         # self.logger.debug("recv_data_loop", extra={"client_id": client_id})
@@ -265,6 +221,10 @@ class SB70LC(Interface):
                     data = await client.recv()
                     self.logger.debug("recv_data", extra={"client_id": client_id, "data": data})
 
+                    if client_id == "port-I2C":
+                        data = self.unpack_i2c_data(data)
+
+
                     await self.update_recv_data(client_id=client_id, data=data)
                     # await asyncio.sleep(self.min_recv_delay)
                 else:
@@ -275,6 +235,27 @@ class SB70LC(Interface):
 
             # await asyncio.sleep(self.min_recv_delay)
             await asyncio.sleep(0.1)
+
+    async def send_data(self, event: DAQEvent):
+
+            try:
+                print(f"send_data:1 - {event}")
+                client_id = event["path_id"]
+                client = self.client_map[client_id]["client"]
+                data = event.data["data"]
+
+                if client_id == "port-I2C":
+                    i2c_data, delay = self.package_i2c_data(data)
+                    if i2c_data:
+                        await asyncio.sleep(delay)
+                        await client.send(data)
+                    
+                    # wrap data in netburner protocol for i2c
+                    # might need special client class for this?
+                else:
+                    await client.send(data)
+            except KeyError:
+                pass
 
 class ServerConfig(BaseModel):
     host: str = "localhost"
