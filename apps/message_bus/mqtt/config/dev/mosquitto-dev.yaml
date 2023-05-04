@@ -1,0 +1,205 @@
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: envds-cloudy
+#   labels:
+#     name: envds-cloudy
+# ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: default
+  labels:
+    app: mosquitto
+  # namespace: envds-cloudy
+data:
+  mosquitto.conf: |
+    sys_interval 1
+    autosave_interval 1
+    allow_anonymous true
+    autosave_on_changes true
+    # logs
+    log_dest stdout
+    log_type all
+    log_timestamp true
+    log_timestamp_format %Y-%m-%d_%H:%M:%S
+    connection_messages true
+    # data
+    persistence true
+    persistence_location /mosquitto/data
+    persistence_file mosquitto.db
+
+    # Non-TLS
+    listener 1883
+    protocol mqtt
+
+    # Bridge
+    # connection 172.23.140.152
+    # address 172.23.140.152:1884
+    connection 172.17.6.20
+    address 172.17.6.20:1884
+    topic /envds/dev/sensor/+/data/update out 0 "" ""
+    topic /envds/+/core/+/registry/bcast both 0 "" ""
+    topic /envds/+/core/+/registry/update both 0 "" ""
+    topic /envds/+/core/+/registry/request both 0 "" ""
+    # topic # out 0 "" ""
+
+    # # TLS
+    # # https://mosquitto.org/man/mosquitto-tls-7.html
+    # listener 8883
+    # protocol mqtt
+    # cafile /certs/ca.crt
+    # certfile /certs/server.crt
+    # keyfile /certs/server.key
+    # require_certificate false
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mosquitto-pv-volume-dev
+  namespace: default
+  labels:
+    type: local
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/envds/mqtt/dev"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-pv-claim
+  namespace: default
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: default
+  labels:
+    app: mosquitto
+  # namespace: envds-cloudy
+spec:
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        # image: localhost:5000/envds/eclipse-mosquitto:2.0.14
+        # image: envds-registry:36301/eclipse-mosquitto:2.0.14
+        # image: envds-registry:5000/core/eclipse-mosquitto:2.0.14
+        # image: envds-registry:5000/core/eclipse-mosquitto:2.0.15
+        image: envds-registry-dev:5000/envds/eclipse-mosquitto:2.0.15
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 1883
+          protocol: TCP
+        # - name: https
+        #   containerPort: 8883
+        #   protocol: TCP
+        volumeMounts:
+            - name: mosquitto-config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            - name: mosquitto-pv-storage
+              mountPath: /mosquitto/data
+            # - name: mosquitto-certs
+            #   mountPath: /certs/ca.crt
+            #   subPath: ca.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.crt
+            #   subPath: server.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.key
+            #   subPath: server.key
+      volumes:
+        - name: mosquitto-config
+          configMap:
+            name: mosquitto-config
+        - name: mosquitto-pv-storage
+          persistentVolumeClaim:
+            claimName: mosquitto-pv-claim
+        # - name: mosquitto-certs
+        #   configMap:
+        #     name: mosquitto-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: default
+  labels:
+    app: mosquitto
+  # namespace: envds-cloudy
+spec:
+  selector:
+    app: mosquitto
+  ports:
+  - name: http
+    protocol: TCP
+    port: 1883
+    targetPort: 1883
+  # - name: https
+  #   port: 8883
+  #   targetPort: 8883
+  type: LoadBalancer
+  # type: ClusterIP
+---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: mosquitto-ingress
+#   namespace: envds-cloudy
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+#     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+# spec:
+#   rules:
+#   - host: mosquitto.local
+#     http:
+#       paths:
+#         - pathType: Prefix
+#           path: "/"
+#           backend:
+#             service:
+#               name: mosquitto
+#               port: 
+#                 number: 9001
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: IngressRouteTCP
+# metadata:
+#   name: mosquitto
+#   namespace: default
+
+# spec:
+#   entryPoints:
+#     - mosquitto
+
+#   routes:
+#   - match: HostSNI(`*`)
+#     services:
+#     - name: mosquitto
+#       port: 1883
