@@ -80,7 +80,7 @@ class SensorAttribute(BaseModel):
     def data_check(cls, v, values):
         if "type" in values:
             data_type = values["type"]
-            if data_type == "char":
+            if data_type == "char" or data_type == "string":
                 data_type = "str"
                 
             if "type" in values and not isinstance(v, eval(data_type)):
@@ -588,7 +588,7 @@ class Sensor(envdsBase):
         super().disable()
 
     def sampling(self) -> bool:
-        self.logger.debug("sensor.sampling")
+        # self.logger.debug("sensor.sampling")
         if self.status.get_requested(Sensor.SAMPLING) == envdsStatus.TRUE:
             return self.status.get_health_state(Sensor.SAMPLING)
 

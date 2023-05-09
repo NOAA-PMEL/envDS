@@ -19,7 +19,7 @@ RUN pip3 install --no-index --find-links=/lib/envds envds
 # for fastapi/uvicorn
 # COPY . .
 # without fastapi/uvicorn
-COPY ./mock1.py .
+COPY ./magic250.py .
 
 # WORKDIR $APP_HOME/envds
 # COPY ./apis ./apis
@@ -30,5 +30,5 @@ COPY ./mock1.py .
 # For environments with multiple CPU cores, increase the number of workers
 # to be equal to the cores available.
 # CMD ["uvicorn", "envds.main:app", "--host", "0.0.0.0", "--port", "8080"]
-CMD ["python", "mock1.py", "--host", "0.0.0.0"]
+CMD ["python", "magic250.py", "--host", "0.0.0.0"]
 # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

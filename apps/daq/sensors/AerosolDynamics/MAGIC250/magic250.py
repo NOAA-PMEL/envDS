@@ -451,8 +451,8 @@ class MAGIC250(Sensor):
         # init to stopped
         # await self.stop_command()
 
-        start_command = f"Log,{self.sampling_interval}"
-        stop_command = "Log,0"
+        start_command = f"Log,{self.sampling_interval}\n"
+        stop_command = "Log,0\n"
         while True:
             
             while self.sampling():
@@ -603,6 +603,7 @@ async def main(server_config: ServerConfig = None):
     # print("running")
     # task_list.append(asyncio.create_task(inst.run()))
     # await asyncio.sleep(2)
+    await asyncio.sleep(2)
     inst.start()
     # logger.debug("Starting Mock1")
 
