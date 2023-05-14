@@ -510,7 +510,6 @@ class Sensor(envdsBase):
             message = Message(data=event, dest_path=dest_path)
             self.logger.debug("interface_send_data", extra={"dest_path": dest_path})
             await self.send_message(message)
-            send_config = False
         except Exception as e:
             self.logger.error("interface_send_data", extra={"error": e})
 
@@ -590,6 +589,7 @@ class Sensor(envdsBase):
     def sampling(self) -> bool:
         # self.logger.debug("sensor.sampling")
         if self.status.get_requested(Sensor.SAMPLING) == envdsStatus.TRUE:
+            # self.logger.debug("sampling", extra={"health": self.status.get_health_state(Sensor.SAMPLING)})
             return self.status.get_health_state(Sensor.SAMPLING)
 
     def start(self):
@@ -693,6 +693,7 @@ class Sensor(envdsBase):
         self.status.set_requested(Sensor.SAMPLING, envdsStatus.FALSE)
 
     async def do_stop(self):
+        self.logger.debug("do_stop")
         requested = self.status.get_requested(Sensor.SAMPLING)
         actual = self.status.get_actual(Sensor.SAMPLING)
 
@@ -733,12 +734,45 @@ class Sensor(envdsBase):
     async def interface_check(self):
         # self.logger.debug("interface_check", extra={"iface_map": self.iface_map})
         for name, iface in self.iface_map.items():
-            status = iface["status"]
-            # self.logger.debug("interface_check", extra={"status": status.get_status()})
-            if not status.get_health():
-                if not status.get_health_state(envdsStatus.ENABLED):
-                    if status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
-                        try:
+            try:
+                status = iface["status"]
+                # self.logger.debug("interface_check", extra={"status": status.get_status()})
+                if not status.get_health():
+                    if not status.get_health_state(envdsStatus.ENABLED):
+                        if status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
+                            try:
+                                try:
+                                    iface_envds_id = iface["interface"]["interface_envds_env_id"]
+                                except KeyError:
+                                    iface_envds_id = self.id.app_env_id
+
+                                # dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
+                                dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/status/request"
+                                extra_header = {"path_id": iface["interface"]["path"]}
+                                # event = DAQEvent.create_interface_connect_request(
+                                event = DAQEvent.create_interface_status_request(
+                                    # source="envds.core", data={"test": "one", "test2": 2}
+                                    source=self.get_id_as_source(),
+                                    # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                                    data={"state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+                                    extra_header=extra_header
+                                )
+                                self.logger.debug("enable interface", extra={"n": name, "e": event, "dest_path": dest_path})
+                                message = Message(data=event, dest_path=dest_path)
+                                # self.logger.debug("interface check", extra={"dest_path": dest_path})
+                                await self.send_message(message)
+
+                                # set the route to recv data
+                                self.set_route(
+                                    subscription=f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/update",
+                                    route_key=det.interface_data_recv(),
+                                    # route=iface["recv_task"]
+                                    route=self.handle_interface_data
+                                )
+                            except Exception as e:
+                                self.logger.error("interface_check", extra={"error": e})
+                        else:
+
                             try:
                                 iface_envds_id = iface["interface"]["interface_envds_env_id"]
                             except KeyError:
@@ -746,87 +780,56 @@ class Sensor(envdsBase):
 
                             # dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
                             dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/status/request"
-                            extra_header = {"path_id": iface["interface"]["path"]}
+                            extra_header = {"path_id": iface['interface']["path"]}
                             # event = DAQEvent.create_interface_connect_request(
                             event = DAQEvent.create_interface_status_request(
                                 # source="envds.core", data={"test": "one", "test2": 2}
                                 source=self.get_id_as_source(),
                                 # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
-                                data={"state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+                                data={"state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
                                 extra_header=extra_header
                             )
-                            self.logger.debug("enable interface", extra={"n": name, "e": event, "dest_path": dest_path})
+                            self.logger.debug("connect interface", extra={"n": name, "e": event})
                             message = Message(data=event, dest_path=dest_path)
-                            # self.logger.debug("interface check", extra={"dest_path": dest_path})
                             await self.send_message(message)
 
-                            # set the route to recv data
+                            # remove route
                             self.set_route(
                                 subscription=f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/update",
                                 route_key=det.interface_data_recv(),
-                                # route=iface["recv_task"]
-                                route=self.handle_interface_data
+                                # route=iface["recv_task"],
+                                route=self.handle_interface_data,
+                                enable=False
                             )
-                        except Exception as e:
-                            self.logger.error("interface_check", extra={"error": e})
-                    else:
 
+
+                else:
+                    if status.get_health_state(envdsStatus.ENABLED):
                         try:
                             iface_envds_id = iface["interface"]["interface_envds_env_id"]
                         except KeyError:
                             iface_envds_id = self.id.app_env_id
 
-                        # dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
-                        dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/status/request"
-                        extra_header = {"path_id": iface['interface']["path"]}
-                        # event = DAQEvent.create_interface_connect_request(
-                        event = DAQEvent.create_interface_status_request(
+                        dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/keepalive/request"
+                        extra_header = {"path_id": iface["interface"]["path"]}
+                        event = DAQEvent.create_interface_keepalive_request(
                             # source="envds.core", data={"test": "one", "test2": 2}
                             source=self.get_id_as_source(),
                             # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
-                            data={"state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
+                            data={},
                             extra_header=extra_header
                         )
-                        self.logger.debug("connect interface", extra={"n": name, "e": event})
+                        # # event = DAQEvent.create_interface_connect_request(
+                        # event = DAQEvent.create_interface_keepalive_request(
+                        #     # source="envds.core", data={"test": "one", "test2": 2}
+                        #     source=self.get_id_as_source(),
+                        #     data={"path_id": iface["path"]} #, "state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
+                        # )
+                        self.logger.debug("interface keepalive request", extra={"n": name, "e": event})
                         message = Message(data=event, dest_path=dest_path)
                         await self.send_message(message)
-
-                        # remove route
-                        self.set_route(
-                            subscription=f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/data/update",
-                            route_key=det.interface_data_recv(),
-                            # route=iface["recv_task"],
-                            route=self.handle_interface_data,
-                            enable=False
-                        )
-
-
-            else:
-                if status.get_health_state(envdsStatus.ENABLED):
-                    try:
-                        iface_envds_id = iface["interface"]["interface_envds_env_id"]
-                    except KeyError:
-                        iface_envds_id = self.id.app_env_id
-
-                    dest_path = f"/envds/{iface_envds_id}/interface/{iface['interface']['interface_id']}/{iface['interface']['path']}/keepalive/request"
-                    extra_header = {"path_id": iface["interface"]["path"]}
-                    event = DAQEvent.create_interface_keepalive_request(
-                        # source="envds.core", data={"test": "one", "test2": 2}
-                        source=self.get_id_as_source(),
-                        # data={"path_id": iface["path"], "state": envdsStatus.ENABLED, "requested": envdsStatus.FALSE},
-                        data={},
-                        extra_header=extra_header
-                    )
-                    # # event = DAQEvent.create_interface_connect_request(
-                    # event = DAQEvent.create_interface_keepalive_request(
-                    #     # source="envds.core", data={"test": "one", "test2": 2}
-                    #     source=self.get_id_as_source(),
-                    #     data={"path_id": iface["path"]} #, "state": envdsStatus.ENABLED, "requested": envdsStatus.TRUE},
-                    # )
-                    self.logger.debug("interface keepalive request", extra={"n": name, "e": event})
-                    message = Message(data=event, dest_path=dest_path)
-                    await self.send_message(message)
-    
+            except Exception as e:
+                self.logger.error("interface_check error", extra={"error": e})
 
     # async def connect_interface(self, name):
 

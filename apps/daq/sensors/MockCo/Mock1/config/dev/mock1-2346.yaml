@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mockco-mock1-1234-config
+  name: mockco-mock1-2346-config
   namespace: envds
   labels:
-    app: mockco-mock1-1234
+    app: mockco-mock1-2346
 data:
   sensor.conf: |
-    serial_number: "1234"
+    serial_number: "2346"
     daq_id: cloudysky
     interfaces:
       # default: serial
       default:
         interface_env_id: dev # if omitted, defaults to envds_id of sensor
-        interface_id: system::mock::localhost
+        interface_id: system::mock::uas1
         # path: port, channel, etc
-        path: port-01
+        path: port-02
         connection-properties:
           baudrate: 9600
           bytesize: 8
@@ -34,21 +34,21 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mockco-mock1-1234
+  name: mockco-mock1-2346
   namespace: envds
   labels:
-    app: mockco-mock1-1234
+    app: mockco-mock1-2346
 spec:
   selector:
     matchLabels:
-      app: mockco-mock1-1234
+      app: mockco-mock1-2346
   template:
     metadata:
       labels:
-        app: mockco-mock1-1234
+        app: mockco-mock1-2346
     spec:
       containers:
-      - name: mockco-mock1-1234
+      - name: mockco-mock1-2346
         image: envds-registry-dev:5000/envds/sensor/mockco-mock1:0.1.0
         imagePullPolicy: "Always"
         env:
@@ -72,7 +72,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: mockco-mock1-1234-config
+            - name: mockco-mock1-2346-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -85,9 +85,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: mockco-mock1-1234-config
+        - name: mockco-mock1-2346-config
           configMap:
-            name: mockco-mock1-1234-config
+            name: mockco-mock1-2346-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -95,13 +95,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mockco-mock1-1234
+  name: mockco-mock1-2346
   namespace: envds
   labels:
-    app: mockco-mock1-1234
+    app: mockco-mock1-2346
 spec:
   selector:
-    app: mockco-mock1-1234
+    app: mockco-mock1-2346
   ports:
   - name: http
     protocol: TCP
@@ -116,34 +116,34 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: mockco-mock1-1234-stripprefix
+#   name: mockco-mock1-2346-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/sensor/MockCo/Mock1/1234
+#       - /envds/sensor/MockCo/Mock1/2346
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: mockco-mock1-1234-ingress
+#   name: mockco-mock1-2346-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-mockco-mock1-1234-stripprefix@kubernetescrd
+#       envds-mockco-mock1-2346-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/MockCo/Mock1/1234
+#       - path: /envds/sensor/MockCo/Mock1/2346
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: mockco-mock1-1234
+#             name: mockco-mock1-2346
 #             port:
 #               number: 9080

@@ -9,6 +9,8 @@ data:
   sensor.conf: |
     serial_number: "1234"
     daq_id: cloudysky
+    sampling-interval: 1
+    metadata-interval: 60
     interfaces:
       # default: serial
       default:
@@ -16,16 +18,19 @@ data:
         interface_id: system::mock::localhost
         # path: port, channel, etc
         path: port-01
-        connection-properties:
-          baudrate: 9600
-          bytesize: 8
-          parity: N
-          stopbit: 1
-        # read-properties:
-          # terminator: "\r"
-          # binary: true
-          # num-bytes: 1
-          # decode-errors: strict
+        sensor-interface-properties:
+          connection-properties:
+            baudrate: 9600
+            bytesize: 8
+            parity: N
+            stopbit: 1
+          # read-properties:
+            # terminator: "\r"
+            # read-method: readline
+            # send-method: ascii # or binary
+            # binary: true
+            # num-bytes: 1
+            # decode-errors: strict
       # power: # example of second interface (e.g., CDP enable signal)
       #   interface_id: system::mock::localhost
       #   path: port-01
@@ -49,13 +54,15 @@ spec:
     spec:
       containers:
       - name: mockco-mock1-1234
-        image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
+        image: envds-registry-dev:5000/envds/sensor/mockco-mock1:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
             value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
         resources:
           requests:
             cpu: "50m"

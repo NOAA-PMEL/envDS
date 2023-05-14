@@ -1,61 +1,58 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mockco-mock1-1235-config
+  name: netburner-sb70lc-home38-config
   namespace: envds
   labels:
-    app: mockco-mock1-1235
+    app: netburner-sb70lc-home38
 data:
-  sensor.conf: |
-    serial_number: "1235"
-    daq_id: cloudysky
-    interfaces:
-      # default: serial
-      default:
-        interface_env_id: dev # if omitted, defaults to envds_id of sensor
-        interface_id: system::mock::uas1
-        # path: port, channel, etc
-        path: port-01
-        connection-properties:
-          baudrate: 9600
-          bytesize: 8
-          parity: N
-          stopbit: 1
-        # read-properties:
-          # terminator: "\r"
-          # binary: true
-          # num-bytes: 1
-          # decode-errors: strict
-      # power: # example of second interface (e.g., CDP enable signal)
-      #   interface_id: system::mock::localhost
-      #   path: port-01
+  interface.conf: |
+    uid: home38
+    # serial_number: "1234"
+    # daq_id: cloudysky
+    host: 192.168.86.38
+    paths:
+      port-1:
+          # host: 10.55.169.73
+          # host: 192.168.86.46 # can override interface host if needed?
+          port: 23 # if omitted, default is used
+      port-2:
+          # host: 10.55.169.73
+          # host: 192.168.86.46
+          port: 24
+      port-I2C:
+          # host: 10.55.169.73
+          # host: 192.168.86.46
+          port: 26
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mockco-mock1-1235
+  name: netburner-sb70lc-home38
   namespace: envds
   labels:
-    app: mockco-mock1-1235
+    app: netburner-sb70lc-home38
 spec:
   selector:
     matchLabels:
-      app: mockco-mock1-1235
+      app: netburner-sb70lc-home38
   template:
     metadata:
       labels:
-        app: mockco-mock1-1235
+        app: netburner-sb70lc-home38
     spec:
       containers:
-      - name: mockco-mock1-1235
-        image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
+      - name: netburner-sb70lc-home38
+        image: envds-registry-dev:5000/envds/interface/netburner-sb70lc:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
             value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
         resources:
           requests:
             cpu: "50m"
@@ -70,9 +67,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: mockco-mock1-1235-config
-              mountPath: /app/config/sensor.conf
-              subPath: sensor.conf
+            - name: netburner-sb70lc-home38-config
+              mountPath: /app/config/interface.conf
+              subPath: interface.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -83,9 +80,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: mockco-mock1-1235-config
+        - name: netburner-sb70lc-home38-config
           configMap:
-            name: mockco-mock1-1235-config
+            name: netburner-sb70lc-home38-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -93,13 +90,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mockco-mock1-1235
+  name: netburner-sb70lc-home38
   namespace: envds
   labels:
-    app: mockco-mock1-1235
+    app: netburner-sb70lc-home38
 spec:
   selector:
-    app: mockco-mock1-1235
+    app: netburner-sb70lc-home38
   ports:
   - name: http
     protocol: TCP
@@ -114,34 +111,35 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: mockco-mock1-1235-stripprefix
+#   name: system-mock-uas1-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/sensor/MockCo/Mock1/1235
+#       - /envds/interface/system/mock/01
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: mockco-mock1-1235-ingress
+#   name: system-mock-uas1-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-mockco-mock1-1235-stripprefix@kubernetescrd
+#       envds-system-mock-uas1-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/MockCo/Mock1/1235
+#       - path: /envds/interface/system/mock/01
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: mockco-mock1-1235
+#             name: system-mock-uas1
 #             port:
 #               number: 9080
+

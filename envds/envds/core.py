@@ -462,43 +462,43 @@ class envdsBase(abc.ABC):
 
     async def status_check(self):
         # while True:
-        #     try:
-        if not self.status.get_health():  # something has changed
-            # self.logger.debug("status_monitor", extra={"health": self.status.get_health()})
-            if not self.status.get_health_state(envdsStatus.ENABLED):
-                print("check:1")
-                if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
-                    try:  # exception raised if already enabling
-                        print("check:2")
-                        await self.do_enable()
-                        # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
-                    except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
-                        # except Exception as e:
-                        print(f"check:3")
-                        pass
-                else:
-                    try:
-                        print("check:4")
-                        await self.do_disable()
-                    except envdsRunTransitionException:
-                        print("check:5")
-                        pass
+        try:
+            if not self.status.get_health():  # something has changed
+                # self.logger.debug("status_monitor", extra={"health": self.status.get_health()})
+                if not self.status.get_health_state(envdsStatus.ENABLED):
+                    print("check:1")
+                    if self.status.get_requested(envdsStatus.ENABLED) == envdsStatus.TRUE:
+                        try:  # exception raised if already enabling
+                            print("check:2")
+                            await self.do_enable()
+                            # self.status.set_actual(envdsStatus.ENABLED, envdsStatus.TRUE)
+                        except (envdsRunTransitionException, envdsRunErrorException, envdsRunWaitException):
+                            # except Exception as e:
+                            print(f"check:3")
+                            pass
+                    else:
+                        try:
+                            print("check:4")
+                            await self.do_disable()
+                        except envdsRunTransitionException:
+                            print("check:5")
+                            pass
 
-            if not self.status.get_health_state(envdsStatus.RUNNING):
-                if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
-                    # self.do_run = True
-                    print("check:6")
-                    asyncio.create_task(self.do_run())
-                    # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRUE)
-                else:
-                    print("check:7")
-                    await self.do_shutdown()
-                    # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
-            print("check:8")
-        self.logger.debug("monitor", extra={"status": self.status.get_status()})
+                if not self.status.get_health_state(envdsStatus.RUNNING):
+                    if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
+                        # self.do_run = True
+                        print("check:6")
+                        asyncio.create_task(self.do_run())
+                        # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.TRUE)
+                    else:
+                        print("check:7")
+                        await self.do_shutdown()
+                        # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
+                print("check:8")
+            self.logger.debug("monitor", extra={"status": self.status.get_status()})
         # self.do_run = False
-        # except Exception as e:
-        #     self.logger.debug("monitor exception", extra={"e": e})
+        except Exception as e:
+            self.logger.debug("monitor exception", extra={"e": e})
 
         # await asyncio.sleep(1)
 
@@ -648,23 +648,29 @@ class envdsBase(abc.ABC):
             # data = {"message": message}
             # for key, val in extra.items():
             #     data[key] = val
-            # self.logger.debug(f"send_message: {data}")
+            self.logger.debug(f"send_message: {message.data}")
             # # self.logger.debug(f"{self.message_client}")
 
             # # await self.message_client.send(message)
             # await self.send_buffer.put(data)
             await self.send_buffer.put(message)
+            self.logger.debug("send_message: sent", extra={"buffer": self.send_buffer.qsize()})
 
     async def send_message_loop(self):
 
         while True:
-            # print("send_message_loop")
-            data = await self.send_buffer.get()
-            while not self.message_client:
-                await asyncio.sleep(0.1)
-            await self.message_client.send(data)
-            await asyncio.sleep(0.01)
-
+            try:
+                # print("send_message_loop")
+                data = await self.send_buffer.get()
+                while not self.message_client:
+                    self.logger.debug("send_message_loop waiting", extra={"client":self.message_client})
+                    await asyncio.sleep(0.1)
+                self.logger.debug("send_message_loop send", extra={"client":data})
+                await self.message_client.send(data)
+                await asyncio.sleep(0.01)
+            except Exception as e:
+                self.logger.error("send_message_loop", extra={"error": e})
+                
     async def rec_message_loop(self):
 
         while True:

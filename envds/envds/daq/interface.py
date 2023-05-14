@@ -145,6 +145,7 @@ class Interface(envdsBase):
         self.run_task_list.append(self.client_monitor())
         self.run_task_list.append(self.client_registry_monitor())
 
+        self.multistep_data = []
         # add connect to enable_task_list
         # add data loop to enable task list
 
@@ -330,7 +331,7 @@ class Interface(envdsBase):
                         #     self.client_map[id]["recv_task"].cancel()
                         #     self.client_map[id]["recv_task"] = None
                     else:
-                        self.logger.debug("registry_monitor:3")
+                        self.logger.debug("registry_monitor:3", extra={"client_map": self.client_map})
                         # enable client if needed
                         if not self.client_map[id]["client"].enabled():
                             self.client_map[id]["client"].enable()

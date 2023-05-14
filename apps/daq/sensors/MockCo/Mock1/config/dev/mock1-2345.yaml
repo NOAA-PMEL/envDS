@@ -7,13 +7,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mockco-mock1-3456-config
+  name: mockco-mock1-2345-config
   namespace: envds
   labels:
-    app: mockco-mock1-3456
+    app: mockco-mock1-2345
 data:
   sensor.conf: |
-    serial_number: "3456"
+    serial_number: "2345"
     daq_id: cloudysky
     interfaces:
       # default: serial
@@ -21,7 +21,7 @@ data:
         interface_env_id: dev # if omitted, defaults to envds_id of sensor
         interface_id: system::mock::localhost
         # path: port, channel, etc
-        path: port-03
+        path: port-02
         connection-properties:
           baudrate: 9600
           bytesize: 8
@@ -39,28 +39,30 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mockco-mock1-3456
+  name: mockco-mock1-2345
   namespace: envds
   labels:
-    app: mockco-mock1-3456
+    app: mockco-mock1-2345
 spec:
   selector:
     matchLabels:
-      app: mockco-mock1-3456
+      app: mockco-mock1-2345
   template:
     metadata:
       labels:
-        app: mockco-mock1-3456
+        app: mockco-mock1-2345
     spec:
       containers:
-      - name: mockco-mock1-3456
-        image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
+      - name: mockco-mock1-2345
+        image: envds-registry-dev:5000/envds/sensor/mockco-mock1:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
             value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
         resources:
           requests:
             cpu: "50m"
@@ -75,7 +77,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: mockco-mock1-3456-config
+            - name: mockco-mock1-2345-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -88,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: mockco-mock1-3456-config
+        - name: mockco-mock1-2345-config
           configMap:
-            name: mockco-mock1-3456-config
+            name: mockco-mock1-2345-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -98,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mockco-mock1-3456
+  name: mockco-mock1-2345
   namespace: envds
   labels:
-    app: mockco-mock1-3456
+    app: mockco-mock1-2345
 spec:
   selector:
-    app: mockco-mock1-3456
+    app: mockco-mock1-2345
   ports:
   - name: http
     protocol: TCP

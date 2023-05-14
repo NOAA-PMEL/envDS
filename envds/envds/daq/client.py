@@ -416,15 +416,16 @@ class DAQClient(abc.ABC):
 
     async def send_loop(self):
         while True:
-            if len(self.multistep_send):
-                data = self.multistep_send.pop(0)
-            else:
-                data = await self.send_buffer.get()
-                if isinstance(data,list) and len(self.multistep_send):
-                    self.multistep_send = data
+            if self.enabled():
+                if len(self.multistep_send):
                     data = self.multistep_send.pop(0)
+                else:
+                    data = await self.send_buffer.get()
+                    if isinstance(data,list) and len(self.multistep_send):
+                        self.multistep_send = data
+                        data = self.multistep_send.pop(0)
 
-            await self.send_to_client(data)
+                await self.send_to_client(data)
             await asyncio.sleep(self.min_recv_delay)
 
     async def do_run(self):
@@ -704,6 +705,7 @@ class _StreamClient(_BaseClient):
 
     async def write(self, msg):
         if self.writer:
+            self.logger.debug("write", extra={"data": msg.encode()})
             self.writer.write(msg.encode())
             await self.writer.drain()
 
@@ -728,6 +730,7 @@ class _StreamClient(_BaseClient):
 
         self.connection_state = self.DISCONNECTING
         if self.writer:
+            self.logger.debug("disconnect", extra={"writer": self.writer})
             self.writer.close()
             await self.writer.wait_closed()
         self.connection_state = self.DISCONNECTED

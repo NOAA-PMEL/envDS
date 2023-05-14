@@ -277,7 +277,7 @@ class MAGIC250(Sensor):
                     },
                 },
             },
-            "serial_number": {
+            "magic_serial_number": {
                 "type": "string",
                 "shape": ["time"],
                 "attributes": {
@@ -342,6 +342,8 @@ class MAGIC250(Sensor):
         # self.sampling_task_list.append(self.data_loop())
         self.enable_task_list.append(self.default_data_loop())
         self.enable_task_list.append(self.sampling_monitor())
+        # asyncio.create_task(self.sampling_monitor())
+        self.collecting = False
 
     def configure(self):
         super(MAGIC250, self).configure()
@@ -447,25 +449,75 @@ class MAGIC250(Sensor):
 
     async def sampling_monitor(self):
 
-        collecting = False
+        # start_command = f"Log,{self.sampling_interval}\n"
+        start_command = "Log,1\n"
+        stop_command = "Log,0\n"
+        need_start = True
+        start_requested = False
+        # wait to see if data is already streaming
+        await asyncio.sleep(2)
+        # # if self.collecting:
+        # await self.interface_send_data(data={"data": stop_command})
+        # await asyncio.sleep(2)
+        # self.collecting = False
         # init to stopped
         # await self.stop_command()
 
-        start_command = f"Log,{self.sampling_interval}\n"
-        stop_command = "Log,0\n"
         while True:
-            
-            while self.sampling():
-                if not collecting:
-                    # await self.start_command()
-                    await self.interface_send_data(data={"data": start_command})
-                    collecting = True
+            try:
+                # self.logger.debug("sampling_monitor", extra={"self.collecting": self.collecting})
+                # while self.sampling():
+                #     # self.logger.debug("sampling_monitor:1", extra={"self.collecting": self.collecting})
+                #     if not self.collecting:
+                #         # await self.start_command()
+                #         self.logger.debug("sampling_monitor:2", extra={"self.collecting": self.collecting})
+                #         await self.interface_send_data(data={"data": start_command})
+                #         await asyncio.sleep(1)
+                #         # self.logger.debug("sampling_monitor:3", extra={"self.collecting": self.collecting})
+                #         self.collecting = True
+                #         # self.logger.debug("sampling_monitor:4", extra={"self.collecting": self.collecting})
 
-            if collecting:
-                # await self.stop_command()
-                await self.interface_send_data(data={"data": stop_command})
-                collecting = False
+                if self.sampling():
 
+                    if need_start:
+                        if self.collecting:
+                            await self.interface_send_data(data={"data": stop_command})
+                            await asyncio.sleep(2)
+                            self.collecting = False
+                            continue
+                        else:
+                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": "\n"})
+                            need_start = False
+                            start_requested = True
+                            await asyncio.sleep(2)
+                            continue
+                    elif start_requested:
+                        if self.collecting:
+                            start_requested = False
+                        else:
+                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": "\n"})
+                            await asyncio.sleep(2)
+                            continue
+                else:
+                    if self.collecting:
+                        await self.interface_send_data(data={"data": stop_command})
+                        await asyncio.sleep(2)
+                        self.collecting = False
+                            
+                await asyncio.sleep(.1)
+
+                # if self.collecting:
+                #     # await self.stop_command()
+                #     self.logger.debug("sampling_monitor:5", extra={"self.collecting": self.collecting})
+                #     await self.interface_send_data(data={"data": stop_command})
+                #     # self.logger.debug("sampling_monitor:6", extra={"self.collecting": self.collecting})
+                #     self.collecting = False
+                #     # self.logger.debug("sampling_monitor:7", extra={"self.collecting": self.collecting})
+            except Exception as e:
+                print(f"sampling monitor error: {e}")
+                
             await asyncio.sleep(.1)
 
 
@@ -482,73 +534,87 @@ class MAGIC250(Sensor):
     async def default_data_loop(self):
 
         while True:
-            data = await self.default_data_buffer.get()
-            # self.logger.debug("default_data_loop", extra={"data": data})
-            record = self.default_parse(data)
+            try:
+                data = await self.default_data_buffer.get()
+                # self.collecting = True
+                self.logger.debug("default_data_loop", extra={"data": data})
+                # continue
+                record = self.default_parse(data)
+                if record:
+                    self.collecting = True
 
-            # print(record)
-            # print(self.sampling())
-            if record and self.sampling():
-                event = DAQEvent.create_data_update(
-                    # source="sensor.mockco-mock1-1234", data=record
-                    source=self.get_id_as_source(),
-                    data=record,
-                )
-                dest_path = f"/{self.get_id_as_topic()}/data/update"
-                self.logger.debug(
-                    "default_data_loop", extra={"data": event, "dest_path": dest_path}
-                )
-                message = Message(data=event, dest_path=dest_path)
-                # self.logger.debug("default_data_loop", extra={"m": message})
-                await self.send_message(message)
+                # print(record)
+                # print(self.sampling())
+                if record and self.sampling():
+                    event = DAQEvent.create_data_update(
+                        # source="sensor.mockco-mock1-1234", data=record
+                        source=self.get_id_as_source(),
+                        data=record,
+                    )
+                    dest_path = f"/{self.get_id_as_topic()}/data/update"
+                    self.logger.debug(
+                        "default_data_loop", extra={"data": event, "dest_path": dest_path}
+                    )
+                    message = Message(data=event, dest_path=dest_path)
+                    # self.logger.debug("default_data_loop", extra={"m": message})
+                    await self.send_message(message)
 
-            # self.logger.debug("default_data_loop", extra={"record": record})
+                # self.logger.debug("default_data_loop", extra={"record": record})
+            except Exception as e:
+                print(f"default_data_loop error: {e}")
             await asyncio.sleep(0.1)
 
     def default_parse(self, data):
         if data:
-
-            # variables = [
-            #     "time",
-            #     "temperature",
-            #     "rh",
-            #     "pressure",
-            #     "wind_speed",
-            #     "wind_direction",
-            # ]
-            # variables = list(self.config.variables.keys())
-            variables = list(self.config.metadata.variables.keys())
-            # print(f"variables: \n{variables}\n{variables2}")
-            variables.remove("time")
-            # variables2.remove("time")
-            # print(f"variables: \n{variables}\n{variables2}")
-
-            # print(f"include metadata: {self.include_metadata}")
-            record = self.build_data_record(meta=self.include_metadata)
-            self.include_metadata = False
             try:
-                record["timestamp"] = data.data["timestamp"]
-                record["variables"]["time"]["data"] = data.data["timestamp"]
-                parts = data.data["data"].split(",")
-                for index, name in enumerate(variables):
-                    if name in record["variables"]:
-                        # instvar = self.config.variables[name]
-                        instvar = self.config.metadata.variables[name]
-                        vartype = instvar.type
-                        if instvar.type == "string":
-                            vartype = "str"
-                        try:
-                            record["variables"][name]["data"] = eval(instvar.type)(
-                                parts[index]
-                            )
-                        except ValueError:
-                            if vartype == "str" or vartype == "char":
-                                record["variables"][name]["data"] = ""
-                            else:
-                                record["variables"][name]["data"] = None
-                return record
-            except KeyError:
-                pass
+                # variables = [
+                #     "time",
+                #     "temperature",
+                #     "rh",
+                #     "pressure",
+                #     "wind_speed",
+                #     "wind_direction",
+                # ]
+                # variables = list(self.config.variables.keys())
+                variables = list(self.config.metadata.variables.keys())
+                # print(f"variables: \n{variables}\n{variables2}")
+                variables.remove("time")
+                # variables2.remove("time")
+                # print(f"variables: \n{variables}\n{variables2}")
+
+                # print(f"include metadata: {self.include_metadata}")
+                record = self.build_data_record(meta=self.include_metadata)
+                # print(f"default_parse: data: {data}, record: {record}")
+                self.include_metadata = False
+                try:
+                    record["timestamp"] = data.data["timestamp"]
+                    record["variables"]["time"]["data"] = data.data["timestamp"]
+                    parts = data.data["data"].split(",")
+                    # print(f"parts: {parts}, {variables}")
+                    if len(parts) < 10:
+                        return None
+                    for index, name in enumerate(variables):
+                        if name in record["variables"]:
+                            # instvar = self.config.variables[name]
+                            instvar = self.config.metadata.variables[name]
+                            vartype = instvar.type
+                            if instvar.type == "string":
+                                vartype = "str"
+                            try:
+                                # print(f"default_parse: {record['variables'][name]} - {parts[index].strip()}")
+                                record["variables"][name]["data"] = eval(vartype)(
+                                    parts[index].strip()
+                                )
+                            except ValueError:
+                                if vartype == "str" or vartype == "char":
+                                    record["variables"][name]["data"] = ""
+                                else:
+                                    record["variables"][name]["data"] = None
+                    return record
+                except KeyError:
+                    pass
+            except Exception as e:
+                print(f"default_parse error: {e}")
         # else:
         return None
 

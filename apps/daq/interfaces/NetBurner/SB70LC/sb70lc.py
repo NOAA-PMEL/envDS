@@ -170,42 +170,55 @@ class SB70LC(Interface):
         '''
         # all hex values as hex strings
         try:
+            print(f"package_i2c_data: {data}")
+            # for command in data["i2c-commands"]:
             i2c_command = data["i2c-command"] 
             address = data["address"]
-            data = data["data"]
+            # write_data = data["data"]
 
-            delay = data["delay-ms", 0] / 1000.0
+            delay = data.get("delay-ms", 0) / 1000.0
 
             if i2c_command == "write-byte":
-                output = f'#WB{address}{data}\n'
+                write_data = data["data"]
+                output = f'#WB{address}{write_data}\n'
 
             elif i2c_command == "write-buffer":
+                write_data = data["data"]
                 write_length = data.get(
                     "write-length",
-                    len(bytes.fromhex(data))
+                    len(bytes.fromhex(write_data))
                 )
                 length = f"{write_length:02}"
-                output = f'#WW{address}{length}{data}\n'
+                output = f'#WW{address}{length}{write_data}\n'
 
             elif i2c_command == "read-byte":
                 output = f'#RB{address}\n'
 
             elif i2c_command == "read-buffer":
                 if "read-length" not in data:
-                    self.logger.error("No read-length specified for i2c read-buffer")
+                    # self.logger.error("No read-length specified for i2c read-buffer")
                     return None, delay
                 read_length = data["read-length"]
                 length = f"{read_length:02}"                
                 output = f'#RR{address}{length}\n'
 
-            return output, delay
+            outdata = {"data": output, "delay": delay}
+            print(f"package_i2c_data: {output},{delay}")
+            return outdata
         
-        except KeyError:
-            return None, delay
+        except KeyError as e:
+            print(f"package_i2c_data error: {e}")
+            # return None, None
+            return None
 
     def unpack_i2c_data(self, data):
 
         self.logger.debug("unpack_i2c_data", extra={"data": data})
+        if not data: # or data == "OK":
+            return None
+        elif isinstance(data, str):
+            if data.strip() == "OK":
+                return None
         return data
     
     async def recv_data_loop(self, client_id: str):
@@ -223,7 +236,8 @@ class SB70LC(Interface):
 
                     if client_id == "port-I2C":
                         data = self.unpack_i2c_data(data)
-
+                        if data is None:
+                            continue
 
                     await self.update_recv_data(client_id=client_id, data=data)
                     # await asyncio.sleep(self.min_recv_delay)
@@ -236,6 +250,9 @@ class SB70LC(Interface):
             # await asyncio.sleep(self.min_recv_delay)
             await asyncio.sleep(0.1)
 
+    async def wait_for_ok(self, timeout=0):
+        pass
+
     async def send_data(self, event: DAQEvent):
 
             try:
@@ -245,11 +262,19 @@ class SB70LC(Interface):
                 data = event.data["data"]
 
                 if client_id == "port-I2C":
-                    i2c_data, delay = self.package_i2c_data(data)
-                    if i2c_data:
-                        await asyncio.sleep(delay)
+                    if "i2c-commands" in data["data"]:
+                        for command in data["data"]["i2c-commands"]:
+                            print(f"command: {command}")
+                            # i2c_data, delay = self.package_i2c_data(command)
+                            i2c_data = self.package_i2c_data(command)
+                            print(f"i2c: {i2c_data['data']}, {i2c_data['delay']}")
+                            if i2c_data:
+                                # await self.wait_for_ok(timeout=i2c_data["delay"])
+                                await asyncio.sleep(i2c_data['delay'])
+                                await client.send(i2c_data)
+                    else:
                         await client.send(data)
-                    
+
                     # wrap data in netburner protocol for i2c
                     # might need special client class for this?
                 else:

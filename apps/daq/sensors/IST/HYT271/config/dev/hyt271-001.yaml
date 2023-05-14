@@ -1,61 +1,51 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mockco-mock1-2346-config
+  name: ist-hyt271-001-config
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: ist-hyt271-001
 data:
   sensor.conf: |
-    serial_number: "2346"
+    serial_number: "001"
     daq_id: cloudysky
     interfaces:
       # default: serial
       default:
         interface_env_id: dev # if omitted, defaults to envds_id of sensor
-        interface_id: system::mock::uas1
+        # interface_id: NetBurner::SB70LC::nb73
+        interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
-        path: port-02
-        connection-properties:
-          baudrate: 9600
-          bytesize: 8
-          parity: N
-          stopbit: 1
-        # read-properties:
-          # terminator: "\r"
-          # binary: true
-          # num-bytes: 1
-          # decode-errors: strict
-      # power: # example of second interface (e.g., CDP enable signal)
-      #   interface_id: system::mock::localhost
-      #   path: port-01
+        path: port-I2C
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mockco-mock1-2346
+  name: ist-hyt271-001
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: ist-hyt271-001
 spec:
   selector:
     matchLabels:
-      app: mockco-mock1-2346
+      app: ist-hyt271-001
   template:
     metadata:
       labels:
-        app: mockco-mock1-2346
+        app: ist-hyt271-001
     spec:
       containers:
-      - name: mockco-mock1-2346
-        image: envds-registry:5000/envds/sensor/mockco-mock1:0.1.0
+      - name: ist-hyt271-001
+        image: envds-registry-dev:5000/envds/sensor/ist-hyt271:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
             value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
         resources:
           requests:
             cpu: "50m"
@@ -70,7 +60,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: mockco-mock1-2346-config
+            - name: ist-hyt271-001-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -83,9 +73,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: mockco-mock1-2346-config
+        - name: ist-hyt271-001-config
           configMap:
-            name: mockco-mock1-2346-config
+            name: ist-hyt271-001-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -93,13 +83,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mockco-mock1-2346
+  name: ist-hyt271-001
   namespace: envds
   labels:
-    app: mockco-mock1-2346
+    app: ist-hyt271-001
 spec:
   selector:
-    app: mockco-mock1-2346
+    app: ist-hyt271-001
   ports:
   - name: http
     protocol: TCP
@@ -114,34 +104,34 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: mockco-mock1-2346-stripprefix
+#   name: ist-hyt271-001-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/sensor/MockCo/Mock1/2346
+#       - /envds/sensor/MockCo/Mock1/1234
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: mockco-mock1-2346-ingress
+#   name: ist-hyt271-001-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-mockco-mock1-2346-stripprefix@kubernetescrd
+#       envds-ist-hyt271-001-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/MockCo/Mock1/2346
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: mockco-mock1-2346
+#             name: ist-hyt271-001
 #             port:
 #               number: 9080

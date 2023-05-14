@@ -16,15 +16,21 @@ class _TCPClient(_StreamClient):
         self.logger.debug("_TCPClient.init")
         # self.mock_data_type = "1D"
         # print("_MockClient.init")
-        self.enable_task_list.append(self.connection_monitor())
-        # self.enable_task_list.append(asyncio.create_task(asyncio.sleep(1)))
         self.connected = False
         self.keep_connected = False
-
-        self.host = "192.168.86.46"
-        self.port = 23
+        # self.run_task_list.append(self.connection_monitor())
+        # self.enable_task_list.append(asyncio.create_task(asyncio.sleep(1)))
+        asyncio.create_task(self.connection_monitor())
+        # self.host = "192.168.86.38"
+        # self.port = 24
+        self.host = ""
+        self.port = 0
         self.reconnect_delay = 1
         self.logger.debug("_TCPClient.init done")
+        if "host" in self.config.properties:
+            self.host = self.config.properties["host"]["data"]
+        if "port" in self.config.properties:
+            self.port = self.config.properties["port"]["data"]
 
         # self.send_method = send_method
         # self.read_method = read_method
@@ -37,39 +43,43 @@ class _TCPClient(_StreamClient):
     def configure(self):
         super().configure()
         # parse self.config
-        self.logger.debug("_TCPClient: configure")
-        if "attributes" in self.config.properties:
-            if "host" in self.config.properties["attributes"]:
-                self.host = self.config.properties["attributes"]["host"]["data"]
-            if "port" in self.config.properties["attributes"]:
-                self.port = self.config.properties["attributes"]["port"]["data"]
-            self.logger.debug("_TCPClient: configure", extra={"host": self.host, "port": self.port})
+        self.logger.debug("_TCPClient: configure", extra={"config": self.config.properties})
+        # if "attributes" in self.config.properties:
+        if "host" in self.config.properties:
+            self.host = self.config.properties["host"]["data"]
+        if "port" in self.config.properties:
+            self.port = self.config.properties["port"]["data"]
+        self.logger.debug("_TCPClient: configure", extra={"host": self.host, "port": self.port})
 
 
     async def connection_monitor(self):
 
         while True:
+            try:
+                while self.keep_connected:
 
-            while self.keep_connected:
+                    if self.connection_state == self.DISCONNECTED:
+                        # connect
+                        self.connection_state = self.CONNECTING
+                        try:
+                            self.logger.debug("open_connection", extra={"host": self.host, "port": self.port})
+                            self.reader, self.writer = await asyncio.open_connection(
+                                host=self.host,
+                                port=self.port
+                            )
+                            self.logger.debug("_TCPClient: connect", extra={"host": self.host, "port": self.port} )
+                            self.connection_state = self.CONNECTED
+                        except (asyncio.TimeoutError, ConnectionRefusedError, Exception) as e:
+                            self.logger.error("_TCPClient connection error", extra={"error": e})
+                            self.reader = None
+                            self.writer = None
+                            self.connection_state = self.DISCONNECTED
+                    await asyncio.sleep(self.reconnect_delay)
 
-                if self.connection_state == self.DISCONNECTED:
-                    # connect
-                    self.connection_state = self.CONNECTING
-                    try:
-                        self.reader, self.writer = await asyncio.open_connection(
-                            host=self.host,
-                            port=self.port
-                        )
-                        self.logger.debug("_TCPClient: connect", extra={"host": self.host, "port": self.port} )
-                        self.connection_state = self.CONNECTED
-                    except (asyncio.TimeoutError, ConnectionRefusedError) as e:
-                        self.logger.error("_TCPClient connection error", extra={"error": e})
-                        self.reader = None
-                        self.writer = None
-                        self.connection_state = self.DISCONNECTED
-                await asyncio.sleep(self.reconnect_delay)
-            await asyncio.sleep(self.reconnect_delay)            
-            
+                await asyncio.sleep(self.reconnect_delay)            
+            except Exception as e:
+                self.logger.error("connection_monitor error", extra={"error": e})
+
     async def do_enable(self):
         try:
             await super().do_enable()
@@ -110,6 +120,9 @@ class TCPClient(DAQClient):
 
         # self.mock_type = "1D"  # 2D, i2c
         self.read_method = "readline"
+        self.send_method = "ascii"
+        self.decode_errors = "strict"
+        self.read_terminator = "\r"
         # print("mock_client: 4")
         self.logger.debug("TCPClient.init", extra={'config': self.config})
 
@@ -162,35 +175,34 @@ class TCPClient(DAQClient):
         return None
 
     async def send_to_client(self, data):
-        if self.enabled():
-            try:
-                
-                send_method = data.get("send-method", self.send_method)
-                
-                if send_method == "binary":
-                    # if num of expected bytes not supplied, fail
-                    try:
-                        read_num_bytes = data["read-num-bytes"]
-                        self.client.return_packet_bytes.append(
-                            data["read-num-bytes"]
-                        )
-                        await self.client.writebinary(data["data"])
-                    except KeyError:
-                        self.logger.error("binary write failed - read-num-bytes not specified")
-                        return
-                else:
-                    try:
-                        await self.client.write(data["data"])
-                    except KeyError:
-                        self.logger.error("write failed - data not specified")
-                        return
+        try:
+            
+            send_method = data.get("send-method", self.send_method)
+            
+            if send_method == "binary":
+                # if num of expected bytes not supplied, fail
+                try:
+                    read_num_bytes = data["read-num-bytes"]
+                    self.client.return_packet_bytes.append(
+                        data["read-num-bytes"]
+                    )
+                    await self.client.writebinary(data["data"])
+                except KeyError:
+                    self.logger.error("binary write failed - read-num-bytes not specified")
+                    return
+            else:
+                try:
+                    await self.client.write(data["data"])
+                except KeyError:
+                    self.logger.error("write failed - data not specified")
+                    return
 
-                self.logger.debug(
-                    "send_to_client",
-                    extra={
-                        "send_method": send_method,
-                        "data": data["data"]
-                    },
-                )
-            except Exception as e:
-                self.logger.error("send_to_client error", extra={"error": e})
+            self.logger.debug(
+                "send_to_client",
+                extra={
+                    "send_method": send_method,
+                    "data": data["data"]
+                },
+            )
+        except Exception as e:
+            self.logger.error("send_to_client error", extra={"error": e})
