@@ -249,7 +249,7 @@ def create_cluster(args) -> bool:
         print(" ".join(k3d_args))
         # print(k3d_args)
 
-        res = subprocess.run(k3d_args, capture_output=True, text=True)
+        res = subprocess.run(k3d_args, capture_output=True, text=True, encoding="latin-1")
         print(f"stderr: {res.stderr}")
         print(f"stdout: {res.stdout}")
 
