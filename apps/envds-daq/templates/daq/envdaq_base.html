@@ -1,0 +1,30 @@
+{# templates/envds/envdaq_base.html #}
+
+{% extends "envds/base.html" %}
+
+{% block content %}
+    <div id="display-content-top" class="w3-cell-row">
+        <div id="display-content-left" class="w3-container w3-cell w3-half">
+            {% block data %}
+            {% endblock %}
+
+            {% block controls %}
+            {% endblock %}
+        </div>   
+        <div id="display-content-right" class="w3-container w3-cell w3-half">
+            {% block plots %}
+            {% endblock %}
+            
+            {% block status %}
+            {% endblock %}
+        </div>   
+    </div>
+    <div id="display_content-bottom">
+        {% block rawdata %}
+        {% endblock %}
+    </div>
+
+    <div id="extra-content" class="w3-container">
+        {% block extracontent %}{% endblock extracontent%}
+{% endblock content %}
+

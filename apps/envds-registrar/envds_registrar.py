@@ -895,155 +895,18 @@ async def main(server_config: ServerConfig = None):
         server_config = ServerConfig()
     print(server_config)
 
-    print("starting daq test task")
-
     envdsLogger(level=logging.DEBUG).init_logger()
-    logger = logging.getLogger("envds-files")
+    logger = logging.getLogger("envds-registrar")
 
-    print("main:1")
     registrar = envdsRegistrar()
-    print("main:2")
     registrar.run()
-    print("main:3")
-
-    # sensor_def = ""
-
-    sensordb = {
-        "sensors": {
-            "MockCo::Mock1": {"attributes": {"a1": "b"}},
-            "MockCo::Mock2": {"attributes": {"a2": "b"}},
-            "MockCo::Mock3": {"attributes": {"a3": "b"}},
-        }
-    }
-
-    # redis = get_redis_connection(url="redis://redis.default")
-    # print(redis)
-
-    # set redis connection
-    # SensorRegistration.Meta.database = await get_redis_connection(url="redis://redis.default")
-
-    # await Migrator().run()
-
-    # reg = SensorRegistration(
-    #     make="MockCo",
-    #     model="Mock1",
-    #     version="1.0",
-    #     metadata=metadata
-    # )
-
-    # await reg.save()
-
-    # mockco = await SensorRegistration.find(SensorRegistration.make=="MockCo").first()
-    # print(f"mockco: {mockco}")
-
-    # await init_sensor_registration()
-    # await register_sensor(make="MockCo", model="Mock1", metadata=metadata)
-    # reg = await get_sensor_registration(make="MockCo", model="Mock1")
-    # print(f"reg: {reg}")
-    # meta = await get_sensor_metadata(make="MockCo", model="Mock1")
-    # print(f"meta: {meta}")
-    # # mockco = SensorRegistration.find(SensorRegistration.make == "MockCo").all()
-    # print(f"mockco: {mockco}")
-    # r = redis.from_url(f"redis://redis.default")
-    # await r.delete("registry", Path.root_path())
-    # await r.delete("sensors", Path.root_path())
-
-    # for name, sensor in sensordb["sensors"].items():
-    #     await r.json().set(f"registry-sensor-def-{name}", Path.root_path(), sensor)
-    #     # await r.expire(f"registry-sensor-def-{name}", time=5)
-    # # await r.json().set("registry",  Path.root_path(), sensordb)
-    # # db = await r.json().get("registry",  Path.root_path())
-    # # print(db)
-    # # for x in range(0,10):
-    # # for x in range(1,4):
-    # for name, sensor in sensordb["sensors"].items():
-    #     # id = f"MockCo::Mock{x}"
-    #     # await r.json().set(id,  "$.sensors", sensordb[id])
-    #     # sensor = await r.json().get("registry", Path(f".sensors.{name}"))
-    #     # await r.json().set("registry", Path(f".sensors.{name}.attributes.a"), "x")
-    #     sensor = await r.json().get(f"registry-sensor-def-{name}", Path.root_path())
-    #     print(f"{name}: {sensor}")
-
-    # await asyncio.sleep(5)
-    # for name, sensor in sensordb["sensors"].items():
-    #     # id = f"MockCo::Mock{x}"
-    #     # await r.json().set(id,  "$.sensors", sensordb[id])
-    #     # sensor = await r.json().get("registry", Path(f".sensors.{name}"))
-    #     # await r.json().set("registry", Path(f".sensors.{name}.attributes.a"), "x")
-    #     sensor = await r.json().get(f"registry-sensor-def-{name}", Path.root_path())
-    #     print(f"{name}: {sensor}")
-
-    #     dt = get_datetime()
-    #     record = {
-    #         "sensor": {
-    #         "time": datetime_to_string(dt),
-    #         "time_1s": datetime_to_string(dt, fraction=False)
-    #         }
-    #     }
-    #     index = str(ULID())
-    #     await r.json().set(index, Path.root_path(), record)
-    #     await r.expire(index, time=60)
-    #     await asyncio.sleep(time_to_next(1))
-    #     rec = await r.json().get(id, "$.sensor")
-    #     print(f"rec: {rec}")
-
-    # await asyncio.sleep(2)
-    # files.enable()
-    # task_list.append(asyncio.create_task(files.run()))
-    # await asyncio.sleep(2)
-
-    # test = envdsBase()
-    # task_list.append(asyncio.create_task(test_task()))
-
-    # # print(LOGGING_CONFIG)
-    # dict_config = {
-    #     "version": 1,
-    #     "disable_existing_loggers": False,
-    #     "formatters": {
-    #         "logfmt": {
-    #             "()": "logfmter.Logfmter",
-    #             "keys": ["at", "when", "name"],
-    #             "mapping": {"at": "levelname", "when": "asctime"},
-    #             "datefmt": get_datetime_format(),
-    #         },
-    #         "access": {
-    #             "()": "uvicorn.logging.AccessFormatter",
-    #             "fmt": '%(levelprefix)s %(asctime)s :: %(client_addr)s - "%(request_line)s" %(status_code)s',
-    #             "use_colors": True,
-    #         },
-    #     },
-    #     "handlers": {
-    #         "console": {"class": "logging.StreamHandler", "formatter": "logfmt"},
-    #         "access": {
-    #             "formatter": "access",
-    #             "class": "logging.StreamHandler",
-    #             "stream": "ext://sys.stdout",
-    #         },
-    #     },
-    #     "loggers": {
-    #         "": {"handlers": ["console"], "level": "INFO"},
-    #         "uvicorn.access": {
-    #             "handlers": ["access"],
-    #             "level": "INFO",
-    #             "propagate": False,
-    #         },
-    #     },
-    # }
-    # logging.config.dictConfig(dict_config)
-
-    # envdsLogger().init_logger()
-    # logger = logging.getLogger("envds-daq")
-
-    # test = envdsBase()
-    # task_list.append(asyncio.create_task(test_task()))
-    # logger.debug("starting envdsFiles")
 
     config = uvicorn.Config(
         "main:app",
         host=server_config.host,
         port=server_config.port,
         log_level=server_config.log_level,
-        root_path="/envds/files",
+        root_path="/envds/registrar",
         # log_config=dict_config,
     )
 

@@ -6,6 +6,3 @@ logfmter >= 0.0.6
 asyncio-mqtt >= 0.13.0
 httpx >= 0.2
 python-ulid >= 1.1.0
-redis
-redis-om
-jinja2

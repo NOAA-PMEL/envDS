@@ -1,0 +1,335 @@
+{# templates/sensor.html #}
+
+{% extends 'base.html' %}
+
+
+{% block title%}envDS Sensor{% endblock title%}
+
+{% block navpath%}
+<div id="instrument-navpath">
+</div>
+{% endblock navpath %}
+
+{% block data %}
+<div id="inst-data-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    <div class="w3-bar w3-center">
+        <h6>Data</h6>
+    </div>
+</div>
+{% endblock %}
+
+{% block controls %}
+<div id="inst-controls-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    <div class="w3-bar w3-center">
+        <h6>Controls &amp Settings</h6>
+    </div>
+</div>
+{% endblock %}
+
+{% block status %}
+<div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    <p><em>Status</em></p>
+    <textarea readonly class="w3-round" id="status-window" style="width:100%" rows="5"></textarea><br />
+    <button id="refresh-status-button" class="w3-button w3-round w3-border" value="Refresh"
+        onclick=request_status()>Refresh</button>
+</div>
+{% endblock %}
+
+{% block plots %}
+{#
+{% for app in plot_scripts %}
+<div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    {{ app | safe }}
+</div>
+{% endfor %}
+#}
+{% endblock %}
+
+
+{% block rawdata %}
+<div id="inst-rawdata-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+</div>
+{% endblock rawdata %}
+
+
+{% block extracontent %}
+
+<div class="children"></div>
+
+
+
+<style>
+    #data-table #control-table {
+        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;
+        display: block;
+    }
+</style>
+
+<script>
+    console.log("here")
+    var sensor_meta = JSON.parse('{{ sensor_meta|tojson }}')
+    var sensor_reg = JSON.parse('{{ sensor_reg|tojson }}')
+
+    window.onload = init;
+
+    console.log(sensor_meta)
+    console.log(sensor_reg)
+
+    function init() {
+        build_path()
+    }
+
+    function build_path() {
+        console.log(window.location.host)
+        var home = "http://" + window.location.host + "/envds/manage"
+
+        var path = '<a href=' + home + ' style="text-decoration: none">Home</a> / '
+        path += " sensor /" + sensor_reg["make"] + " / "
+        path += sensor_reg["model"] + " / " + sensor_reg["serial_number"]
+
+        var navpath = document.getElementById("instrument-navpath")
+        navpath.innerHTML = path
+        //navpath.appendChild(text)
+        //console.log(navpath)
+    };
+
+    var wait_for_setup = true;
+
+    function init() {
+        build_path()
+        // for (var k in sensor_meta["variables"]) {
+        //     console.log(k + ': ' + sensor_meta["variables"][k]["attributes"]["long_name"]["data"])
+        // }
+
+        // build_data_table()
+        // build_settings_table()
+        wait_for_setup = false
+
+    }
+
+    function build_data_table() {
+        var tablediv = document.getElementById('inst-data-table-div');
+
+        var ts_box = document.createElement("div")
+        ts_box.setAttribute("class", "w3-container")
+
+        var ts = document.createElement('text')
+        ts.setAttribute("id", "time-stamp")
+
+        var ts_text = document.createElement("label")
+        ts_text.setAttribute("for", "ts")
+        ts_text.appendChild(document.createTextNode("Timestamp: "))
+
+        ts_box.appendChild(ts_text)
+        ts_box.appendChild(ts)
+        tablediv.appendChild(ts_box)
+
+        var table = document.createElement('table');
+        table.setAttribute('id', 'meas-inst-data-table');
+        table.setAttribute('class', 'w3-table-all')
+
+
+        var header = table.createTHead();
+        var row = header.insertRow(0);
+        var cell = row.insertCell(0);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Name</b>";
+        cell = row.insertCell(1);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Value</b>"
+        cell = row.insertCell(2);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Units</b>";
+
+        for (var variable in sensor_meta["variables"]) {
+            console.log(variable)
+            shape = sensor_meta["variables"][variable]["shape"]
+            if (shape.length > 1) {
+                continue
+            }
+            // console.log("units: " + sensor_meta["variables"][variable]["attributes"]['units']["data"])
+            // console.log(shape)
+            meas_id = variable
+            name = variable
+            row = table.insertRow(-1);
+            cell = row.insertCell(0);
+            cell.setAttribute('id', (meas_id + '-name'));
+            cell.setAttribute("class", "w3-center")
+            cell.innerHTML = name
+            cell = row.insertCell(1);
+            cell.setAttribute("class", "w3-center")
+            cell.setAttribute('id', (meas_id + '-value'));
+            cell.innerHTML = '';
+            cell = row.insertCell(2);
+            cell.setAttribute('id', (meas_id + '-units'));
+            cell.setAttribute("class", "w3-center")
+            units = ""
+            try {
+                units = sensor_meta["variables"][variable]["attributes"]['units']["data"]
+            }
+            catch (TypeError) {
+                units = ""
+            }
+            cell.innerHTML = units
+        }
+        var td = table.rows[0].cells[0];
+        td.width = '200px';
+        td = table.rows[0].cells[1];
+        td.width = '200px';
+        td = table.rows[0].cells[2];
+        td.width = '100px';
+
+        tablediv.appendChild(table);
+
+    }
+
+    function build_settings_table() {
+        var tablediv = document.getElementById('inst-controls-table-div');
+
+        var ops_container = document.createElement("div")
+        ops_container.setAttribute("class", "w3-container w3-border w3-padding")
+        var ops_button = document.createElement("button")
+        ops_button.setAttribute("id", "start-stop-button")
+        ops_button.setAttribute("class", "w3-button w3-round w3-border w3-cell")
+        ops_button.setAttribute("onclick", "opsButtonRequest()")
+        ops_button.value = "Start"
+        ops_button.innerText = "Start"
+
+        var button_text = document.createElement("label")
+        button_text.setAttribute("for", "ops_button")
+        button_text.appendChild(document.createTextNode("Sensor Control: "))
+        ops_container.appendChild(button_text)
+        ops_container.appendChild(ops_button)
+
+        tablediv.appendChild(ops_container)
+
+
+        group_box = document.createElement('div')
+        group_button = document.createElement('a')
+        group_button.setAttribute('id', 'settings-box')
+        group_button.setAttribute('class', 'w3-block w3-button')
+        var fn_arg = 'settings-box-contents'
+        group_button.setAttribute('onclick', "doAccordion('settings-box-contents')")
+        group_button.setAttribute('href', "javascript:void(0)")
+        group_button.innerHTML = "<em>Settings: </em><i id='settings-box-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+        group_box.appendChild(group_button)
+        group_contents = document.createElement('div')
+        group_contents.setAttribute('id', 'settings-box' + '-contents')
+        group_contents.setAttribute("class", "w3-hide")
+
+        table = document.createElement('table')
+        table_id = 'settings-table'
+        table.setAttribute('id', table_id)
+        table.setAttribute('class', 'w3-table w3-bordered w3-border')
+
+        var header = table.createTHead();
+        var row = header.insertRow(0);
+        var cell = row.insertCell(0);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Name</b>";
+        cell = row.insertCell(1);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Value</b>";
+        cell = row.insertCell(2);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Setting</b>";
+        cell = row.insertCell(3);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "";
+        cell.setAttribute('id', table_id + '-setbuttoncol');
+
+        for (var setting in sensor_meta["settings"]) {
+            console.log(setting)
+
+            try {
+                type = sensor_meta["variables"][setting]["type"]
+            }
+            catch (TypeError) {
+                type = "float"
+            }
+
+            try {
+                valid_min = sensor_meta["settings"][setting]["attributes"]['valid_min']["data"]
+            }
+            catch (TypeError) {
+                valid_min = NaN
+            }
+            try {
+                valid_max = sensor_meta["settings"][setting]["attributes"]['valid_max']["data"]
+            }
+            catch (TypeError) {
+                valid_max = NaN
+            }
+
+            meas_id = setting
+            name = setting
+            row = table.insertRow(-1);
+            cell = row.insertCell(0);
+            cell.setAttribute('id', (meas_id + '-name'));
+            cell.setAttribute("class", "w3-center")
+            cell.innerHTML = name
+            cell = row.insertCell(1);
+            cell.setAttribute("class", "w3-center")
+            cell.setAttribute('id', (meas_id + '-value'));
+            cell.innerHTML = '';
+            cell = row.insertCell(2);
+            cell.setAttribute('id', (meas_id + '-input'));
+            min_range = ""
+            if (!isNaN(valid_min))
+                min_range = "min=" + valid_min + " "
+            max_range = ""
+            if (!isNaN(valid_max))
+                max_range = "max=" + valid_max + " "
+            cell.innerHTML = '<input id=' + meas_id + '-setting-input type=number ' + min_range + max_range + 'step=any>'
+            cell = row.insertCell(3);
+            cell.setAttribute('id', (meas_id + '-setting-set'));
+            cell.innerHTML =
+                '<button id=' + meas_id + '-setting-button class="w3-button w3-round w3-border" value="apply" onclick=apply_setting(this)>apply</button>'
+        }
+
+        var td = table.rows[0].cells[0];
+        td.width = '200px';
+        td = table.rows[0].cells[1];
+        td.width = '100px';
+        td = table.rows[0].cells[2];
+        td.width = '100px';
+        td = table.rows[0].cells[3];
+        td.width = '100px'
+        group_contents.appendChild(table)
+        group_box.appendChild(group_contents)
+        tablediv.appendChild(group_box);
+    }
+
+    // ws_host = 'ws://'+ '{{ ws_ip }}' + ':9080/ws/sensor/' + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"]
+    // var ws_host = "localhost:9080" + "/ws/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"]
+    var client_id = Date.now()
+    // var ip = location.host
+    // console.log(ip)
+    // ws_host = `ws://{{ ws_ip }}:9080/ws/${client_id}`
+    ws_host = `ws://localhost:9080/ws/${client_id}`
+    console.log(ws_host)
+    // var websocket = new WebSocket(
+    //     'ws://'+ws_host
+    // );
+    var ws = new WebSocket(`ws://localhost:9080/ws/${client_id}`)
+    // 'ws://' + window.location.host + "/envds/daq/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"] + "/ws"
+    // 'ws://' + window.location.host + "/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"] + "/ws"
+
+    ws.onmessage = function(e) {
+        // console.log(JSON.parse(e.data))
+        console.log(e.data)
+    }
+    
+    ws.onerror = function(e) {
+        console.log(e)
+    }
+    // websocket.onopen = function(event) {
+    //     console.log('Connected to: ' + event.currentTarget.url)
+    //     console.log('setup done')
+    // }
+
+</script>
+<script src="{{ url_for('static', path='js/envds.js') }}"></script>
+
+{% endblock extracontent %}
