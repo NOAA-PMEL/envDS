@@ -852,14 +852,17 @@ class envdsRegistrar(envdsBase):
     async def registry_monitor(self):
 
         while True:
-            self.logger.debug("run sensor_monitor")
-            await self.sensor_monitor()
-            # await self.interface_monitor()
-            # await self.service_monitor()
+            try:
+                self.logger.debug("run sensor_monitor")
+                await self.sensor_monitor()
+                # await self.interface_monitor()
+                # await self.service_monitor()
 
-            self.logger.debug("run sensor_definition_monitor")
-            await self.sensor_definition_monitor()
-
+                self.logger.debug("run sensor_definition_monitor")
+                await self.sensor_definition_monitor()
+            except Exception as e:
+                self.logger.error("registry_monitor", extra={"error": e})
+                
             await asyncio.sleep(5)
 
     def run(self):

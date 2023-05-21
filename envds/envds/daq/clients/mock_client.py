@@ -129,18 +129,22 @@ class MockClient(DAQClient):
         # print("recv_from_client:1")
         if self.enabled():
             # print(f"recv_from_client:2 -- readmethod={self.read_method}")
-            props = self.config.properties["sensor-interface-properties"]["read-properties"]
-            # try:
-            #     read_method = props["read-method"]
-            # except KeyError:
-            #     read_method = self.read_method
-            read_method = props.get("read-method", self.read_method)
+            try:
+                props = self.config.properties["sensor-interface-properties"]["read-properties"]
+                # try:
+                #     read_method = props["read-method"]
+                # except KeyError:
+                #     read_method = self.read_method
+                read_method = props.get("read-method", self.read_method)
 
-            # try:
-            #     decode_errors = props["decode-errors"]
-            # except KeyError:
-            #     decode_errors = self.decode_errors
-            decode_errors = props.get("decode-errors", self.decode_errors)
+                # try:
+                #     decode_errors = props["decode-errors"]
+                # except KeyError:
+                #     decode_errors = self.decode_errors
+                decode_errors = props.get("decode-errors", self.decode_errors)
+            except KeyError:
+                read_method = self.read_method
+                decode_errors = self.decode_errors
 
             if read_method == "readline":
                 # print("recv_from_client:3")

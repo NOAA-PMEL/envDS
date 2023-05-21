@@ -203,7 +203,7 @@ class envdsStatus:
             return state["actual"]
         else:
             return None
-
+           
     def get_status(self):
         return self.status
 
@@ -349,7 +349,7 @@ class envdsBase(abc.ABC):
     def set_core_routes(self, enable: bool=True):
 
         topic_base = self.get_id_as_topic()
-
+        self.logger.debug("set_core_routes:core", extra={"topic_base": topic_base})
         self.set_route(
             subscription=f"{topic_base}/status/request",
             route_key=et.status_request(),
@@ -422,10 +422,15 @@ class envdsBase(abc.ABC):
         return f"{self.id.app_env}.{self.id.app_env_id}.{self.id.app_group}.{self.id.app_uid}"
 
     def get_id_as_topic(self, delim="/") -> str:
-        src = self.get_id_as_source()
-        return src.replace(".", delim)
+        # src = self.get_id_as_source()
+        # return src.replace(".", delim)
+        return self.convert_id_to_topic(self.get_id_as_source(), delim)
         # return f"{self.id.app_env}.{self.id.app_env_id}.{self.id.app_group}.{self.id.app_uid}"
 
+    def convert_id_to_topic(self, source: str, delim="/") -> str:
+        src = source
+        return src.replace(".", delim)
+        
     # @abc.abstractmethod
     # def handle_id(self, id: str):
     #     parts = id.split("
@@ -483,6 +488,7 @@ class envdsBase(abc.ABC):
                         except envdsRunTransitionException:
                             print("check:5")
                             pass
+                    await self.send_status_update()
 
                 if not self.status.get_health_state(envdsStatus.RUNNING):
                     if self.status.get_requested(envdsStatus.RUNNING) == envdsStatus.TRUE:
@@ -494,6 +500,8 @@ class envdsBase(abc.ABC):
                         print("check:7")
                         await self.do_shutdown()
                         # self.status.set_actual(envdsStatus.RUNNING, envdsStatus.FALSE)
+                    await self.send_status_update()
+
                 print("check:8")
             self.logger.debug("monitor", extra={"status": self.status.get_status()})
         # self.do_run = False
@@ -514,7 +522,7 @@ class envdsBase(abc.ABC):
 
     async def do_enable(self):
         try:
-            # print("do_enable:1")
+            print("do_enable:1")
             requested = self.status.get_requested(envdsStatus.ENABLED)
             actual = self.status.get_actual(envdsStatus.ENABLED)
 
@@ -727,19 +735,38 @@ class envdsBase(abc.ABC):
         # each type of app should update itself
         pass
 
+    async def send_status_update(self):
+        topic_base = self.get_id_as_topic()
+
+        event = envdsEvent.create_status_update(
+            # source="envds.core", data={"test": "one", "test2": 2}
+            source=self.get_id_as_source(),
+            data=self.status.get_status(),
+        )
+        self.logger.debug("send_status_update", extra={"event": event})
+        # message = Message(data=event, dest_path="/envds/status/update")
+        message = Message(data=event, dest_path=f"{topic_base}/status/update")
+        await self.send_message(message)
+        # self.logger.debug("heartbeat", extra={"msg": message})
+
     async def heartbeat(self):
         print("heartbeat")
+        
         do_registry_update = True
         while True:
-            event = envdsEvent.create_status_update(
-                # source="envds.core", data={"test": "one", "test2": 2}
-                source=self.get_id_as_source(),
-                data=self.status.get_status(),
-            )
-            self.logger.debug("heartbeat", extra={"event": event})
-            message = Message(data=event, dest_path="/envds/status/update")
-            await self.send_message(message)
-            # self.logger.debug("heartbeat", extra={"msg": message})
+            await self.send_status_update()
+            # topic_base = self.get_id_as_topic()
+
+            # event = envdsEvent.create_status_update(
+            #     # source="envds.core", data={"test": "one", "test2": 2}
+            #     source=self.get_id_as_source(),
+            #     data=self.status.get_status(),
+            # )
+            # self.logger.debug("heartbeat", extra={"event": event})
+            # # message = Message(data=event, dest_path="/envds/status/update")
+            # message = Message(data=event, dest_path=f"{topic_base}/status/update")
+            # await self.send_message(message)
+            # # self.logger.debug("heartbeat", extra={"msg": message})
 
             # only send every other heartbeat
             if do_registry_update:

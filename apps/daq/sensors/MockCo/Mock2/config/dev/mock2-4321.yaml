@@ -1,60 +1,60 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: aerosoldynamics-magic250-143-config
+  name: mockco-mock2-4321-config
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: mockco-mock2-4321
 data:
   sensor.conf: |
-    serial_number: "143"
+    serial_number: "4321"
     daq_id: cloudysky
+    sampling-interval: 1
+    metadata-interval: 60
     interfaces:
       # default: serial
       default:
         interface_env_id: dev # if omitted, defaults to envds_id of sensor
-        # interface_id: NetBurner::SB70LC::nb73
-        interface_id: NetBurner::SB70LC::home38
+        interface_id: system::mock::localhost
         # path: port, channel, etc
-        path: port-2
-      #   connection-properties:
-      #     baudrate: 115200
-      #     bytesize: 8
-      #     parity: N
-      #     stopbit: 1
-      #   # read-properties:
-      #     read_method: "readline" # default
-      #     # terminator: "\r"
-      #     # binary: true
-      #     # num-bytes: 1
-      #     # decode-errors: strict
-      # # power: # example of second interface (e.g., CDP enable signal)
-      # #   interface_id: system::mock::localhost
-      # #   path: port-01
-      
-    # settings: # used to override defaults
-    #   pump_power: 1
-    #   q_target: 300
+        path: port-02
+        sensor-interface-properties:
+          connection-properties:
+            baudrate: 9600
+            bytesize: 8
+            parity: N
+            stopbit: 1
+          # read-properties:
+            # terminator: "\r"
+            # read-method: readline
+            # send-method: ascii # or binary
+            # binary: true
+            # num-bytes: 1
+            # decode-errors: strict
+      # power: # example of second interface (e.g., CDP enable signal)
+      #   interface_id: system::mock::localhost
+      #   path: port-01
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: mockco-mock2-4321
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: mockco-mock2-4321
 spec:
   selector:
     matchLabels:
-      app: aerosoldynamics-magic250-143
+      app: mockco-mock2-4321
   template:
     metadata:
       labels:
-        app: aerosoldynamics-magic250-143
+        app: mockco-mock2-4321
     spec:
       containers:
-      - name: aerosoldynamics-magic250-143
-        image: envds-registry-dev:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
+      - name: mockco-mock2-4321
+        image: envds-registry-dev:5000/envds/sensor/mockco-mock2:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -77,7 +77,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: aerosoldynamics-magic250-143-config
+            - name: mockco-mock2-4321-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -90,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: aerosoldynamics-magic250-143-config
+        - name: mockco-mock2-4321-config
           configMap:
-            name: aerosoldynamics-magic250-143-config
+            name: mockco-mock2-4321-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -100,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: mockco-mock2-4321
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: mockco-mock2-4321
 spec:
   selector:
-    app: aerosoldynamics-magic250-143
+    app: mockco-mock2-4321
   ports:
   - name: http
     protocol: TCP
@@ -121,7 +121,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: aerosoldynamics-magic250-143-stripprefix
+#   name: mockco-mock2-4321-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -133,22 +133,22 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: aerosoldynamics-magic250-143-ingress
+#   name: mockco-mock2-4321-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-aerosoldynamics-magic250-143-stripprefix@kubernetescrd
+#       envds-mockco-mock2-4321-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
+#       - path: /envds/sensor/MockCo/Mock1/1234
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: aerosoldynamics-magic250-143
+#             name: mockco-mock2-4321
 #             port:
 #               number: 9080

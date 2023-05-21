@@ -107,6 +107,7 @@ spec:
   stripPrefix:
     prefixes:
       - /envds/daq
+      - /ws/envds/daq
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -126,6 +127,14 @@ spec:
       paths:
       # - path: /erddap
       - path: /envds/daq
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-dev
+            port:
+              number: 9080
+      - path: /ws/envds/daq
         pathType: Prefix
         # pathType: Exact
         backend:

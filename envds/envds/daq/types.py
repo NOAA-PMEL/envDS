@@ -6,6 +6,7 @@ class DAQEventType(BaseEventType):
     TYPE_BASE = "envds"
 
     TYPE_SENSOR = "sensor"
+    TYPE_SETTINGS = "settings"
     TYPE_INTERFACE = "interface"
     TYPE_CONNECT = "connect"
     TYPE_CONFIG = "config"
@@ -70,3 +71,11 @@ class DAQEventType(BaseEventType):
     @staticmethod
     def interface_registry_request():
         return ".".join([BaseEventType.get_type(DAQEventType.TYPE_INTERFACE), DAQEventType.TYPE_REGISTRY, DAQEventType.ACTION_REQUEST])
+
+    @staticmethod
+    def sensor_settings_request():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_SENSOR), DAQEventType.TYPE_SETTINGS, DAQEventType.ACTION_REQUEST])
+
+    @staticmethod
+    def sensor_settings_update():
+        return ".".join([BaseEventType.get_type(DAQEventType.TYPE_SENSOR), DAQEventType.TYPE_SETTINGS, DAQEventType.ACTION_UPDATE])

@@ -1,51 +1,52 @@
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: envds-registrar-main-pv-volume
-  namespace: envds
-  labels:
-    type: local
-spec:
-  storageClassName: local-path
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: "/data/envds/registrar/main"
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: envds-registrar-main-pv-claim
-  namespace: envds
-spec:
-  storageClassName: local-path
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
----
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: envds-daq-main-pv-volume
+#   namespace: envds
+#   labels:
+#     type: local
+# spec:
+#   storageClassName: local-path
+#   capacity:
+#     storage: 10Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     # path: "/data/envds/data/registrar/main"
+#     path: "/data/envds/registrar/main"
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: envds-daq-main-pv-claim
+#   namespace: envds
+# spec:
+#   storageClassName: local-path
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 10Gi
+# ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: envds-registrar-main
+  name: envds-daq-main
   namespace: envds
   labels:
-    app: envds-registrar-main
+    app: envds-daq-main
 spec:
   selector:
     matchLabels:
-      app: envds-registrar-main
+      app: envds-daq-main
   template:
     metadata:
       labels:
-        app: envds-registrar-main
+        app: envds-daq-main
     spec:
       containers:
-      - name: envds-registrar-main
-        image: envds-registry-main:5000/envds/envds-registrar:0.1.0
+      - name: envds-daq-main
+        image: envds-registry-main:5000/envds/envds-daq:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -53,7 +54,7 @@ spec:
           - name: REDIS_OM_URL
             value: redis://redis.default
           - name: LOG_LEVEL
-            value: INFO
+            value: DEBUG
           # - name: REDIS_OM_URL
           #   value: redis://redis.default
         resources:
@@ -66,47 +67,24 @@ spec:
         - name: http
           containerPort: 9080
           protocol: TCP
-        volumeMounts:
-          - name: envds-registrar-main-pv-storage
-            mountPath: /data
-      volumes:
-        - name: envds-registrar-main-pv-storage
-          persistentVolumeClaim:
-            claimName: envds-registrar-main-pv-claim
-         # - name: https
-        #   containerPort: 8883
-        #   protocol: TCP
-      #   volumeMounts:
-      #       - name: mosquitto-config
-      #         mountPath: /mosquitto/config/mosquitto.conf
-      #         subPath: mosquitto.conf
-      #       # - name: mosquitto-certs
-      #       #   mountPath: /certs/ca.crt
-      #       #   subPath: ca.crt
-      #       # - name: mosquitto-certs
-      #       #   mountPath: /certs/server.crt
-      #       #   subPath: server.crt
-      #       # - name: mosquitto-certs
-      #       #   mountPath: /certs/server.key
-      #       #   subPath: server.key
+        # volumeMounts:
+        #   - name: envds-daq-main-pv-storage
+        #     mountPath: /data
       # volumes:
-      #   - name: mosquitto-config
-      #     configMap:
-      #       name: mosquitto-config
-      #   # - name: mosquitto-certs
-      #   #   configMap:
-      #   #     name: mosquitto-certs
+      #   - name: envds-daq-main-pv-storage
+      #     persistentVolumeClaim:
+      #       claimName: envds-daq-main-pv-claim
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: envds-registrar-main
+  name: envds-daq-main
   namespace: envds
   labels:
-    app: envds-registrar-main
+    app: envds-daq-main
 spec:
   selector:
-    app: envds-registrar-main
+    app: envds-daq-main
   ports:
   - name: http
     protocol: TCP
@@ -118,31 +96,52 @@ spec:
   # type: LoadBalancer
   type: ClusterIP
 ---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: envds-daq-stripprefix
+  namespace: envds
+  labels:
+    app: envds
+spec:
+  stripPrefix:
+    prefixes:
+      - /envds/daq
+      - /ws/envds/daq
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: envds-registrar-ingress
+  name: envds-daq-ingress
   namespace: envds
   # labels:
   #   app: envds
   annotations:
     ingress.kubernetes.io/ssl-redirect: "false"
     traefik.ingress.kubernetes.io/router.middlewares:
-      envds-envds-registrar-stripprefix@kubernetescrd
+      envds-envds-daq-stripprefix@kubernetescrd
       # default-erddap-rewrite@kubernetescrd
 spec:
   rules:
   - http:
       paths:
       # - path: /erddap
-      - path: /envds/registrar
+      - path: /envds/daq
         pathType: Prefix
         # pathType: Exact
         backend:
           service:
-            name: envds-registrar-main
+            name: envds-daq-main
             port:
-              number: 8080
+              number: 9080
+      - path: /ws/envds/daq
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 9080
 # # ---
 # # apiVersion: networking.k8s.io/v1
 # # kind: Ingress

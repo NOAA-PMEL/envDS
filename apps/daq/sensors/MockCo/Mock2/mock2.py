@@ -41,14 +41,14 @@ from pydantic import BaseModel
 task_list = []
 
 
-class Mock1(Sensor):
+class Mock2(Sensor):
     """docstring for Mock1."""
 
     metadata = {
         "attributes": {
             # "name": {"type"mock1",
             "make": {"type": "char", "data": "MockCo"},
-            "model": {"type": "char", "data": "Mock1"},
+            "model": {"type": "char", "data": "Mock2"},
             "description": {
                 "type": "char",
                 "data": "Simulates a meterological type of sensor for the purposes of testing. Data records are emitted once per second.",
@@ -131,7 +131,7 @@ class Mock1(Sensor):
     }
 
     def __init__(self, config=None, **kwargs):
-        super(Mock1, self).__init__(config=config, **kwargs)
+        super(Mock2, self).__init__(config=config, **kwargs)
         self.data_task = None
         self.data_rate = 1
         # self.configure()
@@ -160,7 +160,7 @@ class Mock1(Sensor):
         self.enable_task_list.append(self.test_polling_loop())
 
     def configure(self):
-        super(Mock1, self).configure()
+        super(Mock2, self).configure()
 
         # get config from file
         try:
@@ -235,7 +235,7 @@ class Mock1(Sensor):
                 "mock1.configure", extra={"interfaces": conf["interfaces"]}
             )
 
-        for name, setting in Mock1.metadata["settings"].items():
+        for name, setting in Mock2.metadata["settings"].items():
             requested = setting["attributes"]["default_value"]["data"]
             if "settings" in config and name in config["settings"]:
                 requested = config["settings"][name]
@@ -243,14 +243,14 @@ class Mock1(Sensor):
             self.settings.set_setting(name, requested=requested)
 
         meta = SensorMetadata(
-            attributes=Mock1.metadata["attributes"],
-            variables=Mock1.metadata["variables"],
-            settings=Mock1.metadata["settings"],
+            attributes=Mock2.metadata["attributes"],
+            variables=Mock2.metadata["variables"],
+            settings=Mock2.metadata["settings"],
         )
 
         self.config = SensorConfig(
-            make=Mock1.metadata["attributes"]["make"]["data"],
-            model=Mock1.metadata["attributes"]["model"]["data"],
+            make=Mock2.metadata["attributes"]["make"]["data"],
+            model=Mock2.metadata["attributes"]["model"]["data"],
             serial_number=conf["serial_number"],
             metadata=meta,
             interfaces=conf["interfaces"],
@@ -330,7 +330,7 @@ class Mock1(Sensor):
     # pass
 
     async def handle_interface_data(self, message: Message):
-        await super(Mock1, self).handle_interface_data(message)
+        await super(Mock2, self).handle_interface_data(message)
 
         # self.logger.debug("interface_recv_data", extra={"data": message.data})
         if message.data["type"] == det.interface_data_recv():
@@ -571,7 +571,7 @@ async def main(server_config: ServerConfig = None):
 
     # print("instantiate")
     logger.debug("Starting Mock1")
-    inst = Mock1()
+    inst = Mock2()
     # print(inst)
     # await asyncio.sleep(2)
     inst.run()

@@ -100,6 +100,7 @@ async def register_sensor_type(
         current = await get_sensor_type_registration(
             make=make, model=model, version=version
         )
+        print(f"make: {make}, model: {model}, version: {version}")
         print("here:3")
         # current = await SensorTypeRegistration.find(
         #     SensorTypeRegistration.make == make
@@ -135,10 +136,11 @@ async def get_sensor_type_registration(
 ) -> SensorTypeRegistration:
     try:
         reg = await SensorTypeRegistration.find(
-            SensorTypeRegistration.make == make
-            and SensorTypeRegistration.model == model
-            and SensorTypeRegistration.version == version
+            SensorTypeRegistration.make == make,
+            SensorTypeRegistration.model == model,
+            SensorTypeRegistration.version == version
         ).first()
+        print(f"{make}-{model}-{version}: {reg}")
         return reg
     except NotFoundError as e:
         print(f"get_sensor_type error: {e}")
@@ -194,9 +196,9 @@ async def get_sensor_registration(
 ) -> SensorRegistration:
     try:
         reg = await SensorRegistration.find(
-            SensorRegistration.make == make
-            and SensorRegistration.model == model
-            and SensorRegistration.serial_number == serial_number
+            SensorRegistration.make == make,
+            SensorRegistration.model == model,
+            SensorRegistration.serial_number == serial_number
         ).first()
         return reg
 

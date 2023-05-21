@@ -40,6 +40,10 @@ data:
     connection 172.17.6.20
     address 172.17.6.20:1884
     topic /envds/dev/sensor/+/data/update out 0 "" ""
+    topic /envds/dev/sensor/+/settings/update out 0 "" ""
+    topic /envds/dev/sensor/+/settings/request both 0 "" ""
+    topic /envds/dev/sensor/+/status/update out 0 "" ""
+    topic /envds/dev/sensor/+/status/request both 0 "" ""
     topic /envds/+/core/+/registry/bcast both 0 "" ""
     topic /envds/+/core/+/registry/update both 0 "" ""
     topic /envds/+/core/+/registry/request both 0 "" ""

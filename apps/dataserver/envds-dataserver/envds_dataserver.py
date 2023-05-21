@@ -523,11 +523,13 @@ class envdsDataserver(envdsBase):
             # self.logger.debug("init_data_lines", extra={"header": header_line, "data": data})
             # TODO: Create init data file
             with open(init_data_file, "w") as f:
+                f.write("[")
                 f.write(",".join(header))
-                f.write("\n")
+                f.write("]\n")
                 # f.write(data)
+                f.write("[")
                 f.write(",".join(data))
-                f.write("\n")
+                f.write("]\n")
                 # f.writelines([header, data])
             self.logger.debug(
                 "create_init_datafile - init file created",
@@ -580,7 +582,7 @@ class envdsDataserver(envdsBase):
                         model = atts["model"]["data"]
                         version = atts["format_version"]["data"]
                         dataset_id = f"{make}_{model}_{erddap_version}"
-
+                        self.logger.debug("check_registration_loop", extra={"dataset_id": dataset_id})
                         params = {
                             "make": make,
                             "model": model,
@@ -590,6 +592,7 @@ class envdsDataserver(envdsBase):
                         # print(f"params: {params}")
 
                         reg = await get_sensor_type_registration(**params)
+                        self.logger.debug("check_registration_loop", extra={"reg": reg})
                         if reg:
                             self.logger.debug(
                                 "register_sensor_loop", extra={"reg": reg.dict()}

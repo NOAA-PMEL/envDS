@@ -298,6 +298,7 @@ class MAGIC250(Sensor):
                     "valid_min": {"type": "int", "data": 0},
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 1},
                 },
             },
             "q_target": {
@@ -309,6 +310,7 @@ class MAGIC250(Sensor):
                     "valid_min": {"type": "int", "data": 240},
                     "valid_max": {"type": "int", "data": 360},
                     "step_increment": {"type": "int", "data": 10},
+                    "default_value": {"type": "int", "data": 300},
                 },
             },
         },
@@ -387,6 +389,13 @@ class MAGIC250(Sensor):
                 "magcic250.configure", extra={"interfaces": conf["interfaces"]}
             )
 
+        for name, setting in MAGIC250.metadata["settings"].items():
+            requested = setting["attributes"]["default_value"]["data"]
+            if "settings" in config and name in config["settings"]:
+                requested = config["settings"][name]
+
+            self.settings.set_setting(name, requested=requested)
+
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
             variables=MAGIC250.metadata["variables"],
@@ -446,6 +455,15 @@ class MAGIC250(Sensor):
                     await self.default_data_buffer.put(message.data)
             except KeyError:
                 pass
+
+    async def settings_check(self):
+        await super().settings_check()
+
+        if not self.settings.get_health(): # something has changed
+            for name in self.settings.get_settings().keys():
+                if not self.settings.get_health_setting(name):
+                    self.logger.debug("settings_check - set setting", extra={"name": name, "setting": self.settings.get_setting(name)})
+
 
     async def sampling_monitor(self):
 

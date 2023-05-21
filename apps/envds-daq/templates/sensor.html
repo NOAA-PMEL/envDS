@@ -27,11 +27,10 @@
 {% endblock %}
 
 {% block status %}
-<div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
-    <p><em>Status</em></p>
-    <textarea readonly class="w3-round" id="status-window" style="width:100%" rows="5"></textarea><br />
-    <button id="refresh-status-button" class="w3-button w3-round w3-border" value="Refresh"
-        onclick=request_status()>Refresh</button>
+<div id="inst-status-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
+    <div class="w3-bar w3-center">
+        <h6>Status</h6>
+    </div>
 </div>
 {% endblock %}
 
@@ -46,10 +45,10 @@
 {% endblock %}
 
 
-{% block rawdata %}
+<!-- {% block rawdata %}
 <div id="inst-rawdata-table-div" class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
 </div>
-{% endblock rawdata %}
+{% endblock rawdata %} -->
 
 
 {% block extracontent %}
@@ -102,13 +101,16 @@
         //     console.log(k + ': ' + sensor_meta["variables"][k]["attributes"]["long_name"]["data"])
         // }
 
-        // build_data_table()
-        // build_settings_table()
+        build_data_table()
+        build_settings_table()
+        build_status_table()
         wait_for_setup = false
 
     }
 
     function build_data_table() {
+        var has_2d = false
+
         var tablediv = document.getElementById('inst-data-table-div');
 
         var ts_box = document.createElement("div")
@@ -124,6 +126,33 @@
         ts_box.appendChild(ts_text)
         ts_box.appendChild(ts)
         tablediv.appendChild(ts_box)
+
+        group_box = document.createElement('div')
+        group_button = document.createElement('a')
+        group_button.setAttribute('id', '1d-data-box')
+        group_button.setAttribute('class', 'w3-block w3-button')
+        var fn_arg = '1d-data-box-contents'
+        group_button.setAttribute('onclick', "doAccordion('1d-data-box-contents')")
+        group_button.setAttribute('href', "javascript:void(0)")
+        group_button.innerHTML = "<em>1-D Data: </em><i id='1d-data-box-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+        group_box.appendChild(group_button)
+        group_contents = document.createElement('div')
+        group_contents.setAttribute('id', '1d-data-box' + '-contents')
+        group_contents.setAttribute("class", "w3-hide")
+
+        group_box2 = document.createElement('div')
+        group_button2 = document.createElement('a')
+        group_button2.setAttribute('id', '2d-data-box')
+        group_button2.setAttribute('class', 'w3-block w3-button')
+        var fn_arg2 = '2d-data-box-contents'
+        group_button2.setAttribute('onclick', "doAccordion('2d-data-box-contents')")
+        group_button2.setAttribute('href', "javascript:void(0)")
+        group_button2.innerHTML = "<em>2-D Data: </em><i id='2d-data-box-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+        group_box2.appendChild(group_button2)
+        group_contents2 = document.createElement('div')
+        group_contents2.setAttribute('id', '2d-data-box' + '-contents')
+        group_contents2.setAttribute("class", "w3-hide")
+
 
         var table = document.createElement('table');
         table.setAttribute('id', 'meas-inst-data-table');
@@ -142,36 +171,72 @@
         cell.setAttribute("class", "w3-center")
         cell.innerHTML = "<b>Units</b>";
 
+        var table2 = document.createElement('table');
+        table2.setAttribute('id', 'meas2-inst-data-table');
+        table2.setAttribute('class', 'w3-table-all')
+
+
+        var header = table2.createTHead();
+        var row = header.insertRow(0);
+        var cell = row.insertCell(0);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Name</b>";
+        cell = row.insertCell(1);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Value</b>"
+        // cell = row.insertCell(2);
+        // cell.setAttribute("class", "w3-center")
+        // cell.innerHTML = "<b>Units</b>";
+        
         for (var variable in sensor_meta["variables"]) {
-            console.log(variable)
+            // console.log(variable)
+            var use_2d = false
+            if (variable == "time") {
+                continue
+            }
             shape = sensor_meta["variables"][variable]["shape"]
             if (shape.length > 1) {
-                continue
+                use_2d = true
+                has_2d = true
             }
             // console.log("units: " + sensor_meta["variables"][variable]["attributes"]['units']["data"])
             // console.log(shape)
             meas_id = variable
             name = variable
-            row = table.insertRow(-1);
-            cell = row.insertCell(0);
-            cell.setAttribute('id', (meas_id + '-name'));
-            cell.setAttribute("class", "w3-center")
-            cell.innerHTML = name
-            cell = row.insertCell(1);
-            cell.setAttribute("class", "w3-center")
-            cell.setAttribute('id', (meas_id + '-value'));
-            cell.innerHTML = '';
-            cell = row.insertCell(2);
-            cell.setAttribute('id', (meas_id + '-units'));
-            cell.setAttribute("class", "w3-center")
-            units = ""
-            try {
-                units = sensor_meta["variables"][variable]["attributes"]['units']["data"]
-            }
-            catch (TypeError) {
+
+            if (use_2d == true) {
+                row = table2.insertRow(-1);
+                cell = row.insertCell(0);
+                cell.setAttribute('id', (meas_id + '-name'));
+                cell.setAttribute("class", "w3-center")
+                cell.innerHTML = name
+                cell = row.insertCell(1);
+                cell.setAttribute("class", "w3-center")
+                cell.setAttribute('id', (meas_id + '-value'));
+                cell.innerHTML = '';
+            } else {
+
+                row = table.insertRow(-1);
+                cell = row.insertCell(0);
+                cell.setAttribute('id', (meas_id + '-name'));
+                cell.setAttribute("class", "w3-center")
+                cell.innerHTML = name
+                cell = row.insertCell(1);
+                cell.setAttribute("class", "w3-center")
+                cell.setAttribute('id', (meas_id + '-value'));
+                cell.innerHTML = '';
+                cell = row.insertCell(2);
+                cell.setAttribute('id', (meas_id + '-units'));
+                cell.setAttribute("class", "w3-center")
                 units = ""
+                try {
+                    units = sensor_meta["variables"][variable]["attributes"]['units']["data"]
+                }
+                catch (TypeError) {
+                    units = ""
+                }
+                cell.innerHTML = units
             }
-            cell.innerHTML = units
         }
         var td = table.rows[0].cells[0];
         td.width = '200px';
@@ -180,8 +245,22 @@
         td = table.rows[0].cells[2];
         td.width = '100px';
 
-        tablediv.appendChild(table);
+        group_contents.appendChild(table)
+        group_box.appendChild(group_contents)
+        tablediv.appendChild(group_box);
+        // tablediv.appendChild(table);
 
+        if (has_2d == true) {
+            var td = table2.rows[0].cells[0];
+            td.width = '200px';
+            td = table2.rows[0].cells[1];
+            td.width = '300px';
+
+            group_contents2.appendChild(table2)
+            group_box2.appendChild(group_contents2)
+            tablediv.appendChild(group_box2);              
+        }
+        document.getElementById('1d-data-box').click()
     }
 
     function build_settings_table() {
@@ -271,10 +350,10 @@
             cell.innerHTML = name
             cell = row.insertCell(1);
             cell.setAttribute("class", "w3-center")
-            cell.setAttribute('id', (meas_id + '-value'));
+            cell.setAttribute('id', (meas_id + '-setting-actual'));
             cell.innerHTML = '';
             cell = row.insertCell(2);
-            cell.setAttribute('id', (meas_id + '-input'));
+            cell.setAttribute('id', (meas_id + '-setting-requested'));
             min_range = ""
             if (!isNaN(valid_min))
                 min_range = "min=" + valid_min + " "
@@ -301,33 +380,275 @@
         tablediv.appendChild(group_box);
     }
 
-    // ws_host = 'ws://'+ '{{ ws_ip }}' + ':9080/ws/sensor/' + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"]
+    function build_status_table() {
+        var tablediv = document.getElementById('inst-status-table-div');
+
+        group_box = document.createElement('div')
+        group_button = document.createElement('a')
+        group_button.setAttribute('id', 'status-box')
+        group_button.setAttribute('class', 'w3-block w3-button')
+        var fn_arg = 'status-box-contents'
+        group_button.setAttribute('onclick', "doAccordion('status-box-contents')")
+        group_button.setAttribute('href', "javascript:void(0)")
+        group_button.innerHTML = "<em>Status: </em><i id='status-box-contents-icon' style='position:relative;left:10px;vertical-align:middle;' class='material-icons'>expand_more</i>"
+        group_box.appendChild(group_button)
+        group_contents = document.createElement('div')
+        group_contents.setAttribute('id', 'status-box' + '-contents')
+        group_contents.setAttribute("class", "w3-hide")
+
+        table = document.createElement('table')
+        table_id = 'status-table'
+        table.setAttribute('id', table_id)
+        table.setAttribute('class', 'w3-table w3-bordered w3-border')
+
+        var header = table.createTHead();
+        var row = header.insertRow(0);
+        var cell = row.insertCell(0);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>State</b>";
+        cell = row.insertCell(1);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Requested</b>";
+        cell = row.insertCell(2);
+        cell.setAttribute("class", "w3-center")
+        cell.innerHTML = "<b>Actual</b>";
+
+        // for (var setting in sensor_meta["settings"]) {
+
+        //     meas_id = setting
+        //     name = setting
+        //     row = table.insertRow(-1);
+        //     cell = row.insertCell(0);
+        //     cell.setAttribute('id', (meas_id + '-name'));
+        //     cell.setAttribute("class", "w3-center")
+        //     cell.innerHTML = name
+        //     cell = row.insertCell(1);
+        //     cell.setAttribute("class", "w3-center")
+        //     cell.setAttribute('id', (meas_id + '-value'));
+        //     cell.innerHTML = '';
+        //     cell = row.insertCell(2);
+        //     cell.setAttribute('id', (meas_id + '-input'));
+        //     min_range = ""
+        //     if (!isNaN(valid_min))
+        //         min_range = "min=" + valid_min + " "
+        //     max_range = ""
+        //     if (!isNaN(valid_max))
+        //         max_range = "max=" + valid_max + " "
+        //     cell.innerHTML = '<input id=' + meas_id + '-setting-input type=number ' + min_range + max_range + 'step=any>'
+        //     cell = row.insertCell(3);
+        //     cell.setAttribute('id', (meas_id + '-setting-set'));
+        //     cell.innerHTML =
+        //         '<button id=' + meas_id + '-setting-button class="w3-button w3-round w3-border" value="apply" onclick=apply_setting(this)>apply</button>'
+        // }
+
+        var td = table.rows[0].cells[0];
+        td.width = '200px';
+        td = table.rows[0].cells[1];
+        td.width = '200px';
+        td = table.rows[0].cells[2];
+        td.width = '100px';
+
+        group_contents.appendChild(table)
+        group_box.appendChild(group_contents)
+        tablediv.appendChild(group_box);
+    }
+
+    ws_host = `ws://${window.location.host}/ws/envds/daq/ws/sensor/${sensor_reg["make"]}/${sensor_reg["model"]}/${sensor_reg["serial_number"]}`
+    // ws_host = `ws://127.0.0.1:8080/ws/envds/daq/ws/sensor/${sensor_reg["make"]}/${sensor_reg["model"]}/${sensor_reg["serial_number"]}`
     // var ws_host = "localhost:9080" + "/ws/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"]
     var client_id = Date.now()
     // var ip = location.host
     // console.log(ip)
     // ws_host = `ws://{{ ws_ip }}:9080/ws/${client_id}`
-    ws_host = `ws://localhost:9080/ws/${client_id}`
+    // ws_host = `ws://127.0.0.1:9080/ws/${client_id}`
+    // ws_host = 
     console.log(ws_host)
     // var websocket = new WebSocket(
     //     'ws://'+ws_host
     // );
-    var ws = new WebSocket(`ws://localhost:9080/ws/${client_id}`)
+    // var ws = new WebSocket(`ws://${window.location.host}/ws/envds/daq/ws/${client_id}`)
+    var ws = new WebSocket(ws_host)
     // 'ws://' + window.location.host + "/envds/daq/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"] + "/ws"
     // 'ws://' + window.location.host + "/sensor/" + sensor_reg["make"] + "/" + sensor_reg["model"] + "/" + sensor_reg["serial_number"] + "/ws"
 
     ws.onmessage = function(e) {
+        data = JSON.parse(e.data)
+        keys = Object.keys(data)
+        // console.log(Object.keys(data))
+        // return
+        if (keys.includes("variables")) {
+            // console.log("update data table")
+            for (var meas in data['variables']) {
+                var cell_value = ''
+                if (data['variables'][meas]['data'] == null) {
+                    continue
+                }
+                if (data['variables'][meas]['data'].constructor === Array) {
+                    continue
+                }
+                // cell_id = (meas+"-value").replace(/_/g, "-")
+                if (meas == "time") {
+                    cell_id = "time-stamp"
+                } else {
+                    cell_id = (meas+"-value")
+                }
+                document.getElementById(cell_id).innerHTML = data['variables'][meas]['data']
+            }
+        }
+
+        if (keys.includes("settings")) {
+            // console.log("update data table")
+            for (var meas in data['settings']) {
+                var requested_value = ''
+                var actual_value = ''
+                if (data['settings'][meas]['requested'] != null) {
+                    requested_value = data['settings'][meas]['requested']
+                }
+                if (data['settings'][meas]['actual'] != null) {
+                    actual_value = data['settings'][meas]['actual']
+                }
+                // cell_id = (meas+"-value").replace(/_/g, "-")
+                document.getElementById(meas+"-setting-actual").innerHTML = actual_value
+                document.getElementById(meas+"-setting-input").setAttribute('value', requested_value);
+            }
+        }
+
+        if (keys.includes("state")) {
+            // console.log(data["state"])
+            table_id = 'status-table'
+            for (var meas in data['state']) {
+                var actual_value = ''
+                var requested_value = ''
+                if (data['state'][meas]['actual'] != null) {
+                    actual_value = data['state'][meas]['actual']
+                }
+                if (data['state'][meas]['requested'] != null) {
+                    requested_value = data['state'][meas]['requested']
+                }
+                // console.log(meas)
+                // console.log("requested: "+requested_value)
+                // console.log("actual: "+actual_value)
+                // const element = document.getElementById(meas+'-status-state')
+                // console.log(element)
+                if (document.getElementById(meas+'-status-state') == null) {
+                // if (element == null) {
+                    table = document.getElementById(table_id)
+                    
+                    row = table.insertRow(-1);
+                    cell = row.insertCell(0);
+                    cell.setAttribute('id', (meas+'-status-state'));
+                    cell.setAttribute("class", "w3-center")
+                    cell.innerHTML = meas
+                    cell = row.insertCell(1);
+                    cell.setAttribute("class", "w3-center")
+                    cell.setAttribute('id', (meas + '-status-requested'));
+                    cell.innerHTML = '';
+                    cell = row.insertCell(2);
+                    cell.setAttribute("class", "w3-center")
+                    cell.setAttribute('id', (meas + '-status-actual'));
+                    cell.innerHTML = '';
+                }
+                // console.log(meas + '-status-actual')
+                document.getElementById(meas + '-status-requested').innerHTML = requested_value
+                document.getElementById(meas + '-status-actual').innerHTML = actual_value
+            }
+
+            if ("sampling" in data["state"]) {
+                opsButtonSet(data["state"]["sampling"]["actual"])
+            }
+        } 
+        
+
         // console.log(JSON.parse(e.data))
-        console.log(e.data)
+        // console.log(Object.keys(data))
+        // console.log(e.data)
     }
     
     ws.onerror = function(e) {
         console.log(e)
     }
-    // websocket.onopen = function(event) {
-    //     console.log('Connected to: ' + event.currentTarget.url)
-    //     console.log('setup done')
-    // }
+    
+    websocket.onopen = function(event) {
+        console.log('Connected to: ' + event.currentTarget.url)
+        console.log('setup done')
+    }
+
+    function apply_setting(control) {
+        console.log(control)
+        var id = control.id.split('-')
+        id.splice(-2,2)
+        var control = id.join("-")
+        console.log(control)
+        setpoint = document.getElementById(control+'-setting-input').value
+        console.log(control)
+        console.log(setpoint)
+        var message = {}
+        message["settings"] = {}
+        message["settings"][control] = {
+            "requested": setpoint,
+            "actual": document.getElementById(control+'-setting-actual').textContent
+        }
+
+        console.log(message)
+        ws.send(
+                JSON.stringify({'client_request': message})
+            )
+    }
+
+    function opsButtonState() {
+        button = document.getElementById('start-stop-button')
+        return button.value
+    }
+
+    function opsButtonRequest() {
+            button = document.getElementById('start-stop-button')
+            console.log(button.value)
+            //var req = button.value
+            var req = "STOP"
+            requested = "false"
+            if (button.value == "Start") {
+                req = "START"
+                requested = "true"
+            } 
+            // console.log(document.getElementById('sampling-status-actual'))
+            var message = {}
+            message["state"] = {
+                "sampling": {
+                    "requested": requested,
+                    "actual": document.getElementById('sampling-status-actual').textContent
+                }
+            }
+            // message['SUBJECT'] = 'RUNCONTROLS'
+            // message['BODY'] = {
+            //     'purpose': 'REQUEST',
+            //     'control': 'start_stop',
+            //     'value': req,
+            // }
+            console.log(JSON.stringify({'client_request': message}))
+            console.log(ws)
+            ws.send(
+                JSON.stringify({'client_request': message})
+            )
+
+        }
+
+        function opsButtonSet(runstate) {
+            button = document.getElementById('start-stop-button')
+
+            //var class_val = 'opsbutton started'
+            var value = "Stop"
+            if (runstate == "false") {
+                value = "Start"
+            }
+
+            // if (runstate == "STOPPED" || runstate == "READY_TO_RUN") {
+            //     //class_val = 'opsbutton stopped'
+            //     value = "Start"
+            // }
+            button.value = value
+            button.innerText = value
+            //button.className = class_val
+        }
 
 </script>
 <script src="{{ url_for('static', path='js/envds.js') }}"></script>

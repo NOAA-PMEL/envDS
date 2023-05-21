@@ -90,6 +90,11 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+    async def broadcast_exclude_self(self, message: str, websocket: WebSocket):
+        for connection in self.active_connections:
+            if connection != websocket:
+                await connection.send_text(message)
+
 
 manager = ConnectionManager()
 host_name = socket.gethostname()
@@ -129,33 +134,34 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
     )
 
 
-# @app.websocket("/ws/sensor/{make}/{model}/{serial_number}")
-@app.websocket("/ws/{client_id}")
-# async def websocket_endpoint(
-#     websocket: WebSocket, make: str, model: str, serial_number: str
-# ):
+@app.websocket("/ws/sensor/{make}/{model}/{serial_number}")
+# @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(
-    websocket: WebSocket,
-    client_id: int
+    websocket: WebSocket, make: str, model: str, serial_number: str
 ):
-    try:
-        print(f"websocket: {websocket}")
-        # await manager.connect(websocket)
-        await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            print(data)
-    except Exception as e:
-        print(f"error: {e}")
+# async def websocket_endpoint(
+#     websocket: WebSocket,
+#     client_id: int
+# ):
     # try:
+    #     print(f"websocket: {websocket}")
+    await manager.connect(websocket)
+    print(f"websocket_endpoint: {websocket}")
+    #     await websocket.accept()
     #     while True:
     #         data = await websocket.receive_text()
-    #         print(f"data: {data}")
-    #         await manager.send_personal_message(f"You wrote: {data}", websocket)
-    #         await manager.broadcast(f"Client says: {data}")
-    # except WebSocketDisconnect:
-    #     manager.disconnect(websocket)
-    #     await manager.broadcast(f"Client left the chat")
+    #         print(data)
+    # except Exception as e:
+    #     print(f"error: {e}")
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(f"data: {data}")
+            # await manager.send_personal_message(f"You wrote: {data}", websocket)
+            await manager.broadcast_exclude_self(data, websocket)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        # await manager.broadcast(f"Client left the chat")
 
     # await websocket.send_text(
     #     f"Session cookie or query token value is: {cookie_or_token}"

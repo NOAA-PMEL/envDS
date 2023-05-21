@@ -190,10 +190,12 @@ class Interface(envdsBase):
 
     # these need to start at run
     def set_core_routes(self, enable: bool = True):
+        print(f"set_core_routes:1")
         super(Interface, self).set_core_routes()
+        print(f"set_core_routes:2")
 
         topic_base = self.get_id_as_topic()
-        self.logger.debug("interface route", extra={"topic_base": topic_base})
+        self.logger.debug("set_core_routes:interface", extra={"topic_base": topic_base})
 
         # TODO: remove this route if not needed
         # self.set_route(
@@ -433,7 +435,14 @@ class Interface(envdsBase):
                     self.update_client_registry(
                         client_id=client_id, source=source, deregister=deregister
                     )
+                
                     #    self.register_client(data=message.data, source_path=message["source_path"])
+                if requested == envdsStatus.TRUE:
+                    print(f"id_as_topic: {self.get_id_as_topic()}")
+                    self.enable()
+                elif requested == envdsStatus.FALSE:
+                    self.disable()
+
             except KeyError:
                 self.logger.error(
                     "unknown interface status request", extra={"data": message.data}
@@ -609,6 +618,25 @@ class Interface(envdsBase):
                     #         "client_monitor", extra={"client_map": self.client_map}
                     #     )
                     # self.logger.debug("client monitor", extra={"id": id, "path": path})
+
+                    # update status
+                    if (client := self.client_map[id]["client"]):
+
+                        topic_base = self.get_id_as_topic()
+                        dest_path = f"{topic_base}/{id}/status/update"
+                        extra_header = {"path_id": id}
+                        event = DAQEvent.create_interface_status_update(
+                            # source="envds.core", data={"test": "one", "test2": 2}
+                            source=self.get_id_as_source(),
+                            data=self.status.get_status(),
+                            extra_header=extra_header
+                        )
+                        self.logger.debug("send_interface_status_update", extra={"event": event})
+                        # message = Message(data=event, dest_path="/envds/status/update")
+                        message = Message(data=event, dest_path=dest_path)
+                        await self.send_message(message)
+                        # self.logger.debug("heartbeat", extra={"msg": message})
+
             except Exception as e:
                 self.logger.error("client_monitor", extra={"error": e})
             await asyncio.sleep(5)
