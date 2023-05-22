@@ -214,13 +214,18 @@ class SB70LC(Interface):
     def unpack_i2c_data(self, data):
 
         self.logger.debug("unpack_i2c_data", extra={"data": data})
-        if not data: # or data == "OK":
-            return None
-        elif isinstance(data, str):
-            if data.strip() == "OK":
+        print(f"unpack_data_type: {type(data)}")
+        try:
+            if not data: # or data == "OK":
                 return None
-        return data
-    
+            elif isinstance(data["data"], str):
+                print(f"check_for_ok: {data['data'].strip()}, {data['data'].strip() == 'OK'}")
+                if data['data'].strip() == "OK":
+                    return None
+            return data
+        except KeyError:
+            return None
+        
     async def recv_data_loop(self, client_id: str):
         
         # self.logger.debug("recv_data_loop", extra={"client_id": client_id})
@@ -238,6 +243,7 @@ class SB70LC(Interface):
                         data = self.unpack_i2c_data(data)
                         if data is None:
                             continue
+                        self.logger.debug("port-I2C", extra={"data": data})
 
                     await self.update_recv_data(client_id=client_id, data=data)
                     # await asyncio.sleep(self.min_recv_delay)

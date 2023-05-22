@@ -462,7 +462,7 @@ class MAGIC250(Sensor):
         if not self.settings.get_health(): # something has changed
             for name in self.settings.get_settings().keys():
                 if not self.settings.get_health_setting(name):
-                    self.logger.debug("settings_check - set setting", extra={"name": name, "setting": self.settings.get_setting(name)})
+                    self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
 
 
     async def sampling_monitor(self):

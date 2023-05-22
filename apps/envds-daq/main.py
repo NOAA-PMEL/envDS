@@ -72,29 +72,55 @@ app.include_router(api_router)  # , prefix="/envds/home")
 #     print("stopping system")
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        # self.active_connections: list[WebSocket] = []
+        self.active_connections = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, source_type: str, source_id: str):
+        print(f"{source_type}: {source_id}")
         await websocket.accept()
-        self.active_connections.append(websocket)
+        if source_type not in self.active_connections:
+            self.active_connections[source_type] = dict()
+        if source_id not in self.active_connections[source_type]:
+            # self.active_connections[source_type][source_id] = list[WebSocket]
+            self.active_connections[source_type][source_id] = []
+        print(f"active_connections: {self.active_connections}")
+        self.active_connections[source_type][source_id].append(websocket)
+        # self.active_connections.append(websocket)
         # print(f"active connections: {self.active_connections}")
         # await websocket.broadcast("test message")
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        for source_type, types in self.active_connections.items():
+            for source_id, ws_list in types.items():
+                if websocket in ws_list:
+                    ws_list.remove(websocket)
+                    return
+        # self.active_connections.remove(websocket)
 
-    async def send_personal_message(self, message: str, websocket: WebSocket):
+    async def send_personal_message(self, message: str, websocket: WebSocket, source_type: str, source_id: str):
         await websocket.send_text(message)
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-    async def broadcast_exclude_self(self, message: str, websocket: WebSocket):
-        for connection in self.active_connections:
-            if connection != websocket:
+    async def broadcast(self, message: str, source_type: str, source_id: str):
+        try:
+            for connection in self.active_connections[source_type][source_id]:
                 await connection.send_text(message)
+        except KeyError:
+            pass
 
+    async def broadcast_exclude_self(self, message: str, websocket: WebSocket, source_type: str, source_id: str):
+        # for connection in self.active_connections:
+        #     if connection != websocket:
+        #         await connection.send_text(message)
+        try:
+            for connection in self.active_connections[source_type][source_id]:
+                if connection != websocket:
+                    await connection.send_text(message)
+        except KeyError:
+            pass
+
+def get_id(make: str, model: str, serial_number: str):
+    id = "::".join([make, model, serial_number])
+    return id
 
 manager = ConnectionManager()
 host_name = socket.gethostname()
@@ -145,7 +171,8 @@ async def websocket_endpoint(
 # ):
     # try:
     #     print(f"websocket: {websocket}")
-    await manager.connect(websocket)
+    source_id = get_id(make=make, model=model, serial_number=serial_number)
+    await manager.connect(websocket, source_type="sensor", source_id=source_id)
     print(f"websocket_endpoint: {websocket}")
     #     await websocket.accept()
     #     while True:
@@ -158,7 +185,7 @@ async def websocket_endpoint(
             data = await websocket.receive_text()
             print(f"data: {data}")
             # await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast_exclude_self(data, websocket)
+            await manager.broadcast_exclude_self(data, websocket, source_type="sensor", source_id=source_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         # await manager.broadcast(f"Client left the chat")

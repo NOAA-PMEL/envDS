@@ -231,7 +231,7 @@ class HYT271(Sensor):
             "i2c-command": "read-buffer",
             "address": "28",
             "read-length": 4,
-            "delay-ms": 25 # timeout in ms to wait for ACK
+            "delay-ms": 50 # timeout in ms to wait for ACK
         }
         i2c_commands = [write_command, read_command]
         data = {

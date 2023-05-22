@@ -492,8 +492,11 @@
                 } else {
                     cell_id = (meas+"-value")
                 }
-                document.getElementById(cell_id).innerHTML = data['variables'][meas]['data']
-            }
+                try {
+                    document.getElementById(cell_id).innerHTML = data['variables'][meas]['data']
+                }
+                catch (TypeError) {}
+            }   
         }
 
         if (keys.includes("settings")) {
@@ -568,7 +571,7 @@
         console.log(e)
     }
     
-    websocket.onopen = function(event) {
+    ws.onopen = function(event) {
         console.log('Connected to: ' + event.currentTarget.url)
         console.log('setup done')
     }
