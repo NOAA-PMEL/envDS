@@ -1,0 +1,205 @@
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: envds
+#   labels:
+#     name: envds
+# ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envds-manage-cloudy
+  namespace: envds
+  labels:
+    app: envds
+spec:
+  selector:
+    matchLabels:
+      app: envds-manage-cloudy
+  template:
+    metadata:
+      labels:
+        app: envds-manage-cloudy
+    spec:
+      containers:
+      - name: envds-manage-cloudy
+        # image: envds-registry:5000/core/envds-manage:0.1.0
+        image: envds-registry-cloudy:5000/envds/envds-manage:0.1.0
+        imagePullPolicy: "Always"
+        env:
+          - name: ENVDS_ID
+            value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 9080
+          protocol: TCP
+        # - name: https
+        #   containerPort: 8883
+        #   protocol: TCP
+      #   volumeMounts:
+      #       - name: mosquitto-config
+      #         mountPath: /mosquitto/config/mosquitto.conf
+      #         subPath: mosquitto.conf
+      #       # - name: mosquitto-certs
+      #       #   mountPath: /certs/ca.crt
+      #       #   subPath: ca.crt
+      #       # - name: mosquitto-certs
+      #       #   mountPath: /certs/server.crt
+      #       #   subPath: server.crt
+      #       # - name: mosquitto-certs
+      #       #   mountPath: /certs/server.key
+      #       #   subPath: server.key
+      # volumes:
+      #   - name: mosquitto-config
+      #     configMap:
+      #       name: mosquitto-config
+      #   # - name: mosquitto-certs
+      #   #   configMap:
+      #   #     name: mosquitto-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envds-manage-cloudy
+  namespace: envds
+  labels:
+    app: envds-manage-cloudy
+spec:
+  selector:
+    app: envds-manage-cloudy
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9080
+    targetPort: 9080
+  # - name: https
+  #   port: 8883
+  #   targetPort: 8883
+  # type: LoadBalancer
+  type: ClusterIP
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: envds-stripprefix
+  namespace: envds
+  labels:
+    app: envds
+spec:
+  stripPrefix:
+    prefixes:
+      - /envds/manage
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: envds-ingress
+  namespace: envds
+  # labels:
+  #   app: envds
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares:
+      envds-envds-stripprefix@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /envds/manage
+        pathType: Prefix
+        backend:
+          service:
+            name: envds-manage-cloudy
+            port:
+              number: 9080
+
+# # ---
+# # apiVersion: networking.k8s.io/v1
+# # kind: Ingress
+# # metadata:
+# #   name: mosquitto-ingress
+# #   namespace: envds-cloudy
+# #   annotations:
+# #     kubernetes.io/ingress.class: nginx
+# #     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+# # spec:
+# #   rules:
+# #   - host: mosquitto.local
+# #     http:
+# #       paths:
+# #         - pathType: Prefix
+# #           path: "/"
+# #           backend:
+# #             service:
+# #               name: mosquitto
+# #               port: 
+# #                 number: 9001
+# # ---
+# # apiVersion: traefik.containo.us/v1alpha1
+# # kind: Middleware
+# # metadata:
+# #   name: envds-stripprefix
+# #   namespace: envds
+# #   labels:
+# #     app: envds
+# # spec:
+# #   stripPrefix:
+# #     prefixes:
+# #       - /envds/main
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: envds-ingress
+#   namespace: envds
+#   labels:
+#     app: envds
+#   annotations:
+#     ingress.kubernetes.io/ssl-redirect: "false"
+#     # traefik.ingress.kubernetes.io/router.middlewares:
+#     #   envds-envds-stripprefix@kubernetescrd
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - path: /envds/main
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: envds
+#             port:
+#               number: 9080
+# # ---
+# # apiVersion: networking.k8s.io/v1
+# # kind: Ingress
+# # metadata:
+# #   annotations:
+# #     kubernetes.io/ingress.class: nginx
+# #     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+# #     nginx.ingress.kubernetes.io/rewrite-target: /$2
+# #     # nginx.ingress.kubernetes.io/rewrite-target: /
+# #   name: envds-ingress
+# #   namespace: envds
+# # spec:
+# #   rules:
+# #   - http:
+# #       paths:
+# #         - path: /envds(/|$)(.*)
+# #           pathType: Prefix
+# #           backend:
+# #             service:
+# #               name: envds
+# #               port: 
+# #                 number: 9080
+# #         # path: /envds(/|$)(.*)
+# #         #   service: 
+# #         #   serviceName: http-svc
+# #         #   servicePort: 80

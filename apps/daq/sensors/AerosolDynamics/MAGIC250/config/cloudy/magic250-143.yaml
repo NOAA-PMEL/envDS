@@ -8,11 +8,11 @@ metadata:
 data:
   sensor.conf: |
     serial_number: "143"
-    daq_id: dev
+    daq_id: cloudysky
     interfaces:
       # default: serial
       default:
-        interface_env_id: dev # if omitted, defaults to envds_id of sensor
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
         interface_id: NetBurner::SB70LC::nb53
         # interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
@@ -54,11 +54,11 @@ spec:
     spec:
       containers:
       - name: aerosoldynamics-magic250-143
-        image: envds-registry-dev:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
+        image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
-            value: dev
+            value: cloudy
           - name: REDIS_OM_URL
             value: redis://redis.default
           - name: LOG_LEVEL

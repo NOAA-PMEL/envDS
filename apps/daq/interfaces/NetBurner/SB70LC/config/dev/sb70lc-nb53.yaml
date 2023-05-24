@@ -10,7 +10,7 @@ data:
     uid: nb53
     # serial_number: "1234"
     # daq_id: cloudysky
-    host: 10.55.169.73
+    host: 10.55.169.53
     paths:
       port-1:
           # host: 10.55.169.53
