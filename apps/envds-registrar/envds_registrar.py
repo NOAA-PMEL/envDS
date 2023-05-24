@@ -421,7 +421,22 @@ class envdsRegistrar(envdsBase):
                 },
             )
 
-            src = message.data["source"]
+            try:
+                # src = message.data["source"]
+                make = message.data.data["attributes"]["make"]["data"]
+                model = message.data.data["attributes"]["model"]["data"]
+                serial_number = message.data.data["attributes"]["serial_number"]["data"]
+                if not await get_sensor_registration(make=make, model=model, serial_number=serial_number):
+                        
+                    await register_sensor(
+                        make=make,
+                        model=model,
+                        serial_number=serial_number,
+                        source_id=message.data["source"],
+                    )
+            except Exception as e:
+                self.logger.error("handle_data", extra={"error": e, "data": message.data.data})
+
             # if src not in self.file_map:
             #     parts = src.split(".")
             #     sensor_name = parts[-1].split(Sensor.ID_DELIM)
@@ -633,12 +648,12 @@ class envdsRegistrar(envdsBase):
 
         print(f"set_routes: {enable}")
 
-        # self.set_route(
-        #     subscription=f"/envds/{self.id.app_env_id}/sensor/+/data/update",
-        #     route_key=bet.data_update(),
-        #     route=self.handle_data,
-        #     enable=enable
-        # )
+        self.set_route(
+            subscription=f"/envds/+/sensor/+/data/update",
+            route_key=bet.data_update(),
+            route=self.handle_data,
+            enable=enable
+        )
 
         self.set_route(
             subscription=f"/envds/+/core/+/registry/bcast",
