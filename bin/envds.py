@@ -12,6 +12,7 @@ from kubernetes.utils import create_from_yaml, FailToCreateError
 from pathlib import Path
 import json
 import yaml
+import platform
 
 import docker
 from cloudevents.http import CloudEvent
@@ -848,6 +849,9 @@ def create_erddap():
     print("here:6")
 
     erddap_image = "docker-erddap"
+    # if platform.machine() == "aarch64":
+    #     erddap_image = "docker-erddap-arm64"
+
     try:        
         # client.images.remove(f"envds/{erddap_image}:{tag}")
         print("trying to pull erddap image from local registry")
@@ -855,13 +859,22 @@ def create_erddap():
         img = client.images.get(f"envds/{erddap_image}:{tag}")
         print(f"img: {img}")
     except docker.errors.ImageNotFound:
-        # pull
-        print(f"Pull axiom/{erddap_image}:{tag}")
-        img = client.images.pull(f"axiom/{erddap_image}", tag=tag)
+        if platform.machine() == "aarch64":
+            # import from local file
+            with open(f"./apps/dataserver/erddap/images/aarch64/axiom_docker-erddap-arm64_latest-jdk11-openjdk.tar", 'rb') as f: 
+                img_list = client.images.load(f)
+                for im in img_list:
+                    print(f"image_list[i]: {im.id}")
+                img = img_list[0]
+                # print(f"image: {img.id}")
+        else:
+            # pull
+            print(f"Pull axiom/{erddap_image}:{tag}")
+            img = client.images.pull(f"axiom/{erddap_image}", tag=tag)
 
-        # print(f"Tag image as: core/redis-stack-server:{tag}")
-        print(f"Tag image as: envds/docker-erddap:{tag}")
-        # repo = f"core/{db_image}"
+    # print(f"Tag image as: core/redis-stack-server:{tag}")
+    print(f"Tag image as: envds/{erddap_image}:{tag}")
+    # repo = f"core/{db_image}"
     repo = f"envds/{erddap_image}"
     img.tag(repo, tag=tag)
     register_image(f"{repo}:{tag}")

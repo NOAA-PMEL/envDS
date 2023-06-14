@@ -944,7 +944,7 @@ async def main(server_config: ServerConfig = None):
         host=server_config.host,
         port=server_config.port,
         log_level=server_config.log_level,
-        root_path="/envds/files",
+        root_path="/envds/dataserver",
         # log_config=dict_config,
     )
 
