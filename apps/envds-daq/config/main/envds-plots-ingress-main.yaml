@@ -1,0 +1,57 @@
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: envds-daq-stripprefix
+#   namespace: envds
+#   labels:
+#     app: envds
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /envds/daq
+#       - /ws/envds/daq
+#       # - /plots/envds/daq/5004
+
+# ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: envds-plot-ingress
+  namespace: envds
+  # labels:
+  #   app: envds
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    # traefik.ingress.kubernetes.io/router.middlewares:
+      # envds-envds-daq-stripprefix@kubernetescrd
+      # default-erddap-rewrite@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      # # - path: /erddap
+      # - path: /envds/daq
+      #   pathType: Prefix
+      #   # pathType: Exact
+      #   backend:
+      #     service:
+      #       name: envds-daq-main
+      #       port:
+      #         number: 9080
+      # - path: /ws/envds/daq
+      #   pathType: Prefix
+      #   # pathType: Exact
+      #   backend:
+      #     service:
+      #       name: envds-daq-main
+      #       port:
+      #         number: 9080
+      # - path: /plots/envds/daq/5004(/|$|&)(.*)
+      - path: /plots/envds/daq/5004
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5004

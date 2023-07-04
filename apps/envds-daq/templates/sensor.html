@@ -35,13 +35,12 @@
 {% endblock %}
 
 {% block plots %}
-{#
-{% for app in plot_scripts %}
 <div class="w3-container w3-card w3-round w3-margin-top" style="padding:10px">
-    {{ app | safe }}
+    {{ plots|safe }}
+    
 </div>
-{% endfor %}
-#}
+
+
 {% endblock %}
 
 
@@ -70,6 +69,7 @@
     var sensor_meta = JSON.parse('{{ sensor_meta|tojson }}')
     var sensor_reg = JSON.parse('{{ sensor_reg|tojson }}')
 
+    // console.log(plots)
     window.onload = init;
 
     console.log(sensor_meta)

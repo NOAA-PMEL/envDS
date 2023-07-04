@@ -50,6 +50,8 @@ from envds.daq.db import (
     get_sensor_type_metadata,
 )
 
+from plots import PlotManager, PlotDataManager
+
 from aredis_om import (
     # EmbeddedJsonModel,
     # JsonModel,
@@ -78,8 +80,8 @@ from aredis_om import (
 
 from pydantic import BaseModel
 
-task_list = []
-
+task_list = []           
+    
 
 class WSClient(object):
     """docstring for WSClient."""
@@ -183,6 +185,9 @@ class envdsDAQ(envdsBase):
             "sensor": {},
             "interface": {},
         }
+
+        self.plot_manager = PlotManager()
+        self.plot_data_manager = PlotDataManager()
 
         self.update_buffer = asyncio.Queue(maxsize=1000)
 
@@ -402,10 +407,16 @@ class envdsDAQ(envdsBase):
                 if source_type not in self.daq_map:
                     continue
                 if source_id not in self.daq_map[source_type]:
-                    self.daq_map[source_type][source_id] = {"ws_client": None, "source": source}
+                    self.daq_map[source_type][source_id] = {
+                        "ws_client": None,
+                        "plot_app": None, 
+                        "plot_data": None, 
+                        "source": source
+                    }
+
+                id_parts = source_id.split(envdsDAQ.ID_DELIM)
                 if self.daq_map[source_type][source_id]["ws_client"] is None:
                     # create ws_client
-                    id_parts = source_id.split(envdsDAQ.ID_DELIM)
                     uri = "/".join(
                         [
                             # "ws://localhost:8080/ws/envds/daq/ws",
@@ -419,15 +430,59 @@ class envdsDAQ(envdsBase):
                     self.logger.debug("update_monitor", extra={"uri": uri})
                     self.daq_map[source_type][source_id]["ws_client"] = WSClient(uri)
 
+
                 await self.daq_map[source_type][source_id]["ws_client"].connect()
 
+                print("update_monitor:1")
+                # create plot app for sensor - needs data to create pipeline and plots
+                # if self.daq_map[source_type][source_id]["plot_app"] is None:
+                #     print("update_monitor:2")
+                #     if source_type == "sensor":
+                #         print("update_monitor:3")
+                #         # self.plot_manager = PlotManager()
+                #         print("update_monitor:4")
+                #         self.daq_map[source_type][source_id]["plot_app"] = self.plot_manager.get(
+                #             type=source_type,
+                #             make=id_parts[0],
+                #             model=id_parts[1],
+                #             serial_number=id_parts[2],
+                #         )
+                #         print("update_monitor:5")
+                        # self.logger.debug("update_monitor", extra={"plot_app": self.daq_map})
+                print(f"daq_map: {self.daq_map}")
+                if self.daq_map[source_type][source_id]["plot_data"] is None:
+                    print("update_monitor:2")
+                    if source_type == "sensor":
+                        print("update_monitor:3")
+                        # self.plot_manager = PlotManager()
+                        print("update_monitor:4")
+                        self.daq_map[source_type][source_id]["plot_data"] = self.plot_data_manager.get(
+                            type=source_type,
+                            make=id_parts[0],
+                            model=id_parts[1],
+                            serial_number=id_parts[2],
+                        )
+                        print(f"update_monitor:5 {self.daq_map}")
+                        # self.logger.debug("update_monitor", extra={"plot_app": self.daq_map})
                 update = data.data
+                print("update_monitor:6")
 
                 if type == det.data_update():
                     # send variables
+                    print("update_monitor:7")
                     await self.daq_map[source_type][source_id]["ws_client"].send(
                         {"variables": update["variables"]}
                     )
+                    print("update_monitor:8")
+                    # await self.daq_map[source_type][source_id]["plot_app"].update(
+                    #     {"variables": update["variables"]}
+                    # )
+                    print("update_monitor:9")
+                    await self.daq_map[source_type][source_id]["plot_data"].update(
+                        {"variables": update["variables"]}
+                    )
+                    print("update_monitor:10")
+
 
                 elif type == det.sensor_settings_update():
                     # send settings

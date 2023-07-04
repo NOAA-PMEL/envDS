@@ -78,8 +78,6 @@
 
                 </div>
                 <div id="display-content-right" class="w3-container w3-cell w3-half">
-                    <!-- {% block plots %}
-                    {% endblock plots %} -->
 
                     {% block controls %}
                     {% endblock controls %}
@@ -89,6 +87,9 @@
                 </div>
             </div>
             <div id="display_content-bottom">
+                {% block plots %}
+                {% endblock plots %}
+
                 {% block rawdata %}
                 {% endblock rawdata %}
             </div>

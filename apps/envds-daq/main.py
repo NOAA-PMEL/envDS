@@ -36,6 +36,8 @@ from envds.daq.db import (
     get_sensor_type_metadata,
 )
 
+from plots import PlotManager
+
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -70,6 +72,8 @@ app.include_router(api_router)  # , prefix="/envds/home")
 # @app.on_event("shutdown")
 # async def start_system():
 #     print("stopping system")
+
+
 class ConnectionManager:
     def __init__(self):
         # self.active_connections: list[WebSocket] = []
@@ -135,6 +139,7 @@ async def root():
 
 @app.get("/sensor/{make}/{model}/{serial_number}", response_class=HTMLResponse)
 async def sensor(request: Request, make: str, model: str, serial_number: str):
+    print("get sensor here")
     # get sensor definition
     # send context info to template
     meta = await get_sensor_type_metadata(make, model)
@@ -147,6 +152,9 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
     # print(f"meta: {meta}")
     title = f"sensor::{make}::{model}"
 
+    # get plot app
+    plots = PlotManager().get_server_document(type="sensor", make=make, model=model, serial_number=serial_number)
+    print(f"main.sensor.get: {plots}")
     return templates.TemplateResponse(
         "sensor.html",
         {
@@ -156,6 +164,7 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
             "ws_ip": host_ip,
             "sensor_meta": meta,
             "sensor_reg": reg.dict(),
+            "plots": plots
         },
     )
 

@@ -11,3 +11,10 @@ redis
 redis-om
 jinja2
 websockets
+panel
+numpy
+xarray
+streamz
+holoviews
+hvplot
+bokeh
