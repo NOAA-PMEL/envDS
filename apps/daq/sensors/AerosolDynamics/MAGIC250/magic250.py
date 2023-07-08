@@ -490,6 +490,7 @@ class MAGIC250(Sensor):
         # start_command = f"Log,{self.sampling_interval}\n"
         start_command = "Log,1\n"
         stop_command = "Log,0\n"
+
         need_start = True
         start_requested = False
         # wait to see if data is already streaming
@@ -518,18 +519,18 @@ class MAGIC250(Sensor):
                 if self.sampling():
 
                     if need_start:
-                        # if self.collecting:
-                        #     await self.interface_send_data(data={"data": stop_command})
-                        #     await asyncio.sleep(2)
-                        #     self.collecting = False
-                        #     continue
-                        # else:
-                        await self.interface_send_data(data={"data": start_command})
+                        if self.collecting:
+                            await self.interface_send_data(data={"data": stop_command})
+                            await asyncio.sleep(2)
+                            self.collecting = False
+                            continue
+                        else:
+                            await self.interface_send_data(data={"data": start_command})
                         # await self.interface_send_data(data={"data": "\n"})
-                        need_start = False
-                        start_requested = True
-                        await asyncio.sleep(2)
-                        continue
+                            need_start = False
+                            start_requested = True
+                            await asyncio.sleep(2)
+                            continue
                     elif start_requested:
                         if self.collecting:
                             start_requested = False
