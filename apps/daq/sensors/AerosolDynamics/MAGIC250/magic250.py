@@ -14,7 +14,8 @@ import logging.config
 # import json
 import yaml
 import random
-from envds.core import envdsLogger  # , envdsBase, envdsStatus
+from envds.core import envdsLogger
+# from envds.daq.db import get_sensor_registration, register_sensor  # , envdsBase, envdsStatus
 from envds.util.util import (
     # get_datetime_format,
     time_to_next,
@@ -35,6 +36,7 @@ from envds.message.message import Message
 # from cloudevents.conversion import to_json, to_structured
 
 from pydantic import BaseModel
+
 
 # from envds.daq.db import init_sensor_type_registration, register_sensor_type
 
@@ -344,6 +346,7 @@ class MAGIC250(Sensor):
         # self.sampling_task_list.append(self.data_loop())
         self.enable_task_list.append(self.default_data_loop())
         self.enable_task_list.append(self.sampling_monitor())
+        # self.enable_task_list.append(self.register_sensor())
         # asyncio.create_task(self.sampling_monitor())
         self.collecting = False
 
@@ -464,6 +467,23 @@ class MAGIC250(Sensor):
                 if not self.settings.get_health_setting(name):
                     self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
 
+    # async def register_sensor(self):
+    #     try:
+                
+    #         make = self.config.make
+    #         model = self.config.model
+    #         serial_number = self.config.serial_number
+    #         if not await get_sensor_registration(make=make, model=model, serial_number=serial_number):
+                    
+    #             await register_sensor(
+    #                 make=make,
+    #                 model=model,
+    #                 serial_number=serial_number,
+    #                 source_id=self.get_id_as_source(),
+    #             )
+
+    #     except Exception as e:
+    #         self.logger.error("sensor_reg error", extra={"e": e})
 
     async def sampling_monitor(self):
 
@@ -498,18 +518,18 @@ class MAGIC250(Sensor):
                 if self.sampling():
 
                     if need_start:
-                        if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
-                            await asyncio.sleep(2)
-                            self.collecting = False
-                            continue
-                        else:
-                            await self.interface_send_data(data={"data": start_command})
-                            # await self.interface_send_data(data={"data": "\n"})
-                            need_start = False
-                            start_requested = True
-                            await asyncio.sleep(2)
-                            continue
+                        # if self.collecting:
+                        #     await self.interface_send_data(data={"data": stop_command})
+                        #     await asyncio.sleep(2)
+                        #     self.collecting = False
+                        #     continue
+                        # else:
+                        await self.interface_send_data(data={"data": start_command})
+                        # await self.interface_send_data(data={"data": "\n"})
+                        need_start = False
+                        start_requested = True
+                        await asyncio.sleep(2)
+                        continue
                     elif start_requested:
                         if self.collecting:
                             start_requested = False
