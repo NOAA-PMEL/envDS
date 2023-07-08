@@ -325,7 +325,7 @@ async def main(server_config: ServerConfig = None):
     # task_list.append(asyncio.create_task(test_task()))
 
     envdsLogger(level=logging.DEBUG).init_logger()
-    logger = logging.getLogger("interface::sb70lc:nb73")
+    logger = logging.getLogger("interface::sb70lc")
 
     # test = envdsBase()
     # task_list.append(asyncio.create_task(test_task()))
