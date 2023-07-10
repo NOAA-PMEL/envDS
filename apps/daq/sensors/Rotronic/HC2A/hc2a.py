@@ -347,11 +347,12 @@ class HC2A(Sensor):
 
         poll_cmd = '{ 99RDD}\r'
         while True:
-
-            if self.collecting:
+            try:
+                self.logger.debug("polling_loop", extra={"poll_cmd": poll_cmd})
                 await self.interface_send_data(data={"data": poll_cmd})
-            await time_to_next(self.data_rate)
-
+                await asyncio.sleep(time_to_next(self.data_rate))
+            except Exception as e:
+                self.logger.error("polling_loop", extra={"e": e})
 
     async def default_data_loop(self):
 
@@ -408,7 +409,8 @@ class HC2A(Sensor):
                 # self.include_metadata = False
 
                 record = self.build_data_record(meta=self.include_metadata)
-
+                self.include_metadata = False
+ 
                 try:
                     record["timestamp"] = data.data["timestamp"]
                     record["variables"]["time"]["data"] = data.data["timestamp"]

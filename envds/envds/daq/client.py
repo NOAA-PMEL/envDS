@@ -416,15 +416,20 @@ class DAQClient(abc.ABC):
 
     async def send_loop(self):
         while True:
-            if self.enabled():
+            # if self.enabled():
+            if True:
                 if len(self.multistep_send):
                     data = self.multistep_send.pop(0)
+                    print(f"send_loop-multistep: {data}")
                 else:
                     data = await self.send_buffer.get()
+                    print(f"send_loop-else: {data}")
                     if isinstance(data,list) and len(self.multistep_send):
                         self.multistep_send = data
                         data = self.multistep_send.pop(0)
 
+                print(f"send_loop-send_to_client: {data}")
+                
                 await self.send_to_client(data)
             await asyncio.sleep(self.min_recv_delay)
 
@@ -690,6 +695,7 @@ class _StreamClient(_BaseClient):
 
     async def readuntil(self, terminator="\n", decode_errors="strict"):
         if self.reader:
+            print(f"readuntil: terminator = {terminator}, {terminator.encode()}")
             msg = await self.reader.readuntil(terminator.encode())
             return msg.decode(errors=decode_errors)
 

@@ -284,6 +284,7 @@ class SB70LC(Interface):
                     # wrap data in netburner protocol for i2c
                     # might need special client class for this?
                 else:
+                    self.logger.debug("nb.send_data", extra={"client": client, "payload": data})
                     await client.send(data)
             except KeyError:
                 pass

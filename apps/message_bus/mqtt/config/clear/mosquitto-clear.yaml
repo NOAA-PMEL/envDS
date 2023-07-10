@@ -44,6 +44,7 @@ data:
     topic /envds/clear/sensor/+/settings/request both 0 "" ""
     topic /envds/clear/sensor/+/status/update out 0 "" ""
     topic /envds/clear/sensor/+/status/request both 0 "" ""
+    topic /envds/clear/sensor/registry/update out 0 "" ""
     topic /envds/+/core/+/registry/bcast both 0 "" ""
     topic /envds/+/core/+/registry/update both 0 "" ""
     topic /envds/+/core/+/registry/request both 0 "" ""

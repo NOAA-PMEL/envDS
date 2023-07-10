@@ -469,7 +469,7 @@ class Interface(envdsBase):
             self.logger.debug(
                 "interface keepalive request", extra={"source": message.data["source"]}
             )
-            self.update_client_registry(Message)
+            # self.update_client_registry(Message)
             # update connection registry
 
         # elif message.data["type"] == det.interface_connect_request():

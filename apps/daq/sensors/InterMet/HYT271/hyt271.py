@@ -327,6 +327,7 @@ class HYT271(Sensor):
             await asyncio.sleep(0.1)
 
     def default_parse(self, data):
+        self.logger.debug("default_parse", extra={"payload": data})
         if data:
             try:
                 variables = list(self.config.metadata.variables.keys())
@@ -334,7 +335,8 @@ class HYT271(Sensor):
                 variables.remove("time")
 
                 record = self.build_data_record(meta=self.include_metadata)
-
+                self.include_metadata = False
+ 
                 try:
                     record["timestamp"] = data.data["timestamp"]
                     record["variables"]["time"]["data"] = data.data["timestamp"]
@@ -343,7 +345,7 @@ class HYT271(Sensor):
                     # print(f"parts: {parts}, {variables}")
                     if len(parts) == 3 and parts[0] == self.sensor_id:
 
-                        record["variables"]["rh"]["data"] = float(parts[1]/10.)
+                        record["variables"]["rh"]["data"] = round(float(parts[1])/10.,2)
                         record["variables"]["temperature"]["data"] = round(float(parts[2])/100.0,2)
                         return record
 

@@ -100,14 +100,14 @@ class _UDPClient(_BaseClient):
     async def recv_data_loop(self):
         while True:
             try:
-                print("here:1")
+                print(f"here:1", {self.local_host}, {self.local_port})
                 async with await create_udp_socket(family=socket.AF_INET, local_host=self.local_host, local_port=self.local_port) as self.udp:
                     print(f"here:2 {self.udp}")
                     self.connected = True
                     async for packet, (host, port) in self.udp:
                         self.remote_host = host
                         self.remote_port = port
-                        # print(f"udp: {packet.decode()}\naddress: {(host, port)}")
+                        print(f"udp: {packet.decode()}\naddress: {(host, port)}")
                         await self.recv_buffer.put(packet.decode())
                         await asyncio.sleep(.01)
                         # await udp.sendto(b'Hello, ' + packet, host, port)
@@ -196,9 +196,16 @@ class UDPClient(DAQClient):
 
     async def recv_from_client(self):
         # print("recv_from_client:1")
-        if self.enabled():
-            data = await self.client.read()
-            return data
+        # if self.enabled():
+        if True:
+            try:
+                print(f"recv_from_client:1 { self.client}")
+                
+                data = await self.client.read()
+                print(f"recv_from_client:2 {data}")
+                return data
+            except Exception as e:
+                self.logger.error("recv_from_client error", extra={"e": e})
             # props = self.config.properties["sensor-interface-properties"]["read-properties"]
 
             # read_method = props.get("read-method", self.read_method)

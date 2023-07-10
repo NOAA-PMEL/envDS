@@ -358,7 +358,8 @@ class UBloxGPS(Sensor):
                 variables.remove("time")
 
                 record = self.build_data_record(meta=self.include_metadata)
-
+                self.include_metadata = False
+ 
                 try:
                     record["timestamp"] = data.data["timestamp"]
                     record["variables"]["time"]["data"] = data.data["timestamp"]
@@ -369,9 +370,9 @@ class UBloxGPS(Sensor):
 
                         record["variables"]["gps_date"]["data"] = parts[1]
                         record["variables"]["gps_time"]["data"] = parts[2]
-                        record["variables"]["latitude"]["data"] = float(parts[3])
-                        record["variables"]["longitude"]["data"] = float(parts[4])
-                        record["variables"]["altitude"]["data"] = float(parts[5])
+                        record["variables"]["latitude"]["data"] = float(parts[3])/10000000
+                        record["variables"]["longitude"]["data"] = float(parts[4])/10000000
+                        record["variables"]["altitude"]["data"] = float(parts[5])/1000
                         record["variables"]["num_sat"]["data"] = int(parts[6])
                         return record
 

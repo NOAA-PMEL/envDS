@@ -129,10 +129,11 @@ class NetInterface(Interface):
                         client_config = self.tcp_path_tmpl.copy()
                     elif client_type == "udp":
                         client_config = self.udp_path_tmpl.copy()
-
-                    for att, attval in client_config.items():
-                        if att in path_atts:
-                            attval["data"] = path_atts[att]
+                    if "attributes" in client_config:
+                        for att, attval in client_config["attributes"].items():
+                            print(f"config: {att}, {attval}")
+                            if att in path_atts:
+                                attval["data"] = path_atts[att]
 
                     # path_map[name] = InterfacePath(name=name, path=val["data"])
                     # print("configure:8")

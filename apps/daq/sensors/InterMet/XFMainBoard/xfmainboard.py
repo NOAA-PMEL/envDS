@@ -349,7 +349,8 @@ class XFMainBoard(Sensor):
                 variables.remove("time")
 
                 record = self.build_data_record(meta=self.include_metadata)
-
+                self.include_metadata = False
+ 
                 try:
                     record["timestamp"] = data.data["timestamp"]
                     record["variables"]["time"]["data"] = data.data["timestamp"]

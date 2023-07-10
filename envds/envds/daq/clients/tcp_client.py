@@ -139,38 +139,53 @@ class TCPClient(DAQClient):
 
     async def recv_from_client(self):
         # print("recv_from_client:1")
-        if self.enabled():
-            props = self.config.properties["sensor-interface-properties"]["read-properties"]
+        # if self.enabled():
+        if True:
+            try:
+                print(f"recv_from_client:1 props {self.config.properties}")
+                props = self.config.properties["sensor-interface-properties"]["read-properties"]
+ 
+                print(f"recv_from_client:1.1 - sip {self.config.properties['sensor-interface-properties']}")
+                print(f"recv_from_client:1.2 - rp {self.config.properties['sensor-interface-properties']['read-properties']}")
+                print(f"recv_from_client:1.3 - rm {self.config.properties['sensor-interface-properties']['read-properties']['read-method']}")
+                # read_method = props.get("read-method", self.read_method)
+                # decode_errors = props.get("decode-errors", self.decode_errors)
 
-            read_method = props.get("read-method", self.read_method)
-            decode_errors = props.get("decode-errors", self.decode_errors)
+                read_method = self.read_method
+                if "read-method" in self.config.properties['sensor-interface-properties']['read-properties']:
+                    read_method = self.config.properties['sensor-interface-properties']['read-properties']['read-method']
+                decode_errors = self.decode_errors
+                if "decode-errors" in self.config.properties['sensor-interface-properties']['read-properties']:
+                    decode_errors = self.config.properties['sensor-interface-properties']['read-properties']['decode-errors']
 
+                print(f"recv_from_client:2 -- readmethod={read_method}")
+                if read_method == "readline":
+                    # print("recv_from_client:3")
+                    data = await self.client.readline()
+                    print(f"recv_from_client:4 {data}")
 
-            # print(f"recv_from_client:2 -- readmethod={self.read_method}")
-            if self.read_method == "readline":
-                # print("recv_from_client:3")
-                data = await self.client.readline()
-                print(f"recv_from_client:4 {data}")
+                elif read_method == "readuntil":
+                    print(f"recv_from_client:3 - read until {props.get('read-terminator',self.read_terminator)}")
+                    data = await self.client.readuntil(
+                        terminator=props.get("read-terminator",self.read_terminator), 
+                        decode_errors=decode_errors) 
+                    print(f"recv_from_client: 3.1 {data}")
 
-            elif read_method == "read_until":
-                data = await self.client.read_until(
-                    terminator=props.get("read-terminator",self.read_terminator), 
-                    decode_errors=decode_errors) 
+                elif read_method == "readbytes":
+                    data = await self.client.read(
+                        num_bytes=props.get("read-num-bytes",1),
+                        decode_errors=decode_errors
+                    )
+                elif read_method == "readbinary":
+                    ret_packet_size = await self.client.get_return_packet_size()
+                    data = await self.client.readbinary(
+                        num_bytes=ret_packet_size,
+                        decode_errors=decode_errors
+                    )
 
-            elif read_method == "readbytes":
-                data = await self.client.read(
-                    num_bytes=props.get("read-num-bytes",1),
-                    decode_errors=decode_errors
-                )
-            elif read_method == "readbinary":
-                ret_packet_size = await self.client.get_return_packet_size()
-                data = await self.client.readbinary(
-                    num_bytes=ret_packet_size,
-                    decode_errors=decode_errors
-                )
-
-            return data
-        
+                return data
+            except Exception as e:
+                self.logger.error("recv_from_client", extra={"e": e})
         # print("recv_from_client:5")
         return None
 

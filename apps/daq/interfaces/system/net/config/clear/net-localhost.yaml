@@ -9,9 +9,11 @@ data:
   interface.conf: |
     uid: localhost
     paths:
-      - udp-10080:
+      udp-10080:
           client-type: udp
+          # local-host: 172.18.0.2
           local-port: 10080
+          # local0-port: 31870
 
 ---
 apiVersion: apps/v1
@@ -90,11 +92,15 @@ spec:
     protocol: TCP
     port: 9080
     targetPort: 9080
+  - name: udp
+    protocol: UDP
+    port: 10080
+    targetPort: 10080
   # - name: https
   #   port: 8883
   #   targetPort: 8883
-  # type: LoadBalancer
-  type: ClusterIP
+  type: LoadBalancer
+  # type: ClusterIP
 # ---
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
