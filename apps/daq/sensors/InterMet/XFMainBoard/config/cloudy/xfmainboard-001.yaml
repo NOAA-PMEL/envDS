@@ -1,50 +1,62 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: netburner-sb70lc-nb53-config
+  name: intermet-xfmainboard-001-config
   namespace: envds
   labels:
-    app: netburner-sb70lc-nb53
+    app: intermet-xfmainboard-001
 data:
-  interface.conf: |
-    uid: nb53
-    # serial_number: "1234"
-    # daq_id: cloudysky
-    host: 10.55.169.53
-    paths:
-      port-1:
-          # host: 10.55.169.53
-          # host: 192.168.86.46 # can override interface host if needed?
-          port: 23 # if omitted, default is used
-      port-2:
-          # host: 10.55.169.53
-          # host: 192.168.86.46
-          port: 24
-      port-I2C:
-          # host: 10.55.169.53
-          # host: 192.168.86.46
-          port: 26
-
+  sensor.conf: |
+    serial_number: "001"
+    daq_id: cloudysky
+    interfaces:
+      # default: serial
+      default:
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
+        interface_id: NetBurner::SB70LC::nb53
+        # path: port, channel, etc
+        path: port-1
+      #   connection-properties:
+      #     baudrate: 115200
+      #     bytesize: 8
+      #     parity: N
+      #     stopbit: 1
+      #   # read-properties:
+      #     read_method: "readline" # default
+      #     # terminator: "\r"
+      #     # binary: true
+      #     # num-bytes: 1
+      #     # decode-errors: strict
+      # # power: # example of second interface (e.g., CDP enable signal)
+      # #   interface_id: system::mock::localhost
+      # #   path: port-01
+      
+    # # settings: # used to override defaults
+    #   sheath_sp: 2.0
+    #   scan_max_dia: 420
+    #   scan_min_dia: 10
+    #   num_bins: 30
+    #   bin_time: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: netburner-sb70lc-nb53
+  name: intermet-xfmainboard-001
   namespace: envds
   labels:
-    app: netburner-sb70lc-nb53
+    app: intermet-xfmainboard-001
 spec:
   selector:
     matchLabels:
-      app: netburner-sb70lc-nb53
+      app: intermet-xfmainboard-001
   template:
     metadata:
       labels:
-        app: netburner-sb70lc-nb53
+        app: intermet-xfmainboard-001
     spec:
       containers:
-      - name: netburner-sb70lc-nb53
-        image: envds-registry-cloudy:5000/envds/interface/netburner-sb70lc:0.1.0
+      - name: intermet-xfmainboard-001
+        image: envds-registry-cloudy:5000/envds/sensor/intermet-xfmainboard:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -67,9 +79,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: netburner-sb70lc-nb53-config
-              mountPath: /app/config/interface.conf
-              subPath: interface.conf
+            - name: intermet-xfmainboard-001-config
+              mountPath: /app/config/sensor.conf
+              subPath: sensor.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -80,9 +92,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: netburner-sb70lc-nb53-config
+        - name: intermet-xfmainboard-001-config
           configMap:
-            name: netburner-sb70lc-nb53-config
+            name: intermet-xfmainboard-001-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -90,13 +102,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: netburner-sb70lc-nb53
+  name: intermet-xfmainboard-001
   namespace: envds
   labels:
-    app: netburner-sb70lc-nb53
+    app: intermet-xfmainboard-001
 spec:
   selector:
-    app: netburner-sb70lc-nb53
+    app: intermet-xfmainboard-001
   ports:
   - name: http
     protocol: TCP
@@ -111,35 +123,34 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: system-mock-uas1-stripprefix
+#   name: intermet-xfmainboard-001-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/interface/system/mock/01
+#       - /envds/sensor/MockCo/Mock1/1234
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: system-mock-uas1-ingress
+#   name: intermet-xfmainboard-001-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-system-mock-uas1-stripprefix@kubernetescrd
+#       envds-intermet-xfmainboard-001-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/interface/system/mock/01
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: system-mock-uas1
+#             name: intermet-xfmainboard-001
 #             port:
 #               number: 9080
-

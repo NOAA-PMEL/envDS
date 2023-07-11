@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: aerosoldynamics-magic250-143-config
+  name: brechtel-msems9404-112-config
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: brechtel-msems9404-112
 data:
   sensor.conf: |
-    serial_number: "143"
+    serial_number: "112"
     daq_id: cloudysky
     interfaces:
       # default: serial
       default:
         interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
-        interface_id: NetBurner::SB70LC::nb53
+        interface_id: NetBurner::SB70LC::nb54
         # interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
-        path: port-1
+        path: port-2
       #   connection-properties:
       #     baudrate: 115200
       #     bytesize: 8
@@ -33,28 +33,31 @@ data:
       # #   path: port-01
       
     # settings: # used to override defaults
-    #   pump_power: 1
-    #   q_target: 300
+      sheath_sp: 2.0
+      scan_max_dia: 420
+      scan_min_dia: 10
+      num_bins: 30
+      bin_time: 1
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: brechtel-msems9404-112
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: brechtel-msems9404-112
 spec:
   selector:
     matchLabels:
-      app: aerosoldynamics-magic250-143
+      app: brechtel-msems9404-112
   template:
     metadata:
       labels:
-        app: aerosoldynamics-magic250-143
+        app: brechtel-msems9404-112
     spec:
       containers:
-      - name: aerosoldynamics-magic250-143
-        image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
+      - name: brechtel-msems9404-112
+        image: envds-registry-cloudy:5000/envds/sensor/brechtel-msems9404:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -77,7 +80,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: aerosoldynamics-magic250-143-config
+            - name: brechtel-msems9404-112-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -90,9 +93,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: aerosoldynamics-magic250-143-config
+        - name: brechtel-msems9404-112-config
           configMap:
-            name: aerosoldynamics-magic250-143-config
+            name: brechtel-msems9404-112-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -100,13 +103,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: brechtel-msems9404-112
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: brechtel-msems9404-112
 spec:
   selector:
-    app: aerosoldynamics-magic250-143
+    app: brechtel-msems9404-112
   ports:
   - name: http
     protocol: TCP
@@ -121,7 +124,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: aerosoldynamics-magic250-143-stripprefix
+#   name: brechtel-msems9404-112-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -133,14 +136,14 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: aerosoldynamics-magic250-143-ingress
+#   name: brechtel-msems9404-112-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-aerosoldynamics-magic250-143-stripprefix@kubernetescrd
+#       envds-brechtel-msems9404-112-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
@@ -149,6 +152,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: aerosoldynamics-magic250-143
+#             name: brechtel-msems9404-112
 #             port:
 #               number: 9080

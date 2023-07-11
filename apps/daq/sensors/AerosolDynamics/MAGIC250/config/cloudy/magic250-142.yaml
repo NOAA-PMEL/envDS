@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: aerosoldynamics-magic250-143-config
+  name: aerosoldynamics-magic250-142-config
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: aerosoldynamics-magic250-142
 data:
   sensor.conf: |
-    serial_number: "143"
+    serial_number: "142"
     daq_id: cloudysky
     interfaces:
       # default: serial
@@ -39,21 +39,21 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: aerosoldynamics-magic250-142
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: aerosoldynamics-magic250-142
 spec:
   selector:
     matchLabels:
-      app: aerosoldynamics-magic250-143
+      app: aerosoldynamics-magic250-142
   template:
     metadata:
       labels:
-        app: aerosoldynamics-magic250-143
+        app: aerosoldynamics-magic250-142
     spec:
       containers:
-      - name: aerosoldynamics-magic250-143
+      - name: aerosoldynamics-magic250-142
         image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
         imagePullPolicy: "Always"
         env:
@@ -77,7 +77,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: aerosoldynamics-magic250-143-config
+            - name: aerosoldynamics-magic250-142-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -90,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: aerosoldynamics-magic250-143-config
+        - name: aerosoldynamics-magic250-142-config
           configMap:
-            name: aerosoldynamics-magic250-143-config
+            name: aerosoldynamics-magic250-142-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -100,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: aerosoldynamics-magic250-143
+  name: aerosoldynamics-magic250-142
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-143
+    app: aerosoldynamics-magic250-142
 spec:
   selector:
-    app: aerosoldynamics-magic250-143
+    app: aerosoldynamics-magic250-142
   ports:
   - name: http
     protocol: TCP
@@ -121,7 +121,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: aerosoldynamics-magic250-143-stripprefix
+#   name: aerosoldynamics-magic250-142-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -133,22 +133,22 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: aerosoldynamics-magic250-143-ingress
+#   name: aerosoldynamics-magic250-142-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-aerosoldynamics-magic250-143-stripprefix@kubernetescrd
+#       envds-aerosoldynamics-magic250-142-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/142
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: aerosoldynamics-magic250-143
+#             name: aerosoldynamics-magic250-142
 #             port:
 #               number: 9080

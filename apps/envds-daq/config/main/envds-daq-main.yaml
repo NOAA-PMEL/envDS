@@ -90,6 +90,10 @@ spec:
     protocol: TCP
     port: 9080
     targetPort: 9080
+  - name: plots
+    protocol: TCP
+    port: 5004
+    targetPort: 5004
   # - name: https
   #   port: 8883
   #   targetPort: 8883
@@ -108,6 +112,8 @@ spec:
     prefixes:
       - /envds/daq
       - /ws/envds/daq
+      # - /plots/envds/daq/5004
+
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -142,6 +148,14 @@ spec:
             name: envds-daq-main
             port:
               number: 9080
+      # - path: /plots/envds/daq/5004
+      #   pathType: Prefix
+      #   # pathType: Exact
+      #   backend:
+      #     service:
+      #       name: envds-daq-main
+      #       port:
+      #         number: 5004
 # # ---
 # # apiVersion: networking.k8s.io/v1
 # # kind: Ingress

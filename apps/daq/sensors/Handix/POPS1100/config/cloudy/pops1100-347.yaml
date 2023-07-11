@@ -1,38 +1,43 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: system-net-localhost-config
+  name: handix-pops1100-347-config
   namespace: envds
   labels:
-    app: system-net-localhost
+    app: handix-pops1100-347
 data:
-  interface.conf: |
-    uid: localhost
-    paths:
-      - udp-10080:
-          client-type: udp
-          local-port: 10080
-
+  sensor.conf: |
+    serial_number: "347"
+    daq_id: cloudysky
+    interfaces:
+      default:
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
+        interface_id: system::net::localhost
+        path: udp-10080
+    
+    # settings: # used to override defaults
+    #   pump_power: 1
+    #   q_target: 300
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: system-net-localhost
+  name: handix-pops1100-347
   namespace: envds
   labels:
-    app: system-net-localhost
+    app: handix-pops1100-347
 spec:
   selector:
     matchLabels:
-      app: system-net-localhost
+      app: handix-pops1100-347
   template:
     metadata:
       labels:
-        app: system-net-localhost
+        app: handix-pops1100-347
     spec:
       containers:
-      - name: system-net-localhost
-        image: envds-registry-dev:5000/envds/interface/system-net:0.1.0
+      - name: handix-pops1100-347
+        image: envds-registry-cloudy:5000/envds/sensor/handix-pops1100:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -55,9 +60,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: system-net-localhost-config
-              mountPath: /app/config/interface.conf
-              subPath: interface.conf
+            - name: handix-pops1100-347-config
+              mountPath: /app/config/sensor.conf
+              subPath: sensor.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -68,9 +73,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: system-net-localhost-config
+        - name: handix-pops1100-347-config
           configMap:
-            name: system-net-localhost-config
+            name: handix-pops1100-347-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -78,13 +83,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: system-net-localhost
+  name: handix-pops1100-347
   namespace: envds
   labels:
-    app: system-net-localhost
+    app: handix-pops1100-347
 spec:
   selector:
-    app: system-net-localhost
+    app: handix-pops1100-347
   ports:
   - name: http
     protocol: TCP
@@ -99,35 +104,34 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: system-net-localhost-stripprefix
+#   name: handix-pops1100-347-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/interface/system/net/01
+#       - /envds/sensor/MockCo/Mock1/1234
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: system-net-localhost-ingress
+#   name: handix-pops1100-347-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-system-net-localhost-stripprefix@kubernetescrd
+#       envds-handix-pops1100-347-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/interface/system/net/01
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: system-net-localhost
+#             name: handix-pops1100-347
 #             port:
 #               number: 9080
-
