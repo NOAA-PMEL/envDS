@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ist-hyt271-001-config
+  namespace: envds
+  labels:
+    app: ist-hyt271-001
+data:
+  sensor.conf: |
+    serial_number: "001"
+    daq_id: cloudysky
+    interfaces:
+      # default: serial
+      default:
+        interface_env_id: dev # if omitted, defaults to envds_id of sensor
+        # interface_id: NetBurner::SB70LC::nb73
+        interface_id: NetBurner::SB70LC::home38
+        # path: port, channel, etc
+        path: port-I2C
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ist-hyt271-001
+  namespace: envds
+  labels:
+    app: ist-hyt271-001
+spec:
+  selector:
+    matchLabels:
+      app: ist-hyt271-001
+  template:
+    metadata:
+      labels:
+        app: ist-hyt271-001
+    spec:
+      containers:
+      - name: ist-hyt271-001
+        image: envds-registry-dev:5000/envds/sensor/ist-hyt271:0.1.0
+        imagePullPolicy: "Always"
+        env:
+          - name: ENVDS_ENV_ID
+            value: dev
+          - name: REDIS_OM_URL
+            value: redis://redis.default
+          - name: LOG_LEVEL
+            value: DEBUG
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 9080
+          protocol: TCP
+        # - name: https
+        #   containerPort: 8883
+        #   protocol: TCP
+        volumeMounts:
+            - name: ist-hyt271-001-config
+              mountPath: /app/config/sensor.conf
+              subPath: sensor.conf
+            # - name: mosquitto-certs
+            #   mountPath: /certs/ca.crt
+            #   subPath: ca.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.crt
+            #   subPath: server.crt
+            # - name: mosquitto-certs
+            #   mountPath: /certs/server.key
+            #   subPath: server.key
+      volumes:
+        - name: ist-hyt271-001-config
+          configMap:
+            name: ist-hyt271-001-config
+        # - name: mosquitto-certs
+        #   configMap:
+        #     name: mosquitto-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ist-hyt271-001
+  namespace: envds
+  labels:
+    app: ist-hyt271-001
+spec:
+  selector:
+    app: ist-hyt271-001
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9080
+    targetPort: 9080
+  # - name: https
+  #   port: 8883
+  #   targetPort: 8883
+  # type: LoadBalancer
+  type: ClusterIP
+# ---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: ist-hyt271-001-stripprefix
+#   namespace: envds
+#   labels:
+#     app: envds
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /envds/sensor/MockCo/Mock1/1234
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: ist-hyt271-001-ingress
+#   namespace: envds
+#   # labels:
+#   #   app: envds
+#   annotations:
+#     ingress.kubernetes.io/ssl-redirect: "false"
+#     traefik.ingress.kubernetes.io/router.middlewares:
+#       envds-ist-hyt271-001-stripprefix@kubernetescrd
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: ist-hyt271-001
+#             port:
+#               number: 9080
