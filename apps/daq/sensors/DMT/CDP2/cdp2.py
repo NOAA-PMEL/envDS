@@ -1,5 +1,6 @@
 import asyncio
 import signal
+from struct import pack
 
 # import uvicorn
 # from uvicorn.config import LOGGING_CONFIG
@@ -36,6 +37,12 @@ from envds.message.message import Message
 # from cloudevents.conversion import to_json, to_structured
 
 from pydantic import BaseModel
+
+# pip install RPi.GPIO
+# try:
+#     import RPi.GPIO as GPIO
+# except ModuleNotFoundError:
+#     print("error GPIO - might need sudo")
 
 
 # from envds.daq.db import init_sensor_type_registration, register_sensor_type
@@ -291,10 +298,10 @@ class CDP2(Sensor):
                         "stopbit": 1,
                     },
                     "read-properties": {
-                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
+                        "read-method": "readbinary",  # readline, read-until, readbytes, readbinary
                         # "read-terminator": "\r",  # only used for read_until
-                        "decode-errors": "strict",
-                        "send-method": "ascii"
+                        # "decode-errors": "strict",
+                        "send-method": "binary"
                     },
                 }
             }
@@ -307,7 +314,7 @@ class CDP2(Sensor):
                         iface[propname] = prop
 
             self.logger.debug(
-                "magcic250.configure", extra={"interfaces": conf["interfaces"]}
+                "cdp2.configure", extra={"interfaces": conf["interfaces"]}
             )
 
         for name, setting in CDP2.metadata["settings"].items():
@@ -402,6 +409,58 @@ class CDP2(Sensor):
 
     #     except Exception as e:
     #         self.logger.error("sensor_reg error", extra={"e": e})
+
+    def get_cdp_command(self, cmd_type):
+        # universal start byte (Esc char)
+        cmd = pack('<B', self.start_byte)
+
+        if cmd_type == 'CONFIGURE':
+            cmd += pack('<B', self.setup_command)
+            cmd += pack('<H', self.adc_threshold)
+            cmd += pack('<H', 0)  # unused
+            cmd += pack('<H', self.bin_count)
+            cmd += pack('<H', self.dof_reject)
+
+            # unused bins
+            for i in range(0, 5):
+                cmd += pack('<H', 0)
+
+            # upper bin thresholds
+            for n in self.upper_bin_th:
+                cmd += pack('<H', n)
+
+            # fill last unused bins
+            for n in range(0, 10):
+                cmd += pack('<H', n)
+
+        elif cmd_type == 'SEND_DATA':
+            cmd += pack('B', self.data_command)
+
+        else:
+            return None
+
+        checksum = 0
+        for ch in cmd:
+            checksum += ch
+
+        cmd += pack('<H', checksum)
+        return cmd
+
+    # def cdp_power_switch(self, power=False, cleanup=False):
+
+    #     if 'RPi.GPIO' in sys.modules:
+    #         GPIO.setmode(GPIO.BOARD)
+    #         GPIO.setup(self.gpio_enable_ch, GPIO.OUT, initial=GPIO.LOW)
+
+    #         if power:
+    #             GPIO.output(self.gpio_enable_ch, GPIO.HIGH)
+    #         else:
+    #             GPIO.output(self.gpio_enable_ch, GPIO.LOW)
+
+    #         if cleanup:
+    #             GPIO.cleanup(self.gpio_enable_ch)
+    #     else:
+    #         pass
 
     async def sampling_monitor(self):
 
