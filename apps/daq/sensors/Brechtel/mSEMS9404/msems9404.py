@@ -543,9 +543,9 @@ class mSEMS9404(Sensor):
                         "stopbit": 1,
                     },
                     "read-properties": {
-                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
-                        # "read-terminator": "\r",  # only used for read_until
-                        "decode-errors": "strict",
+                        "read-method": "readuntil",  # readline, read-until, readbytes, readbinary
+                        "read-terminator": "\r",  # only used for read_until
+                        # "decode-errors": "strict",
                         "send-method": "ascii"
                     },
                 }
@@ -641,8 +641,8 @@ class mSEMS9404(Sensor):
     async def sampling_monitor(self):
 
         # start_command = f"Log,{self.sampling_interval}\n"
-        start_command = "msems_mode=2\n"
-        stop_command = "msems_mode=0\n"
+        start_command = "msems_mode=2\r"
+        stop_command = "msems_mode=0\r"
         need_start = True
         start_requested = False
         # wait to see if data is already streaming
@@ -729,7 +729,7 @@ class mSEMS9404(Sensor):
                 data = await self.default_data_buffer.get()
                 # self.collecting = True
                 self.logger.debug("default_data_loop", extra={"data": data})
-                # continue
+                continue
                 record = self.default_parse(data)
                 if record:
                     self.collecting = True

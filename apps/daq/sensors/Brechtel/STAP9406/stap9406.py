@@ -307,6 +307,7 @@ class STAP9406(Sensor):
         self.reading_scan = False
         self.scan_ready = False
         self.current_record = None
+        self.started_record = False
         # os.environ["REDIS_OM_URL"] = "redis://redis.default"
 
         # self.data_loop_task = None
@@ -353,9 +354,9 @@ class STAP9406(Sensor):
                         "stopbit": 1,
                     },
                     "read-properties": {
-                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
-                        # "read-terminator": "\r",  # only used for read_until
-                        "decode-errors": "strict",
+                        "read-method": "readuntil",  # readline, read-until, readbytes, readbinary
+                        "read-terminator": "\r",  # only used for read_until
+                        # "decode-errors": "strict",
                         "send-method": "ascii"
                     },
                 }
@@ -451,8 +452,8 @@ class STAP9406(Sensor):
     async def sampling_monitor(self):
 
         # start_command = f"Log,{self.sampling_interval}\n"
-        start_command = "msems_mode=2\n"
-        stop_command = "msems_mode=0\n"
+        # start_command = "msems_mode=2\n"
+        # stop_command = "msems_mode=0\n"
         need_start = True
         start_requested = False
         # wait to see if data is already streaming
@@ -482,13 +483,16 @@ class STAP9406(Sensor):
 
                     if need_start:
                         if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
+                            # await self.interface_send_data(data={"data": stop_command})
+                            if self.polling_task:
+                                self.polling_task.cancel()
                             await asyncio.sleep(2)
                             self.collecting = False
                             continue
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
+                            self.polling_task = asyncio.create_task(self.polling_loop())
                             need_start = False
                             start_requested = True
                             await asyncio.sleep(2)
@@ -497,13 +501,17 @@ class STAP9406(Sensor):
                         if self.collecting:
                             start_requested = False
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            if not self.polling_task:
+                                self.polling_task = asyncio.create_task(self.polling_loop())
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             await asyncio.sleep(2)
                             continue
                 else:
                     if self.collecting:
-                        await self.interface_send_data(data={"data": stop_command})
+                        # await self.interface_send_data(data={"data": stop_command})
+                        if self.polling_task:
+                            self.polling_task.cancel()
                         await asyncio.sleep(2)
                         self.collecting = False
                             
@@ -531,6 +539,17 @@ class STAP9406(Sensor):
     # def stop(self):
     #     asyncio.create_task(self.stop_sampling())
     #     super().start()
+    async def polling_loop(self):
+
+        poll_cmd = 'read\r'
+        while True:
+            try:
+                self.logger.debug("polling_loop", extra={"poll_cmd": poll_cmd})
+                await self.interface_send_data(data={"data": poll_cmd})
+                await asyncio.sleep(time_to_next(self.data_rate/2.))
+            except Exception as e:
+                self.logger.error("polling_loop", extra={"e": e})
+
 
     async def default_data_loop(self):
 
@@ -539,44 +558,44 @@ class STAP9406(Sensor):
                 data = await self.default_data_buffer.get()
                 # self.collecting = True
                 self.logger.debug("default_data_loop", extra={"data": data})
-                # continue
+                # continue 
                 record = self.default_parse(data)
                 if record:
                     self.collecting = True
 
-                # print(record)
-                # print(self.sampling())
-                if self.scan_ready and self.current_record and self.sampling():
+                    # # print(record)
+                    # # print(self.sampling())
+                    # if self.scan_ready and self.current_record and self.sampling():
 
-                    # calc diameters
-                    # try:
-                    #     min_dp = self.config... self.current_run_settings["min_diameter_sp"]
-                    # except KeyError:
+                    #     # calc diameters
+                    #     # try:
+                    #     #     min_dp = self.config... self.current_run_settings["min_diameter_sp"]
+                    #     # except KeyError:
+                    #     #     min_dp = 10
                     #     min_dp = 10
-                    min_dp = 10
 
-                    try:
-                        max_dp = self.current_record["actual max dia"]["data"]
-                    except KeyError:
-                        max_dp = 300
+                    #     try:
+                    #         max_dp = self.current_record["actual max dia"]["data"]
+                    #     except KeyError:
+                    #         max_dp = 300
 
-                    dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
-                    # dlogdp = dlogdp / (30-1)
-                    diam = []
-                    # diam_um = []
-                    diam.append(10)
-                    # diam_um.append(10 / 1000)
-                    for x in range(1, 30):
-                        dp = round(diam[x - 1] * dlogdp, 2)
-                        diam.append(dp)
-                        # diam_um.append(round(dp / 1000, 3))
+                    #     dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
+                    #     # dlogdp = dlogdp / (30-1)
+                    #     diam = []
+                    #     # diam_um = []
+                    #     diam.append(10)
+                    #     # diam_um.append(10 / 1000)
+                    #     for x in range(1, 30):
+                    #         dp = round(diam[x - 1] * dlogdp, 2)
+                    #         diam.append(dp)
+                    #         # diam_um.append(round(dp / 1000, 3))
 
-                    self.current_record["actual max dia"]["data"] = diam
+                    #     self.current_record["actual max dia"]["data"] = diam
 
                     event = DAQEvent.create_data_update(
                         # source="sensor.mockco-mock1-1234", data=record
                         source=self.get_id_as_source(),
-                        data=self.current_record,
+                        data=record,
                     )
                     dest_path = f"/{self.get_id_as_topic()}/data/update"
                     self.logger.debug(
@@ -585,6 +604,7 @@ class STAP9406(Sensor):
                     message = Message(data=event, dest_path=dest_path)
                     # self.logger.debug("default_data_loop", extra={"m": message})
                     await self.send_message(message)
+                    self.started_record = False
 
                 # self.logger.debug("default_data_loop", extra={"record": record})
             except Exception as e:
@@ -618,32 +638,29 @@ class STAP9406(Sensor):
                     # record["timestamp"] = data.data["timestamp"]
                     # record["variables"]["time"]["data"] = data.data["timestamp"]
 
-                    line = data.data["data"].rstrip().split()
+                    # self.record_ready = False
+
+                    line = data.data["data"].rstrip()#.split()
+                    print(f"***line: {line}")
                     if "=" in line:
                         parts = line.split("=")
+                    else:
+                        return None
                     if len(parts) < 2:
                         return None
 
-                    if parts[0] == "scan_state":
-                        self.scan_state = parts[1]
-
-                        if self.scan_state == "1":
-                            self.current_record = self.build_data_record(meta=self.include_metadata)
-                            self.current_record["timestamp"] = data.data["timestamp"]
-                            self.current_record["variables"]["time"]["data"] = data.data["timestamp"]
-                            self.include_metadata = False
-                        elif self.scan_state == "4":
-                            self.reading_scan = True
-                            self.scan_ready = False
-
-                        else:
-                            if self.reading_scan:
-                                self.scan_ready = True
-                            self.reading_scan = False
-
                     name = parts[0]
                     value = parts[1]
-                    if self.reading_scan:
+                    # print(f"name, value: {name}, {value}")
+                    if name == "invmm_r":
+                        # self.scan_state = parts[1]
+                        self.current_record = self.build_data_record(meta=self.include_metadata)
+                        self.current_record["timestamp"] = data.data["timestamp"]
+                        self.current_record["variables"]["time"]["data"] = data.data["timestamp"]
+                        self.include_metadata = False
+                        self.started_record = True
+
+                    if self.started_record:
                         if name in self.current_record["variables"]:
                             instvar = self.config.metadata.variables[name]
                             vartype = instvar.type
@@ -659,13 +676,13 @@ class STAP9406(Sensor):
                                     self.current_record["variables"][name]["data"] = ""
                                 else:
                                     self.current_record["variables"][name]["data"] = None
-                        elif "bin" in name: # bin count data
-                            if self.current_record["variables"]["bin_count"]["data"] is None:
-                                self.current_record["variables"]["bin_count"]["data"] = [int(value)]
-                            else:
-                                self.current_record["variables"]["bin_count"]["data"].append(int(value))
 
-                    return self.current_record
+                    if self.started_record and name == 'fltstat':
+                        self.started_record = False
+                        print(f"done with scan: {self.current_record}")
+                        return self.current_record
+
+                    return None
                 except KeyError:
                     pass
             except Exception as e:

@@ -248,6 +248,7 @@ class FILT9401(Sensor):
         self.enable_task_list.append(self.default_data_loop())
         self.enable_task_list.append(self.sampling_monitor())
         # asyncio.create_task(self.sampling_monitor())
+        self.polling_task = None
         self.collecting = False
 
     def configure(self):
@@ -273,9 +274,9 @@ class FILT9401(Sensor):
                         "stopbit": 1,
                     },
                     "read-properties": {
-                        "read-method": "readline",  # readline, read-until, readbytes, readbinary
-                        # "read-terminator": "\r",  # only used for read_until
-                        "decode-errors": "strict",
+                        "read-method": "readuntil",  # readline, readuntil, readbytes, readbinary
+                        "read-terminator": "\r",  # only used for readuntil
+                        # "decode-errors": "ignore",
                         "send-method": "ascii"
                     },
                 }
@@ -371,8 +372,8 @@ class FILT9401(Sensor):
     async def sampling_monitor(self):
 
         # start_command = f"Log,{self.sampling_interval}\n"
-        start_command = "msems_mode=2\n"
-        stop_command = "msems_mode=0\n"
+        # start_command = "msems_mode=2\n"
+        # stop_command = "msems_mode=0\n"
         need_start = True
         start_requested = False
         # wait to see if data is already streaming
@@ -402,13 +403,16 @@ class FILT9401(Sensor):
 
                     if need_start:
                         if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
+                            # await self.interface_send_data(data={"data": stop_command})
+                            if self.polling_task:
+                                self.polling_task.cancel()
                             await asyncio.sleep(2)
                             self.collecting = False
                             continue
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
+                            self.polling_task = asyncio.create_task(self.polling_loop())
                             need_start = False
                             start_requested = True
                             await asyncio.sleep(2)
@@ -417,13 +421,17 @@ class FILT9401(Sensor):
                         if self.collecting:
                             start_requested = False
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            if not self.polling_task:
+                                self.polling_task = asyncio.create_task(self.polling_loop())
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             await asyncio.sleep(2)
                             continue
                 else:
                     if self.collecting:
-                        await self.interface_send_data(data={"data": stop_command})
+                        # await self.interface_send_data(data={"data": stop_command})
+                        if self.polling_task:
+                            self.polling_task.cancel()
                         await asyncio.sleep(2)
                         self.collecting = False
                             
@@ -452,6 +460,18 @@ class FILT9401(Sensor):
     #     asyncio.create_task(self.stop_sampling())
     #     super().start()
 
+    async def polling_loop(self):
+
+        poll_cmd = 'read\r'
+        while True:
+            try:
+                self.logger.debug("polling_loop", extra={"poll_cmd": poll_cmd})
+                await self.interface_send_data(data={"data": poll_cmd})
+                await asyncio.sleep(time_to_next(self.data_rate))
+            except Exception as e:
+                self.logger.error("polling_loop", extra={"e": e})
+
+
     async def default_data_loop(self):
 
         while True:
@@ -460,43 +480,43 @@ class FILT9401(Sensor):
                 # self.collecting = True
                 self.logger.debug("default_data_loop", extra={"data": data})
                 # continue
-                record = self.default_parse(data)
+                record = self.default_tab_parse(data)
                 if record:
                     self.collecting = True
 
                 # print(record)
-                # print(self.sampling())
-                if self.scan_ready and self.current_record and self.sampling():
+                # # print(self.sampling())
+                # if self.scan_ready and self.current_record and self.sampling():
 
-                    # calc diameters
-                    # try:
-                    #     min_dp = self.config... self.current_run_settings["min_diameter_sp"]
-                    # except KeyError:
-                    #     min_dp = 10
-                    min_dp = 10
+                #     # calc diameters
+                #     # try:
+                #     #     min_dp = self.config... self.current_run_settings["min_diameter_sp"]
+                #     # except KeyError:
+                #     #     min_dp = 10
+                #     min_dp = 10
 
-                    try:
-                        max_dp = self.current_record["actual max dia"]["data"]
-                    except KeyError:
-                        max_dp = 300
+                #     try:
+                #         max_dp = self.current_record["actual max dia"]["data"]
+                #     except KeyError:
+                #         max_dp = 300
 
-                    dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
-                    # dlogdp = dlogdp / (30-1)
-                    diam = []
-                    # diam_um = []
-                    diam.append(10)
-                    # diam_um.append(10 / 1000)
-                    for x in range(1, 30):
-                        dp = round(diam[x - 1] * dlogdp, 2)
-                        diam.append(dp)
-                        # diam_um.append(round(dp / 1000, 3))
+                #     dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
+                #     # dlogdp = dlogdp / (30-1)
+                #     diam = []
+                #     # diam_um = []
+                #     diam.append(10)
+                #     # diam_um.append(10 / 1000)
+                #     for x in range(1, 30):
+                #         dp = round(diam[x - 1] * dlogdp, 2)
+                #         diam.append(dp)
+                #         # diam_um.append(round(dp / 1000, 3))
 
-                    self.current_record["actual max dia"]["data"] = diam
+                #     self.current_record["actual max dia"]["data"] = diam
 
                     event = DAQEvent.create_data_update(
                         # source="sensor.mockco-mock1-1234", data=record
                         source=self.get_id_as_source(),
-                        data=self.current_record,
+                        data=record,
                     )
                     dest_path = f"/{self.get_id_as_topic()}/data/update"
                     self.logger.debug(
@@ -585,6 +605,92 @@ class FILT9401(Sensor):
                             else:
                                 self.current_record["variables"]["bin_count"]["data"].append(int(value))
 
+                    return self.current_record
+                except KeyError:
+                    pass
+            except Exception as e:
+                print(f"default_parse error: {e}")
+        # else:
+        return None
+
+    def default_tab_parse(self, data):
+        if data:
+            try:
+                # variables = [
+                #     "time",
+                #     "temperature",
+                #     "rh",
+                #     "pressure",
+                #     "wind_speed",
+                #     "wind_direction",
+                # ]
+                # variables = list(self.config.variables.keys())
+                variables = list(self.config.metadata.variables.keys())
+                # print(f"variables: \n{variables}\n{variables2}")
+                variables.remove("time")
+                # variables2.remove("time")
+                # print(f"variables: \n{variables}\n{variables2}")
+
+                # print(f"include metadata: {self.include_metadata}")
+                self.current_record = self.build_data_record(meta=self.include_metadata)
+                # print(f"default_parse: data: {data}, record: {record}")
+                self.include_metadata = False
+                try:
+
+                    self.current_record["timestamp"] = data.data["timestamp"]
+                    self.current_record["variables"]["time"]["data"] = data.data["timestamp"]
+
+                    lines = data.data["data"].rstrip().split("\t")
+                    # print(f"lines: {lines}")
+                    # line = data.data["data"].rstrip().split()
+                    for line in lines:
+                        # print(f"line: {line}")
+                        if "=" in line:
+                            parts = line.split("=")
+                        if len(parts) < 2:
+                            return None
+
+                        # if parts[0] == "scan_state":
+                        #     self.scan_state = parts[1]
+
+                        #     if self.scan_state == "1":
+                        #         self.current_record = self.build_data_record(meta=self.include_metadata)
+                        #         self.current_record["timestamp"] = data.data["timestamp"]
+                        #         self.current_record["variables"]["time"]["data"] = data.data["timestamp"]
+                        #         self.include_metadata = False
+                        #     elif self.scan_state == "4":
+                        #         self.reading_scan = True
+                        #         self.scan_ready = False
+
+                        #     else:
+                        #         if self.reading_scan:
+                        #             self.scan_ready = True
+                        #         self.reading_scan = False
+
+                        name = parts[0]
+                        value = parts[1]
+                        # if self.reading_scan:
+                        if name in self.current_record["variables"]:
+                            instvar = self.config.metadata.variables[name]
+                            vartype = instvar.type
+                            if instvar.type == "string":
+                                vartype = "str"
+                            try:
+                                # print(f"default_parse: {record['variables'][name]} - {parts[index].strip()}")
+                                self.current_record["variables"][name]["data"] = eval(vartype)(
+                                    value.strip()
+                                )
+                            except ValueError:
+                                if vartype == "str" or vartype == "char":
+                                    self.current_record["variables"][name]["data"] = ""
+                                else:
+                                    self.current_record["variables"][name]["data"] = None
+                        # elif "bin" in name: # bin count data
+                        #     if self.current_record["variables"]["bin_count"]["data"] is None:
+                        #         self.current_record["variables"]["bin_count"]["data"] = [int(value)]
+                        #     else:
+                        #         self.current_record["variables"]["bin_count"]["data"].append(int(value))
+                    self.logger.debug("default_data_loop - current_record", extra={"current_record": self.current_record})
                     return self.current_record
                 except KeyError:
                     pass
