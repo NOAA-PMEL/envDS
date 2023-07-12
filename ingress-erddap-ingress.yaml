@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"ingress.kubernetes.io/ssl-redirect":"false","traefik.ingress.kubernetes.io/router.middlewares":"erddap-stripprefix@kubernetescrd"},"name":"erddap-ingress","namespace":"default"},"spec":{"rules":[{"http":{"paths":[{"backend":{"service":{"name":"erddap","port":{"number":8080}}},"path":"/erddap","pathType":"Prefix"}]}}]}}
+    traefik.ingress.kubernetes.io/router.middlewares: erddap-stripprefix@kubernetescrd
+  creationTimestamp: "2023-02-12T00:23:49Z"
+  generation: 1
+  name: erddap-ingress
+  namespace: default
+  resourceVersion: "499289"
+  uid: 77698c7e-6340-4cfc-a0fb-0d55dec12b46
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: erddap
+            port:
+              number: 8080
+        path: /erddap
+        pathType: Prefix
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.29.0.2
+    - ip: 172.29.0.3

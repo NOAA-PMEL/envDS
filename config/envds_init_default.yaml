@@ -1,0 +1,10 @@
+apiVersion: envds/v1alpha1
+kind: envDS
+metadata:
+  name: envds
+spec:
+  envds:
+    version: 0.2.0
+    config: |
+      k8s_type: k3d
+      k3d_data_volume: ./data

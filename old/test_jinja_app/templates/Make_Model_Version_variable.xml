@@ -1,0 +1,15 @@
+    <dataVariable>
+        <sourceName>{{ variable.source_name }}</sourceName>
+        <destinationName>{{ variable.destination_name }}</destinationName>
+        <dataType>{{ variable.data_type }}</dataType>
+        <!-- sourceAttributes>
+        </sourceAttributes -->
+        <addAttributes>
+            <att name="long_name">{{ variable.long_name }}</att>
+            <att name="ioos_category">{{ variable.ioos_category }}</att>
+            {% if variable.units %}<att name="units">{{ variable.units }}</att>{% endif %}
+            {% if variable.valid_min is defined %}<att name="valid_min">{{ variable.valid_min }}</att>{% endif %}
+            {% if variable.valid_max is defined %}<att name="valid_max">{{ variable.valid_max }}</att>{% endif %}
+            {% if variable.description %}<att name="description">{{ variable.description }}</att>{% endif %}
+        </addAttributes>
+    </dataVariable>
