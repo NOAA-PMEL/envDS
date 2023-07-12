@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: aerosoldynamics-magic250-142-config
+  name: dmt-cdp2-111-config
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-142
+    app: dmt-cdp2-111
 data:
   sensor.conf: |
-    serial_number: "142"
+    serial_number: "111"
     daq_id: cloudysky
     interfaces:
       # default: serial
       default:
         interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
-        interface_id: NetBurner::SB70LC::nb53
+        interface_id: NetBurner::SB70LC::nb52
         # interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
-        path: port-1
+        path: port-2
       #   connection-properties:
       #     baudrate: 115200
       #     bytesize: 8
@@ -39,22 +39,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aerosoldynamics-magic250-142
+  name: dmt-cdp2-111
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-142
+    app: dmt-cdp2-111
 spec:
   selector:
     matchLabels:
-      app: aerosoldynamics-magic250-142
+      app: dmt-cdp2-111
   template:
     metadata:
       labels:
-        app: aerosoldynamics-magic250-142
+        app: dmt-cdp2-111
     spec:
       containers:
-      - name: aerosoldynamics-magic250-142
-        image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
+      - name: dmt-cdp2-111
+        image: envds-registry-cloudy:5000/envds/sensor/dmt-cdp2:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -77,7 +77,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: aerosoldynamics-magic250-142-config
+            - name: dmt-cdp2-111-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -90,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: aerosoldynamics-magic250-142-config
+        - name: dmt-cdp2-111-config
           configMap:
-            name: aerosoldynamics-magic250-142-config
+            name: dmt-cdp2-111-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -100,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: aerosoldynamics-magic250-142
+  name: dmt-cdp2-111
   namespace: envds
   labels:
-    app: aerosoldynamics-magic250-142
+    app: dmt-cdp2-111
 spec:
   selector:
-    app: aerosoldynamics-magic250-142
+    app: dmt-cdp2-111
   ports:
   - name: http
     protocol: TCP
@@ -121,7 +121,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: aerosoldynamics-magic250-142-stripprefix
+#   name: dmt-cdp2-111-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -133,14 +133,14 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: aerosoldynamics-magic250-142-ingress
+#   name: dmt-cdp2-111-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-aerosoldynamics-magic250-142-stripprefix@kubernetescrd
+#       envds-dmt-cdp2-111-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
@@ -149,6 +149,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: aerosoldynamics-magic250-142
+#             name: dmt-cdp2-111
 #             port:
 #               number: 9080
