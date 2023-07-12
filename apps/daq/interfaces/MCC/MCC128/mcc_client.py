@@ -51,8 +51,8 @@ class MCC128Board():
             total_samples_read += len(read_result.data)
 
             results = {
-                "mean": np.mean(read_result.data, axis=0),
-                "stdev": np.std(read_result.data, axis=0)
+                "volts_mean": np.mean(read_result.data, axis=0),
+                "volts_stdev": np.std(read_result.data, axis=0)
             }
 
             if channel not in self.recv_buffer:
@@ -284,33 +284,6 @@ class MCCClient(DAQClient):
             sample_time = data["ad-command"].get("sample_time", 100)             num_samples = data["ad-command"].get("num_samples", 1)            
             
             await self.client.write(data)
-
-            # send_method = data.get("send-method", self.send_method)
-            
-            # if send_method == "binary":
-            #     # if num of expected bytes not supplied, fail
-            #     try:
-            #         read_num_bytes = data["read-num-bytes"]
-            #         self.client.return_packet_bytes.append(
-            #             data["read-num-bytes"]
-            #         )
-            #         await self.client.writebinary(data["data"])
-            #     except KeyError:
-            #         self.logger.error("binary write failed - read-num-bytes not specified")
-            #         return
-            # else:
-            #     try:
-            #         await self.client.write(data["data"])
-            #     except KeyError:
-            #         self.logger.error("write failed - data not specified")
-            #         return
-
-            # self.logger.debug(
-            #     "send_to_client",
-            #     extra={
-            #         "send_method": send_method,
-            #         "data": data["data"]
-            #     },
-            # )
+ 
         except Exception as e:
             self.logger.error("send_to_client error", extra={"error": e})
