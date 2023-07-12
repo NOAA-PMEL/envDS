@@ -21,7 +21,7 @@ class MCC128Interface(Interface):
         "attributes": {
             # "name": {"type"mock1",
             "type": {"type": "char", "data": "MCC"},
-            "name": {"type": "char", "data": "mcc128"},
+            "name": {"type": "char", "data": "MCC128"},
             "description": {
                 "type": "char",
                 "data": "A/D raspberry pi hat from MCC",
@@ -266,6 +266,7 @@ class MCC128Interface(Interface):
             try:
                 # client = self.config.paths[client_id]["client"]
                 client = self.client_map[client_id]["client"]
+                self.logger.debug("recv_data_loop", extra={"client": client})
                 # while client is not None:
                 if client:
                     self.logger.debug("recv_data_loop", extra={"client": client})

@@ -1,4 +1,5 @@
 import asyncio
+import math
 import signal
 from struct import pack
 
@@ -16,6 +17,7 @@ import logging.config
 import yaml
 import random
 from envds.core import envdsLogger
+
 # from envds.daq.db import get_sensor_registration, register_sensor  # , envdsBase, envdsStatus
 from envds.util.util import (
     # get_datetime_format,
@@ -31,6 +33,13 @@ from envds.daq.event import DAQEvent
 from envds.message.message import Message
 
 # from envds.exceptions import envdsRunTransitionException
+from struct import pack, unpack
+from struct import error as structerror
+
+try:
+    import RPi.GPIO as GPIO
+except ModuleNotFoundError:
+    print("error GPIO - might need sudo")
 
 # from typing import Union
 # from cloudevents.http import CloudEvent, from_dict, from_json
@@ -142,7 +151,10 @@ class CDP2(Sensor):
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Number of particles rejected not in DOF"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Number of particles rejected not in DOF",
+                    },
                     "units": {"type": "char", "data": "count"},
                 },
             },
@@ -150,7 +162,10 @@ class CDP2(Sensor):
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Number of particles rejected due to tansit time"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Number of particles rejected due to tansit time",
+                    },
                     "units": {"type": "char", "data": "count"},
                 },
             },
@@ -166,7 +181,10 @@ class CDP2(Sensor):
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Threshold of the noise band"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Threshold of the noise band",
+                    },
                     "units": {"type": "char", "data": "count"},
                 },
             },
@@ -182,7 +200,10 @@ class CDP2(Sensor):
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Threshold of the noise band"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Threshold of the noise band",
+                    },
                     "units": {"type": "char", "data": "count"},
                 },
             },
@@ -190,7 +211,10 @@ class CDP2(Sensor):
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "The number of times a/d hit maximum count"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "The number of times a/d hit maximum count",
+                    },
                     "units": {"type": "char", "data": "count"},
                 },
             },
@@ -209,23 +233,29 @@ class CDP2(Sensor):
                     "long_name": {"type": "char", "data": "Diameter of bin"},
                     "units": {"type": "char", "data": "um"},
                 },
-            },            
+            },
             "diameter_bnd_lower": {
                 "type": "float",
                 "shape": ["time", "diameter"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Lower bound of diameter bin"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Lower bound of diameter bin",
+                    },
                     "units": {"type": "char", "data": "um"},
                 },
-            },            
+            },
             "diameter_bnd_upper": {
                 "type": "float",
                 "shape": ["time", "diameter"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Upper bound of diameter bin"},
+                    "long_name": {
+                        "type": "char",
+                        "data": "Upper bound of diameter bin",
+                    },
                     "units": {"type": "char", "data": "um"},
                 },
-            },            
+            },
         },
         "settings": {
             # "pump_power": {
@@ -268,11 +298,126 @@ class CDP2(Sensor):
         # print(f"config: {self.config}")
         # ----
 
+        self.scan_run_state = "STOPPED"
+
+        self.start_byte = 27  # Esc char
+        self.setup_command = 1
+        self.data_command = 2
+
+        self.adc_threshold = 60
+        self.bin_count = 30
+
+        self.reconfigure_limit = 10
+        self.reconfigure_count = 0
+
+        self.lower_dp_bnd = [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            16,
+            18,
+            20,
+            22,
+            24,
+            26,
+            28,
+            30,
+            32,
+            34,
+            36,
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+        ]
+        self.uppder_dp_bnd = [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            16,
+            18,
+            20,
+            22,
+            24,
+            26,
+            28,
+            30,
+            32,
+            34,
+            36,
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+            50,
+        ]
+
+        # Thresholds=<30>91,111,159,190,215,243,254,272,301,355,382,488,636,751,846,959,1070,1297,1452,1665,1851,2016,2230,2513,2771,3003,3220,3424,3660,4095
+        self.upper_bin_th = [
+            91,
+            111,
+            159,
+            190,
+            215,
+            243,
+            254,
+            272,
+            301,
+            355,
+            382,
+            488,
+            636,
+            751,
+            846,
+            959,
+            1070,
+            1297,
+            1452,
+            1665,
+            1851,
+            2016,
+            2230,
+            2513,
+            2771,
+            3003,
+            3220,
+            3424,
+            3660,
+            4095,
+        ]
+
+        self.dof_reject = True
+        self.sample_area = 0.264  # (mm^2)
+
         # self.sampling_task_list.append(self.data_loop())
         self.enable_task_list.append(self.default_data_loop())
         self.enable_task_list.append(self.sampling_monitor())
         # self.enable_task_list.append(self.register_sensor())
         # asyncio.create_task(self.sampling_monitor())
+        self.polling_task = None
         self.collecting = False
 
     def configure(self):
@@ -301,7 +446,7 @@ class CDP2(Sensor):
                         "read-method": "readbinary",  # readline, read-until, readbytes, readbinary
                         # "read-terminator": "\r",  # only used for read_until
                         # "decode-errors": "strict",
-                        "send-method": "binary"
+                        "send-method": "binary",
                     },
                 }
             }
@@ -387,19 +532,25 @@ class CDP2(Sensor):
     async def settings_check(self):
         await super().settings_check()
 
-        if not self.settings.get_health(): # something has changed
+        if not self.settings.get_health():  # something has changed
             for name in self.settings.get_settings().keys():
                 if not self.settings.get_health_setting(name):
-                    self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
+                    self.logger.debug(
+                        "settings_check - set setting",
+                        extra={
+                            "setting-name": name,
+                            "setting": self.settings.get_setting(name),
+                        },
+                    )
 
     # async def register_sensor(self):
     #     try:
-                
+
     #         make = self.config.make
     #         model = self.config.model
     #         serial_number = self.config.serial_number
     #         if not await get_sensor_registration(make=make, model=model, serial_number=serial_number):
-                    
+
     #             await register_sensor(
     #                 make=make,
     #                 model=model,
@@ -412,29 +563,29 @@ class CDP2(Sensor):
 
     def get_cdp_command(self, cmd_type):
         # universal start byte (Esc char)
-        cmd = pack('<B', self.start_byte)
+        cmd = pack("<B", self.start_byte)
 
-        if cmd_type == 'CONFIGURE':
-            cmd += pack('<B', self.setup_command)
-            cmd += pack('<H', self.adc_threshold)
-            cmd += pack('<H', 0)  # unused
-            cmd += pack('<H', self.bin_count)
-            cmd += pack('<H', self.dof_reject)
+        if cmd_type == "CONFIGURE":
+            cmd += pack("<B", self.setup_command)
+            cmd += pack("<H", self.adc_threshold)
+            cmd += pack("<H", 0)  # unused
+            cmd += pack("<H", self.bin_count)
+            cmd += pack("<H", self.dof_reject)
 
             # unused bins
             for i in range(0, 5):
-                cmd += pack('<H', 0)
+                cmd += pack("<H", 0)
 
             # upper bin thresholds
             for n in self.upper_bin_th:
-                cmd += pack('<H', n)
+                cmd += pack("<H", n)
 
             # fill last unused bins
             for n in range(0, 10):
-                cmd += pack('<H', n)
+                cmd += pack("<H", n)
 
-        elif cmd_type == 'SEND_DATA':
-            cmd += pack('B', self.data_command)
+        elif cmd_type == "SEND_DATA":
+            cmd += pack("B", self.data_command)
 
         else:
             return None
@@ -443,30 +594,26 @@ class CDP2(Sensor):
         for ch in cmd:
             checksum += ch
 
-        cmd += pack('<H', checksum)
+        cmd += pack("<H", checksum)
         return cmd
 
-    # def cdp_power_switch(self, power=False, cleanup=False):
+    def cdp_power_switch(self, power=False, cleanup=False):
 
-    #     if 'RPi.GPIO' in sys.modules:
-    #         GPIO.setmode(GPIO.BOARD)
-    #         GPIO.setup(self.gpio_enable_ch, GPIO.OUT, initial=GPIO.LOW)
+        if 'RPi.GPIO' in sys.modules:
+            GPIO.setmode(GPIO.BOARD)
+            GPIO.setup(self.gpio_enable_ch, GPIO.OUT, initial=GPIO.LOW)
 
-    #         if power:
-    #             GPIO.output(self.gpio_enable_ch, GPIO.HIGH)
-    #         else:
-    #             GPIO.output(self.gpio_enable_ch, GPIO.LOW)
+            if power:
+                GPIO.output(self.gpio_enable_ch, GPIO.HIGH)
+            else:
+                GPIO.output(self.gpio_enable_ch, GPIO.LOW)
 
-    #         if cleanup:
-    #             GPIO.cleanup(self.gpio_enable_ch)
-    #     else:
-    #         pass
+            if cleanup:
+                GPIO.cleanup(self.gpio_enable_ch)
+        else:
+            pass
 
     async def sampling_monitor(self):
-
-        # start_command = f"Log,{self.sampling_interval}\n"
-        start_command = "Log,1\n"
-        stop_command = "Log,0\n"
 
         need_start = True
         start_requested = False
@@ -478,6 +625,17 @@ class CDP2(Sensor):
         # self.collecting = False
         # init to stopped
         # await self.stop_command()
+
+        # configure_cmd = self.get_cdp_command('CONFIGURE')
+        # send_data_cmd = self.get_cdp_command('SEND_DATA')
+
+        configure_cmd = {
+            "read-num-bytes": 4,
+            "data": self.get_cdp_command("CONFIGURE"),
+        }
+
+        configure_loops = 0
+        configure_loops_max = 5
 
         while True:
             try:
@@ -495,34 +653,59 @@ class CDP2(Sensor):
 
                 if self.sampling():
 
-                    if need_start:
-                        if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
-                            await asyncio.sleep(2)
-                            self.collecting = False
+                    if self.scan_run_state != "RUN":
+
+                        if self.scan_run_state == "STOPPED":
+                            self.scan_run_state = "CONFIGURE"
                             continue
-                        else:
-                            await self.interface_send_data(data={"data": start_command})
-                        # await self.interface_send_data(data={"data": "\n"})
-                            need_start = False
-                            start_requested = True
-                            await asyncio.sleep(2)
+
+                        if self.scan_run_state == "CONFIGURE":
+                            self.scan_run_state == "CONFIGURING"
+
+                            await self.interface_send_data(data=configure_cmd)
+                            configure_loops = 0
                             continue
-                    elif start_requested:
-                        if self.collecting:
-                            start_requested = False
-                        else:
-                            await self.interface_send_data(data={"data": start_command})
-                            # await self.interface_send_data(data={"data": "\n"})
-                            await asyncio.sleep(2)
+
+                        if self.scan_run_state == "CONFIGURING":
+                            configure_loops += 1
+                            if configure_loops > configure_loops_max:
+                                self.scan_run_state = "CONFIGURE"
                             continue
-                else:
-                    if self.collecting:
-                        await self.interface_send_data(data={"data": stop_command})
-                        await asyncio.sleep(2)
-                        self.collecting = False
-                            
-                await asyncio.sleep(.1)
+                    else:
+
+                        if need_start:
+                            if self.collecting:
+                                # await self.interface_send_data(data={"data": stop_command})
+                                if self.polling_task:
+                                    self.polling_task.cancel()
+                                await asyncio.sleep(2)
+                                self.collecting = False
+                                continue
+                            else:
+                                # await self.interface_send_data(data={"data": start_command})
+                                # await self.interface_send_data(data={"data": "\n"})
+                                self.polling_task = asyncio.create_task(self.polling_loop())
+                                need_start = False
+                                start_requested = True
+                                await asyncio.sleep(2)
+                                continue
+                        elif start_requested:
+                            if self.collecting:
+                                start_requested = False
+                            else:
+                                # await self.interface_send_data(data={"data": start_command})
+                                # await self.interface_send_data(data={"data": "\n"})
+                                await asyncio.sleep(2)
+                                continue
+                        # else:
+                        #     if self.collecting:
+                        #         # await self.interface_send_data(data={"data": stop_command})
+                        #         if self.polling_task:
+                        #             self.polling_task.cancel()
+                        #         await asyncio.sleep(2)
+                        #         self.collecting = False
+
+                await asyncio.sleep(0.1)
 
                 # if self.collecting:
                 #     # await self.stop_command()
@@ -533,9 +716,8 @@ class CDP2(Sensor):
                 #     # self.logger.debug("sampling_monitor:7", extra={"self.collecting": self.collecting})
             except Exception as e:
                 print(f"sampling monitor error: {e}")
-                
-            await asyncio.sleep(.1)
 
+            await asyncio.sleep(0.1)
 
     # async def start_command(self):
     #     pass # Log,{sampling interval}
@@ -546,6 +728,33 @@ class CDP2(Sensor):
     # def stop(self):
     #     asyncio.create_task(self.stop_sampling())
     #     super().start()
+
+    def start(self):
+        super().start()
+
+        self.cdp_power_switch(power=True)
+        self.scan_run_state = 'CONFIGURE'
+
+    def stop(self):
+        super().stop()
+
+        self.cdp_power_switch(power=False)
+        self.scan_run_state = 'STOPPED'
+
+    async def polling_loop(self):
+
+        # send_data_cmd = self.get_cdp_command('SEND_DATA')
+
+        send_data_cmd = {
+            "read-num-bytes": 156,
+            "data": self.get_cdp_command("SEND_DATA"),
+        }
+
+
+        while True:
+            if self.sampling() and self.scan_run_state == "RUN":
+                await self.interface_send_data(data=send_data_cmd)
+                await asyncio.sleep(time_to_next(self.sampling_interval))
 
     async def default_data_loop(self):
 
@@ -569,7 +778,8 @@ class CDP2(Sensor):
                     )
                     dest_path = f"/{self.get_id_as_topic()}/data/update"
                     self.logger.debug(
-                        "default_data_loop", extra={"data": event, "dest_path": dest_path}
+                        "default_data_loop",
+                        extra={"data": event, "dest_path": dest_path},
                     )
                     message = Message(data=event, dest_path=dest_path)
                     # self.logger.debug("default_data_loop", extra={"m": message})
@@ -592,47 +802,139 @@ class CDP2(Sensor):
                 #     "wind_direction",
                 # ]
                 # variables = list(self.config.variables.keys())
-                variables = list(self.config.metadata.variables.keys())
-                # print(f"variables: \n{variables}\n{variables2}")
-                variables.remove("time")
-                # variables2.remove("time")
-                # print(f"variables: \n{variables}\n{variables2}")
 
-                # print(f"include metadata: {self.include_metadata}")
-                record = self.build_data_record(meta=self.include_metadata)
-                # print(f"default_parse: data: {data}, record: {record}")
-                self.include_metadata = False
-                try:
+                if self.scan_run_state == 'CONFIGURING':
+                    packet = data.data["data"]
+                    ack_fmt = '<4B'
+                    try:
+                        result = unpack(ack_fmt, packet)
+                        if result[0] == 6:
+                            print('ACK received')
+                            self.scan_run_state = 'RUN'
+                        else:
+                            self.scan_run_state = 'CONFIGURE'
+                    except structerror:
+                        print(f' bad config packet: {packet}')
+                        self.scan_run_state = 'CONFIGURE'
+                    return None
+
+                elif self.scan_run_state == 'RUN':
+                    # CDP format introduces NUXI so read in the 4 byte values as 2 byte and convert
+                    # old_data_format = '<8HI5HI30IH' # old, wrong format, use to recode older files
+                    data_format = f"<8H2H5H2H{self.bin_count*2}HH"
+                    # print(f"data_format: {data_format}")
+                    try:
+                        # old_data = unpack(old_data_format, packet)
+                        result = unpack(data_format, packet)
+                        # print(f'packet: {packet}')
+                        # print(f'old_data: {old_data}, {len(old_data)}')
+                        print(f'data: {result}, {len(result)}')
+
+                    except structerror:
+                        print(f'bad packet {packet}')
+                        # self.scan_run_state = 'CONFIGURE'
+                        return None
+
+                    record = self.build_data_record(meta=self.include_metadata)
+                    # print(f"default_parse: data: {data}, record: {record}")
+                    self.include_metadata = False
                     record["timestamp"] = data.data["timestamp"]
                     record["variables"]["time"]["data"] = data.data["timestamp"]
-                    parts = data.data["data"].split(",")
-                    # print(f"parts: {parts}, {variables}")
-                    if len(parts) < 10:
-                        return None
-                    for index, name in enumerate(variables):
-                        if name in record["variables"]:
-                            # instvar = self.config.variables[name]
-                            instvar = self.config.metadata.variables[name]
-                            vartype = instvar.type
-                            if instvar.type == "string":
-                                vartype = "str"
-                            try:
-                                # print(f"default_parse: {record['variables'][name]} - {parts[index].strip()}")
-                                record["variables"][name]["data"] = eval(vartype)(
-                                    parts[index].strip()
-                                )
-                            except ValueError:
-                                if vartype == "str" or vartype == "char":
-                                    record["variables"][name]["data"] = ""
-                                else:
-                                    record["variables"][name]["data"] = None
-                    return record
-                except KeyError:
-                    pass
+
+                    try:
+                        val = result[0]*0.061
+                        # print(f'val0={val}')
+                        record["variables"]["laser_current"]["data"] = round(val, 2)
+
+                        val = 5*result[1]/4095
+                        record["variables"]["dump_spot_monitor"]["data"] = round(val, 2)
+
+                        v = 5*result[2]/4095
+                        degC = None
+                        if v!=0:
+                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                        record["variables"]["wingboard_temperature"]["data"] = round(degC, 2)
+
+                        v = 5*result[3]/4095
+                        degC = None
+                        if v!=0:
+                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                        record["variables"]["laser_temperature"]["data"] = round(degC, 2)
+
+                        val = 5*result[4]/4095
+                        record["variables"]["sizer_baseline"]["data"] = round(val, 3)
+
+                        val = 5*result[5]/4095
+                        record["variables"]["qualifier_baseline"]["data"] = round(val, 3)
+
+                        val = (5*result[6]/4095)*2
+                        record["variables"]["5v_monitor"]["data"] = round(val, 3)
+
+                        v = 5*result[7]/4095
+                        degC = None
+                        if v!=0:
+                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                        record["variables"]["control_board_temperature"]["data"] = round(degC, 2)
+
+                        # Reject DOF U32
+                        # recode = pack('<I', result[8])
+                        # rej_dof = unpack('>I', pack('>2H', *unpack('<2H', recode)))[0]
+                        # print(f'rej_dof')
+                        rej_dof = (result[8] << 16) + result[9]
+                        # print(f'rej_dof: {rej_dof}')
+                        record["variables"]["reject_dof"]["data"] = rej_dof
+
+                        # print(f'val10={result[10]}')
+                        record["variables"]["average_transit"]["data"] = result[10]
+
+                        record["variables"]["qual_bandwidth"]["data"] = result[11]
+
+                        record["variables"]["qual_threshold"]["data"] = result[12]
+
+                        record["variables"]["dt_bandwidth"]["data"] = result[13]
+
+                        record["variables"]["dynamic_threshold"]["data"] = result[14]
+
+                        adc_over = (result[15] << 16) + result[16]
+                        record["variables"]["adc_overflow"]["data"] = adc_over
+
+                        bc = []
+                        # dp = []
+                        # intN = 0
+                        for i in range(0, self.bin_count*2, 2):
+                            # bin_count U32 - reorder bytes
+                            # recode = pack('<I', data[15+i])
+                            # count = unpack('>I', pack('>2H', *unpack('<2H', recode)))[0]
+                            # print(f"i={i}, {data[17+i]}, {data[18+i]}")
+                            count = (data[17+i] << 16) + data[18+i]
+                            # print(f"count={count}")
+                            # bc.append(data[15+i])
+                            bc.append(count)
+                            # intN += data[15+i]
+                            # intN += count
+
+                        record["variables"]["bin_count"]["data"] = bc
+
+                        lb = []
+                        ub = []
+                        dp = []
+                        for lower, upper in zip(self.lower_dp_bnd, self.uppder_dp_bnd):
+                            lb.append(float(lower))
+                            ub.append(float(upper))
+                            dp.append(math.sqrt(float(lower)*float(upper)))
+
+                        record["variables"]["diameter"]["data"] = dp
+                        record["variables"]["diameter_bnd_lower"]["data"] = lb
+                        record["variables"]["diameter_bnd_upper"]["data"] = ub
+
+                        return record
+                    except (KeyError,ValueError):
+                        pass
             except Exception as e:
                 print(f"default_parse error: {e}")
         # else:
         return None
+
 
 class ServerConfig(BaseModel):
     host: str = "localhost"

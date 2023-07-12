@@ -1,18 +1,18 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sensiron-sht35-clearpops-config
+  name: ist-hyt271-001-config
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: ist-hyt271-001
 data:
   sensor.conf: |
-    serial_number: "clearpops"
-    daq_id: clearsky
+    serial_number: "001"
+    daq_id: cloudysky
     interfaces:
       # default: serial
       default:
-        interface_env_id: clear # if omitted, defaults to envds_id of sensor
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
         interface_id: NetBurner::SB70LC::nb53
         # interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
@@ -22,26 +22,26 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sensiron-sht35-clearpops
+  name: ist-hyt271-001
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: ist-hyt271-001
 spec:
   selector:
     matchLabels:
-      app: sensiron-sht35-clearpops
+      app: ist-hyt271-001
   template:
     metadata:
       labels:
-        app: sensiron-sht35-clearpops
+        app: ist-hyt271-001
     spec:
       containers:
-      - name: sensiron-sht35-clearpops
-        image: envds-registry-clear:5000/envds/sensor/sensiron-sht35:0.1.0
+      - name: ist-hyt271-001
+        image: envds-registry-cloudy:5000/envds/sensor/ist-hyt271:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
-            value: clear
+            value: cloudy
           - name: REDIS_OM_URL
             value: redis://redis.default
           - name: LOG_LEVEL
@@ -60,7 +60,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: sensiron-sht35-clearpops-config
+            - name: ist-hyt271-001-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -73,9 +73,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: sensiron-sht35-clearpops-config
+        - name: ist-hyt271-001-config
           configMap:
-            name: sensiron-sht35-clearpops-config
+            name: ist-hyt271-001-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -83,13 +83,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sensiron-sht35-clearpops
+  name: ist-hyt271-001
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: ist-hyt271-001
 spec:
   selector:
-    app: sensiron-sht35-clearpops
+    app: ist-hyt271-001
   ports:
   - name: http
     protocol: TCP
@@ -104,7 +104,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: sensiron-sht35-clearpops-stripprefix
+#   name: ist-hyt271-001-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -116,14 +116,14 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: sensiron-sht35-clearpops-ingress
+#   name: ist-hyt271-001-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-sensiron-sht35-clearpops-stripprefix@kubernetescrd
+#       envds-ist-hyt271-001-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
@@ -132,6 +132,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: sensiron-sht35-clearpops
+#             name: ist-hyt271-001
 #             port:
 #               number: 9080

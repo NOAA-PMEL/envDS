@@ -1,47 +1,64 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sensiron-sht35-clearpops-config
+  name: dmt-cdp2-111-config
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: dmt-cdp2-111
 data:
   sensor.conf: |
-    serial_number: "clearpops"
-    daq_id: clearsky
+    serial_number: "111"
+    daq_id: cloudysky
     interfaces:
       # default: serial
       default:
-        interface_env_id: clear # if omitted, defaults to envds_id of sensor
-        interface_id: NetBurner::SB70LC::nb53
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
+        interface_id: NetBurner::SB70LC::nb52
         # interface_id: NetBurner::SB70LC::home38
         # path: port, channel, etc
-        path: port-I2C
-
+        path: port-2
+      #   connection-properties:
+      #     baudrate: 115200
+      #     bytesize: 8
+      #     parity: N
+      #     stopbit: 1
+      #   # read-properties:
+      #     read_method: "readline" # default
+      #     # terminator: "\r"
+      #     # binary: true
+      #     # num-bytes: 1
+      #     # decode-errors: strict
+      # # power: # example of second interface (e.g., CDP enable signal)
+      # #   interface_id: system::mock::localhost
+      # #   path: port-01
+      
+    # settings: # used to override defaults
+    #   pump_power: 1
+    #   q_target: 300
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sensiron-sht35-clearpops
+  name: dmt-cdp2-111
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: dmt-cdp2-111
 spec:
   selector:
     matchLabels:
-      app: sensiron-sht35-clearpops
+      app: dmt-cdp2-111
   template:
     metadata:
       labels:
-        app: sensiron-sht35-clearpops
+        app: dmt-cdp2-111
     spec:
       containers:
-      - name: sensiron-sht35-clearpops
-        image: envds-registry-clear:5000/envds/sensor/sensiron-sht35:0.1.0
+      - name: dmt-cdp2-111
+        image: envds-registry-cloudy:5000/envds/sensor/dmt-cdp2:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
-            value: clear
+            value: cloudy
           - name: REDIS_OM_URL
             value: redis://redis.default
           - name: LOG_LEVEL
@@ -60,7 +77,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: sensiron-sht35-clearpops-config
+            - name: dmt-cdp2-111-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -73,9 +90,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: sensiron-sht35-clearpops-config
+        - name: dmt-cdp2-111-config
           configMap:
-            name: sensiron-sht35-clearpops-config
+            name: dmt-cdp2-111-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -83,13 +100,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sensiron-sht35-clearpops
+  name: dmt-cdp2-111
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: dmt-cdp2-111
 spec:
   selector:
-    app: sensiron-sht35-clearpops
+    app: dmt-cdp2-111
   ports:
   - name: http
     protocol: TCP
@@ -104,7 +121,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: sensiron-sht35-clearpops-stripprefix
+#   name: dmt-cdp2-111-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -116,22 +133,22 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: sensiron-sht35-clearpops-ingress
+#   name: dmt-cdp2-111-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-sensiron-sht35-clearpops-stripprefix@kubernetescrd
+#       envds-dmt-cdp2-111-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/142
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: sensiron-sht35-clearpops
+#             name: dmt-cdp2-111
 #             port:
 #               number: 9080

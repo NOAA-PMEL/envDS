@@ -37,7 +37,7 @@ spec:
     spec:
       containers:
       - name: sensiron-sht35-clearstap
-        image: envds-registry-cloudy:5000/envds/sensor/sensiron-sht35:0.1.0
+        image: envds-registry-clear:5000/envds/sensor/sensiron-sht35:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID

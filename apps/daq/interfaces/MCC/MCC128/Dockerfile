@@ -37,9 +37,11 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1
 #RUN python -m pip install --upgrade pip
 
 WORKDIR /app
-ADD ./mfg/daqhats.tar.gz ./daqhats.tar.gz
-RUN tar zxf daqhats.tar.gz
-RUN rm daqhats.tar.gz
+ADD ./mfg/daqhats ./daqhats
+# ADD ./mfg/daqhats.tar.gz ./daqhats.tar.gz
+# RUN ls
+# RUN tar -zxf daqhats.tar.gz
+# RUN rm daqhats.tar.gz
 
 RUN cd daqhats \
     && make -C lib all \
