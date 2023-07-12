@@ -245,10 +245,10 @@ class SPLite2(Sensor):
         # i2c_commands = [write_command, read_command]
         ad_command = {
             "num_samples": 50,
-            "sample_time": 200 # msec
+            "sample_rate": 200.0 # Hz
         }
         data = {
-            "data": {"ad-command": ad_command}
+            "ad-command": ad_command
         }
 
         while True:

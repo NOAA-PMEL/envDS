@@ -7,7 +7,7 @@ metadata:
     app: mcc-mcc128-clear0
 data:
   interface.conf: |
-    uid: localhost
+    uid: clear0
     paths:
       # udp-10080:
       #     client-type: udp
@@ -36,6 +36,8 @@ spec:
       - name: mcc-mcc128-clear0
         image: envds-registry-clear:5000/envds/interface/mcc-mcc128:0.1.0
         imagePullPolicy: "Always"
+        securityContext:
+          privileged: true
         env:
           - name: ENVDS_ENV_ID
             value: clear

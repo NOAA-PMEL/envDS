@@ -3,7 +3,7 @@ from envds.daq.client import DAQClient, DAQClientConfig, _BaseClient
 from envds.core import envdsStatus
 from envds.exceptions import envdsRunTransitionException, envdsRunWaitException, envdsRunErrorException
 import random
-from anyio import create_connected_udp_socket, create_udp_socket, run
+# from anyio import create_connected_udp_socket, create_udp_socket, run
 import socket
 from envds.util.util import time_to_next
 
@@ -37,35 +37,42 @@ class MCC128Board():
                     self.board.a_in_range_write(AnalogInputRange.BIP_1V)
 
 
-    async def scan_start(self, channel: int, num_samples: int, sample_time: int):
+    async def scan_start(self, channel: int, num_samples: int, sample_rate: float, timeout: float = 0.25):
         try:
-
+            # self.board.a_in_scan_stop()
+            print(f"scan_start: {channel}, {num_samples}, {sample_rate}")
+            chan_mask = 0
             chan_list=[channel]
             for chan in chan_list:
                 chan_mask |= 0x01 << chan
-            
-            self.board.a_in_scan_start(chan_mask, num_samples, sample_time, OptionFlags.DEFAULT)
+            # print(f"channel: {channel}, {chan_mask}")
+            self.board.a_in_scan_start(chan_mask, num_samples, sample_rate, OptionFlags.DEFAULT)
             total_samples_read = 0
-            timeout = sample_time*2
-            read_result = self.board.a_in_scan_read_numpy(num_samples, timeout)
+            timeout = 1.2*float(num_samples)/sample_rate
+            read_result = self.board.a_in_scan_read_numpy(num_samples, 0.5)
+            # print(f"read_result: {read_result}")
             total_samples_read += len(read_result.data)
+            self.board.a_in_scan_stop()
+            self.board.a_in_scan_cleanup()
 
             results = {
                 "volts_mean": np.mean(read_result.data, axis=0),
                 "volts_stdev": np.std(read_result.data, axis=0)
             }
-
+            print(f"results: {results}")
             if channel not in self.recv_buffer:
                 self.recv_buffer[channel] = asyncio.Queue()            
             await self.recv_buffer[channel].put(results)
 
         except Exception as e:
+            self.board.a_in_scan_stop()
+            self.board.a_in_scan_cleanup()
             print(f"scan_start error - {e}")
 
     async def scan_read(self, channel):
-        if self.recv_buffer[0].empty():
+        if channel not in self.recv_buffer or self.recv_buffer[channel].empty():
             return None
-        return await self.recv_buffer[0].get()
+        return await self.recv_buffer[channel].get()
 
 class _MCCClient(_BaseClient):
     """docstring for _TCPClient."""
@@ -81,8 +88,10 @@ class _MCCClient(_BaseClient):
         self.keep_connected = False
         # self.run_task_list.append(self.connection_monitor())
         # self.enable_task_list.append(asyncio.create_task(asyncio.sleep(1)))
-        self.enable_task_list.append(self.recv_data_loop())
-        self.enable_task_list.append(self.send_data_loop())
+        # self.enable_task_list.append(self.recv_data_loop())
+        # self.enable_task_list.append(self.send_data_loop())
+        asyncio.create_task(self.recv_data_loop())
+        asyncio.create_task(self.send_data_loop())
         self.recv_buffer = asyncio.Queue()
         self.send_buffer = asyncio.Queue()
 
@@ -135,42 +144,47 @@ class _MCCClient(_BaseClient):
         self.channel = 0
         if "channel" in self.config.properties:
             self.channel = self.config.properties["channel"]["data"]
-        self.logger.debug("_MCCClient: configure", extra={"host": self.local_host, "port": self.local_port})
+        self.logger.debug("_MCCClient: configure", extra={"channel": self.channel})
 
     async def recv_data_loop(self):
         while True:
             try:
                 data = await self.mcc128.scan_read(channel=self.channel)
+                # print(f"recv_data_loop: {self.channel}, {data}")
                 if data:
                     await self.recv_buffer.put(data)
                 await asyncio.sleep(.1)
             except Exception as e:
-                print("error: {e}")
+                # print(f"recv_data_loop error: {e}")
                 await asyncio.sleep(1)
 
             await asyncio.sleep(.1)
 
     async def send_data_loop(self):
+        print(f"starting send_data_loop")
         while True:
             try:
                 data = await self.send_buffer.get()
-
-                if self.connected and self.mcc128.board:
-                    if "num_samples" in data and "sample_time" in data:    
-                        self.mcc128.board.scan_start(
+                # print(f"***data.send_data_loop {data}")
+                # if self.connected and self.mcc128.board:
+                if self.mcc128:
+                    if "num_samples" in data["ad-command"] and "sample_rate" in data["ad-command"]: 
+                        # print(f"going to scan_start: {self.channel}")   
+                        await self.mcc128.scan_start(
                             channel=self.channel, 
-                            num_samples=data["num_samples"],
-                            sample_time=data["sample_time"]
+                            num_samples=data["ad-command"]["num_samples"],
+                            sample_rate=data["ad-command"]["sample_rate"]
                         )    
                 await asyncio.sleep(.1)
             except Exception as e:
-                print("error: {e}")
+                print(f"send_data_loop error: {e}")
             await asyncio.sleep(.1)
 
     async def read(self):
         return await self.recv_buffer.get()
 
     async def write(self, data: str):
+        # print(f"***data.write: {data}")
         await self.send_buffer.put(data)
 
     async def do_enable(self):
@@ -204,7 +218,7 @@ class MCCClient(DAQClient):
         super(MCCClient, self).__init__(config=config)
         # print("mock_client: 2")
         self.logger.debug("MCCClient.init")
-        self.client_class = "MCCClient"
+        self.client_class = "_MCCClient"
         self.logger.debug("MCCClient.init", extra={"config": config})
 
         # TODO: set uid here? or let caller do it?
@@ -279,9 +293,9 @@ class MCCClient(DAQClient):
 
     async def send_to_client(self, data):
         try:
-            
-            num_samples = data["ad-command"].get("num_samples", 1)             num_samples = data["ad-command"].get("num_samples", 1)            
-            sample_time = data["ad-command"].get("sample_time", 100)             num_samples = data["ad-command"].get("num_samples", 1)            
+            self.logger.debug("send_to_client", extra={"d": data} )
+            num_samples = data["ad-command"].get("num_samples", 1)            
+            sample_rate = data["ad-command"].get("sample_rate", 100)            
             
             await self.client.write(data)
  

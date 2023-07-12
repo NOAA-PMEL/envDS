@@ -1,43 +1,41 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sensiron-sht35-clearpops-config
+  name: kippzonen-splite2-22299x-config
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: kippzonen-splite2-22299x
 data:
   sensor.conf: |
-    serial_number: "clearpops"
+    serial_number: "22299x"
     daq_id: clearsky
     interfaces:
       # default: serial
       default:
         interface_env_id: clear # if omitted, defaults to envds_id of sensor
-        interface_id: NetBurner::SB70LC::nb52
-        # interface_id: NetBurner::SB70LC::home38
-        # path: port, channel, etc
-        path: port-I2C
+        interface_id: MCC::MCC128::clear0
+        path: ch1-de
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sensiron-sht35-clearpops
+  name: kippzonen-splite2-22299x
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: kippzonen-splite2-22299x
 spec:
   selector:
     matchLabels:
-      app: sensiron-sht35-clearpops
+      app: kippzonen-splite2-22299x
   template:
     metadata:
       labels:
-        app: sensiron-sht35-clearpops
+        app: kippzonen-splite2-22299x
     spec:
       containers:
-      - name: sensiron-sht35-clearpops
-        image: envds-registry-cloudy:5000/envds/sensor/sensiron-sht35:0.1.0
+      - name: kippzonen-splite2-22299x
+        image: envds-registry-clear:5000/envds/sensor/kippzonen-splite2:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -60,7 +58,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: sensiron-sht35-clearpops-config
+            - name: kippzonen-splite2-22299x-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -73,9 +71,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: sensiron-sht35-clearpops-config
+        - name: kippzonen-splite2-22299x-config
           configMap:
-            name: sensiron-sht35-clearpops-config
+            name: kippzonen-splite2-22299x-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -83,13 +81,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sensiron-sht35-clearpops
+  name: kippzonen-splite2-22299x
   namespace: envds
   labels:
-    app: sensiron-sht35-clearpops
+    app: kippzonen-splite2-22299x
 spec:
   selector:
-    app: sensiron-sht35-clearpops
+    app: kippzonen-splite2-22299x
   ports:
   - name: http
     protocol: TCP
@@ -104,7 +102,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: sensiron-sht35-clearpops-stripprefix
+#   name: kippzonen-splite2-22299x-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -116,14 +114,14 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: sensiron-sht35-clearpops-ingress
+#   name: kippzonen-splite2-22299x-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-sensiron-sht35-clearpops-stripprefix@kubernetescrd
+#       envds-kippzonen-splite2-22299x-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
@@ -132,6 +130,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: sensiron-sht35-clearpops
+#             name: kippzonen-splite2-22299x
 #             port:
 #               number: 9080
