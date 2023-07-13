@@ -672,12 +672,12 @@ class mSEMS9404(Sensor):
 
                     if need_start:
                         if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
+                            # await self.interface_send_data(data={"data": stop_command})
                             await asyncio.sleep(2)
                             self.collecting = False
                             continue
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             need_start = False
                             start_requested = True
@@ -687,13 +687,13 @@ class mSEMS9404(Sensor):
                         if self.collecting:
                             start_requested = False
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             await asyncio.sleep(2)
                             continue
                 else:
                     if self.collecting:
-                        await self.interface_send_data(data={"data": stop_command})
+                        # await self.interface_send_data(data={"data": stop_command})
                         await asyncio.sleep(2)
                         self.collecting = False
                             
@@ -729,7 +729,7 @@ class mSEMS9404(Sensor):
                 data = await self.default_data_buffer.get()
                 # self.collecting = True
                 self.logger.debug("default_data_loop", extra={"data": data})
-                continue
+                # continue
                 record = self.default_parse(data)
                 if record:
                     self.collecting = True
@@ -746,7 +746,7 @@ class mSEMS9404(Sensor):
                     min_dp = 10
 
                     try:
-                        max_dp = self.current_record["actual max dia"]["data"]
+                        max_dp = self.current_record["variables"]["actual_max_dia"]["data"]
                     except KeyError:
                         max_dp = 300
 
@@ -761,7 +761,7 @@ class mSEMS9404(Sensor):
                         diam.append(dp)
                         # diam_um.append(round(dp / 1000, 3))
 
-                    self.current_record["actual max dia"]["data"] = diam
+                    self.current_record["variables"]["actual_max_dia"]["data"] = diam
 
                     event = DAQEvent.create_data_update(
                         # source="sensor.mockco-mock1-1234", data=record
@@ -808,7 +808,7 @@ class mSEMS9404(Sensor):
                     # record["timestamp"] = data.data["timestamp"]
                     # record["variables"]["time"]["data"] = data.data["timestamp"]
 
-                    line = data.data["data"].rstrip().split()
+                    line = data.data["data"].strip()#.split()
                     if "=" in line:
                         parts = line.split("=")
                     if len(parts) < 2:
@@ -839,6 +839,7 @@ class mSEMS9404(Sensor):
                             vartype = instvar.type
                             if instvar.type == "string":
                                 vartype = "str"
+                            self.logger.debug("default_parse", extra={"param_name": name, "param_value": value})
                             try:
                                 # print(f"default_parse: {record['variables'][name]} - {parts[index].strip()}")
                                 self.current_record["variables"][name]["data"] = eval(vartype)(
@@ -854,7 +855,7 @@ class mSEMS9404(Sensor):
                                 self.current_record["variables"]["bin_count"]["data"] = [int(value)]
                             else:
                                 self.current_record["variables"]["bin_count"]["data"].append(int(value))
-
+                        self.logger.debug("default_parse", extra={"current_record": self.current_record})
                     return self.current_record
                 except KeyError:
                     pass

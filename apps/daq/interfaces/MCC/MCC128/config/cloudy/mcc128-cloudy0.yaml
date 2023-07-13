@@ -1,44 +1,43 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ist-hyt271-001-config
+  name: mcc-mcc128-cloudy0-config
   namespace: envds
   labels:
-    app: ist-hyt271-001
+    app: mcc-mcc128-cloudy0
 data:
-  sensor.conf: |
-    serial_number: "001"
-    daq_id: cloudysky
-    interfaces:
-      # default: serial
-      default:
-        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
-        interface_id: NetBurner::SB70LC::nb53
-        # interface_id: NetBurner::SB70LC::home38
-        # path: port, channel, etc
-        path: port-I2C
+  interface.conf: |
+    uid: cloudy0
+    paths:
+      # udp-10080:
+      #     client-type: udp
+      #     # local-host: 172.18.0.2
+      #     local-port: 10080
+      #     # local0-port: 31870
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ist-hyt271-001
+  name: mcc-mcc128-cloudy0
   namespace: envds
   labels:
-    app: ist-hyt271-001
+    app: mcc-mcc128-cloudy0
 spec:
   selector:
     matchLabels:
-      app: ist-hyt271-001
+      app: mcc-mcc128-cloudy0
   template:
     metadata:
       labels:
-        app: ist-hyt271-001
+        app: mcc-mcc128-cloudy0
     spec:
       containers:
-      - name: ist-hyt271-001
-        image: envds-registry-cloudy:5000/envds/sensor/ist-hyt271:0.1.0
+      - name: mcc-mcc128-cloudy0
+        image: envds-registry-cloudy:5000/envds/interface/mcc-mcc128:0.1.0
         imagePullPolicy: "Always"
+        securityContext:
+          privileged: true
         env:
           - name: ENVDS_ENV_ID
             value: cloudy
@@ -60,9 +59,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: ist-hyt271-001-config
-              mountPath: /app/config/sensor.conf
-              subPath: sensor.conf
+            - name: mcc-mcc128-cloudy0-config
+              mountPath: /app/config/interface.conf
+              subPath: interface.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -73,9 +72,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: ist-hyt271-001-config
+        - name: mcc-mcc128-cloudy0-config
           configMap:
-            name: ist-hyt271-001-config
+            name: mcc-mcc128-cloudy0-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -83,13 +82,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ist-hyt271-001
+  name: mcc-mcc128-cloudy0
   namespace: envds
   labels:
-    app: ist-hyt271-001
+    app: mcc-mcc128-cloudy0
 spec:
   selector:
-    app: ist-hyt271-001
+    app: mcc-mcc128-cloudy0
   ports:
   - name: http
     protocol: TCP
@@ -104,34 +103,35 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: ist-hyt271-001-stripprefix
+#   name: mcc-mcc128-cloudy0-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/sensor/MockCo/Mock1/1234
+#       - /envds/interface/system/net/01
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: ist-hyt271-001-ingress
+#   name: mcc-mcc128-cloudy0-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-ist-hyt271-001-stripprefix@kubernetescrd
+#       envds-mcc-mcc128-cloudy0-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
+#       - path: /envds/interface/system/net/01
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: ist-hyt271-001
+#             name: mcc-mcc128-cloudy0
 #             port:
 #               number: 9080
+

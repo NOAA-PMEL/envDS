@@ -1,4 +1,5 @@
 import asyncio
+import binascii
 import math
 import signal
 from struct import pack
@@ -437,7 +438,7 @@ class CDP2(Sensor):
             "default": {
                 "sensor-interface-properties": {
                     "connection-properties": {
-                        "baudrate": 115200,
+                        "baudrate": 57600,
                         "bytesize": 8,
                         "parity": "N",
                         "stopbit": 1,
@@ -595,7 +596,9 @@ class CDP2(Sensor):
             checksum += ch
 
         cmd += pack("<H", checksum)
-        return cmd
+        print(f"cmd: {cmd}")
+        print(f"cmd(hex): {binascii.hexlify(cmd)}")
+        return binascii.hexlify(cmd).decode()
 
     def cdp_power_switch(self, power=False, cleanup=False):
 
@@ -629,6 +632,9 @@ class CDP2(Sensor):
         # configure_cmd = self.get_cdp_command('CONFIGURE')
         # send_data_cmd = self.get_cdp_command('SEND_DATA')
 
+        # if self.polling_task is None:
+        #     self.polling_task = asyncio.create_task(self.polling_loop())
+
         configure_cmd = {
             "read-num-bytes": 4,
             "data": self.get_cdp_command("CONFIGURE"),
@@ -651,44 +657,49 @@ class CDP2(Sensor):
                 #         self.collecting = True
                 #         # self.logger.debug("sampling_monitor:4", extra={"self.collecting": self.collecting})
 
+                self.logger.debug("sampling_monitor", extra={"sampling": self.sampling(), "run state": self.scan_run_state})
                 if self.sampling():
-
                     if self.scan_run_state != "RUN":
 
                         if self.scan_run_state == "STOPPED":
                             self.scan_run_state = "CONFIGURE"
-                            continue
-
+                            # continue
+                        self.logger.debug("sampling_monitor", extra={"run state": self.scan_run_state})
                         if self.scan_run_state == "CONFIGURE":
-                            self.scan_run_state == "CONFIGURING"
-
+                            self.scan_run_state = "CONFIGURING"
+                            self.logger.debug("sampling_monitor", extra={"cmd": configure_cmd})
                             await self.interface_send_data(data=configure_cmd)
+                            await asyncio.sleep(1)
                             configure_loops = 0
-                            continue
+                            # continue
 
+                        self.logger.debug("sampling_monitor", extra={"run state": self.scan_run_state})
                         if self.scan_run_state == "CONFIGURING":
                             configure_loops += 1
                             if configure_loops > configure_loops_max:
                                 self.scan_run_state = "CONFIGURE"
-                            continue
+                            await asyncio.sleep(1)
+                            # continue
                     else:
+                        if self.polling_task is None:
+                            self.polling_task = asyncio.create_task(self.polling_loop())
 
                         if need_start:
                             if self.collecting:
                                 # await self.interface_send_data(data={"data": stop_command})
-                                if self.polling_task:
-                                    self.polling_task.cancel()
+                                # if self.polling_task:
+                                #     self.polling_task.cancel()
                                 await asyncio.sleep(2)
                                 self.collecting = False
-                                continue
+                                # continue
                             else:
                                 # await self.interface_send_data(data={"data": start_command})
                                 # await self.interface_send_data(data={"data": "\n"})
-                                self.polling_task = asyncio.create_task(self.polling_loop())
+                                # self.polling_task = asyncio.create_task(self.polling_loop())
                                 need_start = False
                                 start_requested = True
                                 await asyncio.sleep(2)
-                                continue
+                                # continue
                         elif start_requested:
                             if self.collecting:
                                 start_requested = False
@@ -696,7 +707,7 @@ class CDP2(Sensor):
                                 # await self.interface_send_data(data={"data": start_command})
                                 # await self.interface_send_data(data={"data": "\n"})
                                 await asyncio.sleep(2)
-                                continue
+                                # continue
                         # else:
                         #     if self.collecting:
                         #         # await self.interface_send_data(data={"data": stop_command})
@@ -704,6 +715,8 @@ class CDP2(Sensor):
                         #             self.polling_task.cancel()
                         #         await asyncio.sleep(2)
                         #         self.collecting = False
+
+                    self.logger.debug("sampling_monitor - end", extra={"run state": self.scan_run_state})
 
                 await asyncio.sleep(0.1)
 
@@ -732,13 +745,13 @@ class CDP2(Sensor):
     def start(self):
         super().start()
 
-        self.cdp_power_switch(power=True)
+        # self.cdp_power_switch(power=True)
         self.scan_run_state = 'CONFIGURE'
 
     def stop(self):
         super().stop()
 
-        self.cdp_power_switch(power=False)
+        # self.cdp_power_switch(power=False)
         self.scan_run_state = 'STOPPED'
 
     async def polling_loop(self):
@@ -791,6 +804,7 @@ class CDP2(Sensor):
             await asyncio.sleep(0.1)
 
     def default_parse(self, data):
+        self.logger.debug("default_parse", extra={"parse data": data})
         if data:
             try:
                 # variables = [
@@ -802,19 +816,21 @@ class CDP2(Sensor):
                 #     "wind_direction",
                 # ]
                 # variables = list(self.config.variables.keys())
-
+                packet = binascii.unhexlify(data.data["data"].encode())
+                self.logger.debug("default_parse", extra={"run state": self.scan_run_state})
                 if self.scan_run_state == 'CONFIGURING':
-                    packet = data.data["data"]
+                    self.logger.debug("default_parse", extra={"packet": packet})
                     ack_fmt = '<4B'
                     try:
                         result = unpack(ack_fmt, packet)
+                        self.logger.debug("default_parse", extra={"result": result})
                         if result[0] == 6:
                             print('ACK received')
                             self.scan_run_state = 'RUN'
                         else:
                             self.scan_run_state = 'CONFIGURE'
                     except structerror:
-                        print(f' bad config packet: {packet}')
+                        # print(f' bad config packet: {packet}')
                         self.scan_run_state = 'CONFIGURE'
                     return None
 
