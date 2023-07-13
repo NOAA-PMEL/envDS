@@ -140,7 +140,7 @@ class CDP2(Sensor):
                     "units": {"type": "char", "data": "volts"},
                 },
             },
-            "conotrol_board_t": {
+            "control_board_t": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
@@ -641,7 +641,7 @@ class CDP2(Sensor):
         }
 
         configure_loops = 0
-        configure_loops_max = 5
+        configure_loops_max = 2
 
         while True:
             try:
@@ -861,36 +861,46 @@ class CDP2(Sensor):
                         val = result[0]*0.061
                         # print(f'val0={val}')
                         record["variables"]["laser_current"]["data"] = round(val, 2)
-
+                        print(val)
                         val = 5*result[1]/4095
                         record["variables"]["dump_spot_monitor"]["data"] = round(val, 2)
+                        print(val)
 
                         v = 5*result[2]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["wingboard_temperature"]["data"] = round(degC, 2)
+                            tmp_t = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["wingboard_temp"]["data"] = degC
+                        print(degC)
 
                         v = 5*result[3]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["laser_temperature"]["data"] = round(degC, 2)
+                            tmp_t = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["laser_temp"]["data"] = degC
+                        print(degC)
 
                         val = 5*result[4]/4095
                         record["variables"]["sizer_baseline"]["data"] = round(val, 3)
+                        print(val)
 
                         val = 5*result[5]/4095
                         record["variables"]["qualifier_baseline"]["data"] = round(val, 3)
+                        print(val)
 
                         val = (5*result[6]/4095)*2
                         record["variables"]["5v_monitor"]["data"] = round(val, 3)
+                        print(val)
 
                         v = 5*result[7]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["control_board_temperature"]["data"] = round(degC, 2)
+                            tmp_T = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["control_board_t"]["data"] = degC
+                        print(degC)
 
                         # Reject DOF U32
                         # recode = pack('<I', result[8])
@@ -899,21 +909,27 @@ class CDP2(Sensor):
                         rej_dof = (result[8] << 16) + result[9]
                         # print(f'rej_dof: {rej_dof}')
                         record["variables"]["reject_dof"]["data"] = rej_dof
+                        print(rej_dof)
 
                         # print(f'val10={result[10]}')
-                        record["variables"]["average_transit"]["data"] = result[10]
+                        record["variables"]["reject_average_transit"]["data"] = result[10]
+                        print(result[10])
 
                         record["variables"]["qual_bandwidth"]["data"] = result[11]
+                        print(result[11])
 
                         record["variables"]["qual_threshold"]["data"] = result[12]
+                        print(result[12])
 
                         record["variables"]["dt_bandwidth"]["data"] = result[13]
+                        print(result[13])
 
-                        record["variables"]["dynamic_threshold"]["data"] = result[14]
+                        record["variables"]["dt_threshold"]["data"] = result[14]
+                        print(result[14])
 
                         adc_over = (result[15] << 16) + result[16]
                         record["variables"]["adc_overflow"]["data"] = adc_over
-
+                        self.logger.debug("default_parse", extra={"rec": record})
                         bc = []
                         # dp = []
                         # intN = 0
@@ -921,14 +937,15 @@ class CDP2(Sensor):
                             # bin_count U32 - reorder bytes
                             # recode = pack('<I', data[15+i])
                             # count = unpack('>I', pack('>2H', *unpack('<2H', recode)))[0]
-                            # print(f"i={i}, {data[17+i]}, {data[18+i]}")
-                            count = (data[17+i] << 16) + data[18+i]
+                            print(f"parse: len {len(result)}")
+                            print(f"i={i}, {result[17+i]}, {result[18+i]}")
+                            count = (result[17+i] << 16) + result[18+i]
                             # print(f"count={count}")
                             # bc.append(data[15+i])
                             bc.append(count)
                             # intN += data[15+i]
                             # intN += count
-
+                        self.logger.debug("default_parse", extra={"bc": bc})
                         record["variables"]["bin_count"]["data"] = bc
 
                         lb = []
@@ -942,9 +959,10 @@ class CDP2(Sensor):
                         record["variables"]["diameter"]["data"] = dp
                         record["variables"]["diameter_bnd_lower"]["data"] = lb
                         record["variables"]["diameter_bnd_upper"]["data"] = ub
-
+                        self.logger.debug("default_parse", extra={"rec": record})
                         return record
-                    except (KeyError,ValueError):
+                    except (KeyError,ValueError) as e:
+                        print(f"default parse error inner {e}")
                         pass
             except Exception as e:
                 print(f"default_parse error: {e}")
