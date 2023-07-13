@@ -273,7 +273,8 @@ class envdsFiles(envdsBase):
         print(f"set_routes: {enable}")
 
         self.set_route(
-            subscription=f"/envds/{self.id.app_env_id}/sensor/+/data/update",
+            # subscription=f"/envds/{self.id.app_env_id}/sensor/+/data/update",
+            subscription=f"/envds/+/sensor/+/data/update",
             route_key=bet.data_update(),
             route=self.handle_data,
             enable=enable,
