@@ -396,6 +396,7 @@ class PlotManager(object):
 
     app_map = {"sensor": {}}
     server_map = {"sensor": {}}
+    port_map = {}
 
     def __new__(cls):
         if not hasattr(cls, "instance"):
@@ -480,42 +481,56 @@ class PlotManager(object):
 
                 settings.resources = "inline"
 
-                port = 5004
-                server = pn.serve(
-                    # {self.url: self.app.servable()},
-                    {
-                        url: SensorPlotApp(
-                            data_pipe=data_pipe,
-                            make=make,
-                            model=model,
-                            serial_number=serial_number,
-                        )
-                        .create_plots()
-                        # .servable()
-                    },
-                    # {key: self.app.servable()},
-                    port=port,
-                    allow_websocket_origin=["*"],
-                    address="0.0.0.0",
-                    prefix="/plots/envds/daq/5004",
-                    host="127.0.0.1:8090",
-                    show=False,
-                    log_level="debug",
-                )
+                # get free port
+                port = 0
+                for p in range(5000,5021):
+                    if p in self.port_map:
+                        continue
+                    else:
+                        port = p
+                        break
 
-                # app = SensorPlotApp(
-                #     make=make,
-                #     model=model,
-                #     serial_number=serial_number,
-                # )
-                # print(f"_create: {type}, {make}, {model}, {serial_number}, {app}")
-                if make not in self.server_map[type]:
-                    self.server_map[type][make] = dict()
-                if model not in self.server_map[type][make]:
-                    self.server_map[type][make][model] = dict()
-                self.server_map[type][make][model][serial_number] = server
-                # print(f"app_map: {self.app_map}")
-                return server
+                # TODO allow host to be passed as arg or env variable
+
+                # port = 5004
+                if port >= 5000 and port <=5020:
+                    server = pn.serve(
+                        # {self.url: self.app.servable()},
+                        {
+                            url: SensorPlotApp(
+                                data_pipe=data_pipe,
+                                make=make,
+                                model=model,
+                                serial_number=serial_number,
+                            )
+                            .create_plots()
+                            # .servable()
+                        },
+                        # {key: self.app.servable()},
+                        port=port,
+                        allow_websocket_origin=["*"],
+                        address="0.0.0.0",
+                        prefix=f"/plots/envds/daq/{port}",
+                        host="127.0.0.1:8080",
+                        show=False,
+                        log_level="debug",
+                    )
+
+                    self.port_map[port] = server
+
+                    # app = SensorPlotApp(
+                    #     make=make,
+                    #     model=model,
+                    #     serial_number=serial_number,
+                    # )
+                    # print(f"_create: {type}, {make}, {model}, {serial_number}, {app}")
+                    if make not in self.server_map[type]:
+                        self.server_map[type][make] = dict()
+                    if model not in self.server_map[type][make]:
+                        self.server_map[type][make][model] = dict()
+                    self.server_map[type][make][model][serial_number] = server
+                    # print(f"app_map: {self.app_map}")
+                    return server
             except KeyError:
                 return None
 
