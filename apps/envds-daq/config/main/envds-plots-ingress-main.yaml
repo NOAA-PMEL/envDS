@@ -47,6 +47,38 @@ spec:
       #       port:
       #         number: 9080
       # - path: /plots/envds/daq/5004(/|$|&)(.*)
+      - path: /plots/envds/daq/5000
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5000
+      - path: /plots/envds/daq/5001
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5001
+      - path: /plots/envds/daq/5002
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5002
+      - path: /plots/envds/daq/5003
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5003
       - path: /plots/envds/daq/5004
         pathType: Prefix
         # pathType: Exact
@@ -55,3 +87,131 @@ spec:
             name: envds-daq-main
             port:
               number: 5004
+      - path: /plots/envds/daq/5005
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5005
+      - path: /plots/envds/daq/5006
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5006
+      - path: /plots/envds/daq/5007
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5007
+      - path: /plots/envds/daq/5008
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5008
+      - path: /plots/envds/daq/5009
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5009
+      - path: /plots/envds/daq/5010
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5010
+      - path: /plots/envds/daq/5011
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5011
+      - path: /plots/envds/daq/5012
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5012
+      - path: /plots/envds/daq/5013
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5013
+      - path: /plots/envds/daq/5014
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5014
+      - path: /plots/envds/daq/5015
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5015
+      - path: /plots/envds/daq/5016
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5016
+      - path: /plots/envds/daq/5017
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5017
+      - path: /plots/envds/daq/5018
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5018
+      - path: /plots/envds/daq/5019
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5019
+      - path: /plots/envds/daq/5020
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: envds-daq-main
+            port:
+              number: 5020

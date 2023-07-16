@@ -67,6 +67,69 @@ spec:
         - name: http
           containerPort: 9080
           protocol: TCP
+        - name: plot5000
+          containerPort: 5000
+          protocol: TCP
+        - name: plot5001
+          containerPort: 5001
+          protocol: TCP
+        - name: plot5002
+          containerPort: 5002
+          protocol: TCP
+        - name: plot5003
+          containerPort: 5003
+          protocol: TCP
+        - name: plot5004
+          containerPort: 5004
+          protocol: TCP
+        - name: plot5005
+          containerPort: 5005
+          protocol: TCP
+        - name: plot5006
+          containerPort: 5006
+          protocol: TCP
+        - name: plot5007
+          containerPort: 5007
+          protocol: TCP
+        - name: plot5008
+          containerPort: 5008
+          protocol: TCP
+        - name: plot5009
+          containerPort: 5009
+          protocol: TCP
+        - name: plot5010
+          containerPort: 5010
+          protocol: TCP
+        - name: plot5011
+          containerPort: 5011
+          protocol: TCP
+        - name: plot5012
+          containerPort: 50012
+          protocol: TCP
+        - name: plot5013
+          containerPort: 5013
+          protocol: TCP
+        - name: plot5014
+          containerPort: 5014
+          protocol: TCP
+        - name: plot5015
+          containerPort: 5015
+          protocol: TCP
+        - name: plot5016
+          containerPort: 5016
+          protocol: TCP
+        - name: plot5017
+          containerPort: 5017
+          protocol: TCP
+        - name: plot5018
+          containerPort: 5018
+          protocol: TCP
+        - name: plot5019
+          containerPort: 5019
+          protocol: TCP
+        - name: plot5020
+          containerPort: 5020
+          protocol: TCP
         # volumeMounts:
         #   - name: envds-daq-main-pv-storage
         #     mountPath: /data
@@ -90,10 +153,90 @@ spec:
     protocol: TCP
     port: 9080
     targetPort: 9080
-  - name: plots
+  - name: plot5000
+    protocol: TCP
+    port: 5000
+    targetPort: 5000
+  - name: plot5001
+    protocol: TCP
+    port: 5001
+    targetPort: 5001
+  - name: plot5002
+    protocol: TCP
+    port: 5002
+    targetPort: 5002
+  - name: plot5003
+    protocol: TCP
+    port: 5003
+    targetPort: 5003
+  - name: plot5004
     protocol: TCP
     port: 5004
     targetPort: 5004
+  - name: plot5005
+    protocol: TCP
+    port: 5005
+    targetPort: 5005
+  - name: plot5006
+    protocol: TCP
+    port: 5006
+    targetPort: 5006
+  - name: plot5007
+    protocol: TCP
+    port: 5007
+    targetPort: 5007
+  - name: plot5008
+    protocol: TCP
+    port: 5008
+    targetPort: 5008
+  - name: plot5009
+    protocol: TCP
+    port: 5009
+    targetPort: 5009
+  - name: plot5010
+    protocol: TCP
+    port: 5010
+    targetPort: 5010
+  - name: plot5011
+    protocol: TCP
+    port: 5011
+    targetPort: 5011
+  - name: plot5012
+    protocol: TCP
+    port: 5012
+    targetPort: 5012
+  - name: plot5013
+    protocol: TCP
+    port: 5013
+    targetPort: 5013
+  - name: plot5014
+    protocol: TCP
+    port: 5014
+    targetPort: 5014
+  - name: plot5015
+    protocol: TCP
+    port: 5015
+    targetPort: 5015
+  - name: plot5016
+    protocol: TCP
+    port: 5016
+    targetPort: 5016
+  - name: plot5017
+    protocol: TCP
+    port: 5017
+    targetPort: 5017
+  - name: plot5018
+    protocol: TCP
+    port: 5018
+    targetPort: 5018
+  - name: plot5019
+    protocol: TCP
+    port: 5019
+    targetPort: 5019
+  - name: plot5020
+    protocol: TCP
+    port: 5020
+    targetPort: 5020
   # - name: https
   #   port: 8883
   #   targetPort: 8883
