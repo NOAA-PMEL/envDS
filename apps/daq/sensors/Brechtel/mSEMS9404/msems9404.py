@@ -696,7 +696,7 @@ class mSEMS9404(Sensor):
         # wait to see if data is already streaming
         await asyncio.sleep(2)
         # # if self.collecting:
-        # await self.interface_send_data(data={"data": stop_command})
+        await self.interface_send_data(data={"data": start_command})
         # await asyncio.sleep(2)
         # self.collecting = False
         # init to stopped
