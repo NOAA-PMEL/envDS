@@ -194,6 +194,42 @@ class mSEMS9404(Sensor):
             },
         },
         "settings": {
+            "mcpcpwr": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC A Power"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 1},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
+                },
+            },
+            "mcpcpmp": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC A Pump Power"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 1},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
+                },
+            },
+            "msems_mode": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "mSEMS Mode of operation"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 2},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 2},
+                },
+            },
             "mcpc_a_yn": {
                 "type": "int",
                 "shape": ["time"],
