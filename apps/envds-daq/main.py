@@ -154,7 +154,8 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
 
     # get plot app
     plots = PlotManager().get_server_document(type="sensor", make=make, model=model, serial_number=serial_number)
-    print(f"main.sensor.get: {plots}")
+    # print(f"main.sensor.get: {plots}")
+    # plots = {}
     return templates.TemplateResponse(
         "sensor.html",
         {
