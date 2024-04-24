@@ -1,6 +1,8 @@
 # envDS
 envDataSystem reimagined
 
+
+sudo date +%Y%m%d%T -s "`ssh acg@10.55.169.164 'date "+%Y%m%d %T"'`"
 ---
 
 ### Legal Disclaimer

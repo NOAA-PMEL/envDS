@@ -954,7 +954,7 @@ class CDP2(Sensor):
                         for lower, upper in zip(self.lower_dp_bnd, self.uppder_dp_bnd):
                             lb.append(float(lower))
                             ub.append(float(upper))
-                            dp.append(math.sqrt(float(lower)*float(upper)))
+                            dp.append(round(math.sqrt(float(lower)*float(upper)),2))
 
                         record["variables"]["diameter"]["data"] = dp
                         record["variables"]["diameter_bnd_lower"]["data"] = lb
