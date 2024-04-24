@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: sensiron-sht35-clearpops
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "clearpops"

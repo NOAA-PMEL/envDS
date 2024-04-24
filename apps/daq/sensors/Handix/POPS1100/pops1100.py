@@ -794,6 +794,15 @@ class POPS1100(Sensor):
 
                     # remove first parameter ("POPS") from data line as it's not used
                     parts.pop(0)
+                    parts.pop(1)
+                    # del_index = -1
+                    # for index, name in enumerate(parts):
+                    #     if "/media/uSD" in name[0]:
+                    #         del_index=index
+                    #         break
+
+                    # if del_index >= 0:
+                    #     parts.pop(del_index)
 
                     # print(f"parts: {parts}, {variables}")
                     dist_index = None

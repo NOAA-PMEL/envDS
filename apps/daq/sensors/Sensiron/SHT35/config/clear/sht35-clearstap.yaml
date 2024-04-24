@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: sensiron-sht35-clearstap
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "clearstap"

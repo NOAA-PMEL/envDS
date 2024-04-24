@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: handix-pops1100-347
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "347"
@@ -12,7 +13,7 @@ data:
     interfaces:
       default:
         interface_env_id: clear # if omitted, defaults to envds_id of sensor
-        interface_id: system::net::localhost
+        interface_id: system::net::clearsky1
         path: udp-10080
     
     # settings: # used to override defaults

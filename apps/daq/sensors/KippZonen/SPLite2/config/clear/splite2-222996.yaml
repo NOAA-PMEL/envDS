@@ -1,13 +1,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kippzonen-splite2-22299x-config
+  name: kippzonen-splite2-222996-config
   namespace: envds
   labels:
-    app: kippzonen-splite2-22299x
+    app: kippzonen-splite2-222996
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
-    serial_number: "22299x"
+    serial_number: "222996"
     daq_id: clearsky
     interfaces:
       # default: serial
@@ -20,21 +21,21 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kippzonen-splite2-22299x
+  name: kippzonen-splite2-222996
   namespace: envds
   labels:
-    app: kippzonen-splite2-22299x
+    app: kippzonen-splite2-222996
 spec:
   selector:
     matchLabels:
-      app: kippzonen-splite2-22299x
+      app: kippzonen-splite2-222996
   template:
     metadata:
       labels:
-        app: kippzonen-splite2-22299x
+        app: kippzonen-splite2-222996
     spec:
       containers:
-      - name: kippzonen-splite2-22299x
+      - name: kippzonen-splite2-222996
         image: envds-registry-clear:5000/envds/sensor/kippzonen-splite2:0.1.0
         imagePullPolicy: "Always"
         env:
@@ -58,7 +59,7 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: kippzonen-splite2-22299x-config
+            - name: kippzonen-splite2-222996-config
               mountPath: /app/config/sensor.conf
               subPath: sensor.conf
             # - name: mosquitto-certs
@@ -71,9 +72,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: kippzonen-splite2-22299x-config
+        - name: kippzonen-splite2-222996-config
           configMap:
-            name: kippzonen-splite2-22299x-config
+            name: kippzonen-splite2-222996-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -81,13 +82,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kippzonen-splite2-22299x
+  name: kippzonen-splite2-222996
   namespace: envds
   labels:
-    app: kippzonen-splite2-22299x
+    app: kippzonen-splite2-222996
 spec:
   selector:
-    app: kippzonen-splite2-22299x
+    app: kippzonen-splite2-222996
   ports:
   - name: http
     protocol: TCP
@@ -102,7 +103,7 @@ spec:
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: kippzonen-splite2-22299x-stripprefix
+#   name: kippzonen-splite2-222996-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
@@ -114,14 +115,14 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: kippzonen-splite2-22299x-ingress
+#   name: kippzonen-splite2-222996-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-kippzonen-splite2-22299x-stripprefix@kubernetescrd
+#       envds-kippzonen-splite2-222996-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
@@ -130,6 +131,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: kippzonen-splite2-22299x
+#             name: kippzonen-splite2-222996
 #             port:
 #               number: 9080
