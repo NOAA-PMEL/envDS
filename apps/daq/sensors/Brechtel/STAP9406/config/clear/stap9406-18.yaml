@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: brechtel-stap9406-18
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "18"

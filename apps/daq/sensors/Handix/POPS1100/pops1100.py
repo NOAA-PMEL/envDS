@@ -794,6 +794,24 @@ class POPS1100(Sensor):
 
                     # remove first parameter ("POPS") from data line as it's not used
                     parts.pop(0)
+                    parts.pop(1)
+                    # del_index = -1
+                    # for index, name in enumerate(parts):
+                    #     if "/media/uSD" in name[0]:
+                    #         del_index=index
+                    #         break
+
+                    # if del_index >= 0:
+                    #     parts.pop(del_index)
+
+                    fname_idx = -1
+                    for i in  range(0,len(parts)):
+                        if "/media/uSD" in parts[i]:
+                            fname_idx = i
+                            break
+
+                    if fname_idx>0:
+                        parts.pop(fname_idx)
 
                     # print(f"parts: {parts}, {variables}")
                     dist_index = None
@@ -807,7 +825,7 @@ class POPS1100(Sensor):
                             if name == "bin_count":
                                 dist_index = index
                                 break
-
+                            
                             instvar = self.config.metadata.variables[name]
                             vartype = instvar.type
                             if instvar.type == "string":

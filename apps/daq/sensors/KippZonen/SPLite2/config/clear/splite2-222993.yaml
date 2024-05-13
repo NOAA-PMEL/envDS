@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: kippzonen-splite2-222993
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "222993"
