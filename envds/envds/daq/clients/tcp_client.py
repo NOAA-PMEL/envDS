@@ -1,4 +1,5 @@
 import asyncio
+import binascii
 from envds.daq.client import DAQClient, DAQClientConfig, _StreamClient
 from envds.core import envdsStatus
 from envds.exceptions import envdsRunTransitionException, envdsRunWaitException, envdsRunErrorException
@@ -177,12 +178,14 @@ class TCPClient(DAQClient):
                         decode_errors=decode_errors
                     )
                 elif read_method == "readbinary":
+                    self.logger.debug("recv_from_client:5")
                     ret_packet_size = await self.client.get_return_packet_size()
+                    self.logger.debug("recv_from_client:5.1", extra={"ret_size": ret_packet_size})
                     data = await self.client.readbinary(
                         num_bytes=ret_packet_size,
                         decode_errors=decode_errors
                     )
-
+                    self.logger.debug("recv_from_client:5.2", extra={"bin data": data})
                 return data
             except Exception as e:
                 self.logger.error("recv_from_client", extra={"e": e})
@@ -192,8 +195,23 @@ class TCPClient(DAQClient):
     async def send_to_client(self, data):
         try:
             
-            send_method = data.get("send-method", self.send_method)
-            
+            # send_method = data.get("send-method", self.send_method)
+
+            print(f"send_to_client:1 props {self.config.properties}")
+            props = self.config.properties["sensor-interface-properties"]["read-properties"]
+
+            print(f"send_to_client:1.1 - sip {self.config.properties['sensor-interface-properties']}")
+            print(f"send_to_client:1.2 - rp {self.config.properties['sensor-interface-properties']['read-properties']}")
+            print(f"send_to_client:1.3 - sm {self.config.properties['sensor-interface-properties']['read-properties']['send-method']}")
+            # read_method = props.get("read-method", self.read_method)
+            # decode_errors = props.get("decode-errors", self.decode_errors)
+
+            send_method = self.send_method
+            if "send-method" in self.config.properties['sensor-interface-properties']['read-properties']:
+                send_method = self.config.properties['sensor-interface-properties']['read-properties']['send-method']
+
+
+            self.logger.debug("send_to_client", extra={"send_method": send_method, "data": data})
             if send_method == "binary":
                 # if num of expected bytes not supplied, fail
                 try:
@@ -201,7 +219,10 @@ class TCPClient(DAQClient):
                     self.client.return_packet_bytes.append(
                         data["read-num-bytes"]
                     )
+
+                    # convert back to bytes
                     await self.client.writebinary(data["data"])
+                    # await self.client.writebinary(binary_data)
                 except KeyError:
                     self.logger.error("binary write failed - read-num-bytes not specified")
                     return

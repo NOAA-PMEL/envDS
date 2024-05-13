@@ -662,6 +662,7 @@ class envdsBase(abc.ABC):
             # # await self.message_client.send(message)
             # await self.send_buffer.put(data)
             await self.send_buffer.put(message)
+
             self.logger.debug("send_message: sent", extra={"buffer": self.send_buffer.qsize()})
 
     async def send_message_loop(self):

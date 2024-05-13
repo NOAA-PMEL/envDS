@@ -5,9 +5,10 @@ metadata:
   namespace: envds
   labels:
     app: brechtel-filt9401-19
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
-    serial_number: "112"
+    serial_number: "19"
     daq_id: clearsky
     interfaces:
       # default: serial
@@ -33,11 +34,11 @@ data:
       # #   path: port-01
       
     # settings: # used to override defaults
-      sheath_sp: 2.0
-      scan_max_dia: 420
-      scan_min_dia: 10
-      num_bins: 30
-      bin_time: 1
+      # sheath_sp: 2.0
+      # scan_max_dia: 420
+      # scan_min_dia: 10
+      # num_bins: 30
+      # bin_time: 1
 ---
 apiVersion: apps/v1
 kind: Deployment

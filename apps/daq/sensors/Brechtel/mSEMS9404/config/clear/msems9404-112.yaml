@@ -54,6 +54,7 @@ spec:
     metadata:
       labels:
         app: brechtel-msems9404-112
+        app-group: envds-sensor-clear
     spec:
       containers:
       - name: brechtel-msems9404-112

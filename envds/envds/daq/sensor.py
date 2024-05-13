@@ -247,10 +247,12 @@ class Sensor(envdsBase):
         # )
 
     async def register_sensor_type(self):
-        await init_db_models()
-        await register_sensor_type(
-            make=self.get_make(), model=self.get_model(), metadata=self.get_metadata()
-        )
+        # await init_db_models()
+        while True:
+            await register_sensor_type(
+                make=self.get_make(), model=self.get_model(), metadata=self.get_metadata()
+            )
+            await asyncio.sleep(10)
 
     def get_make(self):
         return self.config.make

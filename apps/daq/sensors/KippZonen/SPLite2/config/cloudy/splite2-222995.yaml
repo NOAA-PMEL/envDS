@@ -1,44 +1,45 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: system-net-cloudysky1-config
+  name: kippzonen-splite2-222995-config
   namespace: envds
   labels:
-    app: system-net-cloudysky1
+    app: kippzonen-splite2-222995
 data:
-  interface.conf: |
-    uid: cloudysky1
-    paths:
-      udp-10080:
-          client-type: udp
-          # local-host: 172.18.0.2
-          local-port: 10080
-          # local0-port: 31870
+  sensor.conf: |
+    serial_number: "222995"
+    daq_id: cloudysky
+    interfaces:
+      # default: serial
+      default:
+        interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
+        interface_id: MCC::MCC128::cloudy0
+        path: ch0-de
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: system-net-cloudysky1
+  name: kippzonen-splite2-222995
   namespace: envds
   labels:
-    app: system-net-cloudysky1
+    app: kippzonen-splite2-222995
 spec:
   selector:
     matchLabels:
-      app: system-net-cloudysky1
+      app: kippzonen-splite2-222995
   template:
     metadata:
       labels:
-        app: system-net-cloudysky1
+        app: kippzonen-splite2-222995
     spec:
       containers:
-      - name: system-net-cloudysky1
-        image: envds-registry-cloudy:5000/envds/interface/system-net:0.1.0
+      - name: kippzonen-splite2-222995
+        image: envds-registry-cloudy:5000/envds/sensor/kippzonen-splite2:0.1.0
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
-            value: clear
+            value: cloudy
           - name: REDIS_OM_URL
             value: redis://redis.default
           - name: LOG_LEVEL
@@ -57,9 +58,9 @@ spec:
         #   containerPort: 8883
         #   protocol: TCP
         volumeMounts:
-            - name: system-net-cloudysky1-config
-              mountPath: /app/config/interface.conf
-              subPath: interface.conf
+            - name: kippzonen-splite2-222995-config
+              mountPath: /app/config/sensor.conf
+              subPath: sensor.conf
             # - name: mosquitto-certs
             #   mountPath: /certs/ca.crt
             #   subPath: ca.crt
@@ -70,9 +71,9 @@ spec:
             #   mountPath: /certs/server.key
             #   subPath: server.key
       volumes:
-        - name: system-net-cloudysky1-config
+        - name: kippzonen-splite2-222995-config
           configMap:
-            name: system-net-cloudysky1-config
+            name: kippzonen-splite2-222995-config
         # - name: mosquitto-certs
         #   configMap:
         #     name: mosquitto-certs
@@ -80,76 +81,55 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: system-net-cloudysky1
+  name: kippzonen-splite2-222995
   namespace: envds
   labels:
-    app: system-net-cloudysky1
+    app: kippzonen-splite2-222995
 spec:
   selector:
-    app: system-net-cloudysky1
+    app: kippzonen-splite2-222995
   ports:
   - name: http
     protocol: TCP
     port: 9080
     targetPort: 9080
-  - name: udp
-    protocol: UDP
-    port: 10080
-    targetPort: 10080
   # - name: https
   #   port: 8883
   #   targetPort: 8883
   # type: LoadBalancer
   type: ClusterIP
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRouteUDP
-metadata:
-  name: udp-pops
-  namespace: envds
-
-spec:
-  entryPoints:                  # [1]
-    - udp
-  routes:                       # [2]
-  - services:                   # [3]
-    - name: system-net-cloudysky1                 # [4]
-      port: 10080                # [5]
-      # weight: 10                # [6]
-      nativeLB: true            # [7]
 # ---
 # apiVersion: traefik.containo.us/v1alpha1
 # kind: Middleware
 # metadata:
-#   name: system-net-cloudysky1-stripprefix
+#   name: kippzonen-splite2-222995-stripprefix
 #   namespace: envds
 #   labels:
 #     app: envds
 # spec:
 #   stripPrefix:
 #     prefixes:
-#       - /envds/interface/system/net/01
+#       - /envds/sensor/MockCo/Mock1/1234
 # ---
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: system-net-cloudysky1-ingress
+#   name: kippzonen-splite2-222995-ingress
 #   namespace: envds
 #   # labels:
 #   #   app: envds
 #   annotations:
 #     ingress.kubernetes.io/ssl-redirect: "false"
 #     traefik.ingress.kubernetes.io/router.middlewares:
-#       envds-system-net-cloudysky1-stripprefix@kubernetescrd
+#       envds-kippzonen-splite2-222995-stripprefix@kubernetescrd
 # spec:
 #   rules:
 #   - http:
 #       paths:
-#       - path: /envds/interface/system/net/01
+#       - path: /envds/sensor/AerosolDynamics/MAGIC250/143
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: system-net-cloudysky1
+#             name: kippzonen-splite2-222995
 #             port:
 #               number: 9080
-

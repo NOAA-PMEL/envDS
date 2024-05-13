@@ -100,6 +100,8 @@ class _UDPClient(_BaseClient):
     async def recv_data_loop(self):
         while True:
             try:
+                self.local_host = "0.0.0.0"
+                self.local_port = 10080
                 print(f"here:1", {self.local_host}, {self.local_port})
                 async with await create_udp_socket(family=socket.AF_INET, local_host=self.local_host, local_port=self.local_port) as self.udp:
                     print(f"here:2 {self.udp}")

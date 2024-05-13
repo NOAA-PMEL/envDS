@@ -1,4 +1,5 @@
 import asyncio
+import binascii
 import math
 import signal
 from struct import pack
@@ -139,7 +140,7 @@ class CDP2(Sensor):
                     "units": {"type": "char", "data": "volts"},
                 },
             },
-            "conotrol_board_t": {
+            "control_board_t": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
@@ -437,7 +438,7 @@ class CDP2(Sensor):
             "default": {
                 "sensor-interface-properties": {
                     "connection-properties": {
-                        "baudrate": 115200,
+                        "baudrate": 57600,
                         "bytesize": 8,
                         "parity": "N",
                         "stopbit": 1,
@@ -595,7 +596,9 @@ class CDP2(Sensor):
             checksum += ch
 
         cmd += pack("<H", checksum)
-        return cmd
+        print(f"cmd: {cmd}")
+        print(f"cmd(hex): {binascii.hexlify(cmd)}")
+        return binascii.hexlify(cmd).decode()
 
     def cdp_power_switch(self, power=False, cleanup=False):
 
@@ -629,13 +632,16 @@ class CDP2(Sensor):
         # configure_cmd = self.get_cdp_command('CONFIGURE')
         # send_data_cmd = self.get_cdp_command('SEND_DATA')
 
+        # if self.polling_task is None:
+        #     self.polling_task = asyncio.create_task(self.polling_loop())
+
         configure_cmd = {
             "read-num-bytes": 4,
             "data": self.get_cdp_command("CONFIGURE"),
         }
 
         configure_loops = 0
-        configure_loops_max = 5
+        configure_loops_max = 2
 
         while True:
             try:
@@ -651,44 +657,49 @@ class CDP2(Sensor):
                 #         self.collecting = True
                 #         # self.logger.debug("sampling_monitor:4", extra={"self.collecting": self.collecting})
 
+                self.logger.debug("sampling_monitor", extra={"sampling": self.sampling(), "run state": self.scan_run_state})
                 if self.sampling():
-
                     if self.scan_run_state != "RUN":
 
                         if self.scan_run_state == "STOPPED":
                             self.scan_run_state = "CONFIGURE"
-                            continue
-
+                            # continue
+                        self.logger.debug("sampling_monitor", extra={"run state": self.scan_run_state})
                         if self.scan_run_state == "CONFIGURE":
-                            self.scan_run_state == "CONFIGURING"
-
+                            self.scan_run_state = "CONFIGURING"
+                            self.logger.debug("sampling_monitor", extra={"cmd": configure_cmd})
                             await self.interface_send_data(data=configure_cmd)
+                            await asyncio.sleep(1)
                             configure_loops = 0
-                            continue
+                            # continue
 
+                        self.logger.debug("sampling_monitor", extra={"run state": self.scan_run_state})
                         if self.scan_run_state == "CONFIGURING":
                             configure_loops += 1
                             if configure_loops > configure_loops_max:
                                 self.scan_run_state = "CONFIGURE"
-                            continue
+                            await asyncio.sleep(1)
+                            # continue
                     else:
+                        if self.polling_task is None:
+                            self.polling_task = asyncio.create_task(self.polling_loop())
 
                         if need_start:
                             if self.collecting:
                                 # await self.interface_send_data(data={"data": stop_command})
-                                if self.polling_task:
-                                    self.polling_task.cancel()
+                                # if self.polling_task:
+                                #     self.polling_task.cancel()
                                 await asyncio.sleep(2)
                                 self.collecting = False
-                                continue
+                                # continue
                             else:
                                 # await self.interface_send_data(data={"data": start_command})
                                 # await self.interface_send_data(data={"data": "\n"})
-                                self.polling_task = asyncio.create_task(self.polling_loop())
+                                # self.polling_task = asyncio.create_task(self.polling_loop())
                                 need_start = False
                                 start_requested = True
                                 await asyncio.sleep(2)
-                                continue
+                                # continue
                         elif start_requested:
                             if self.collecting:
                                 start_requested = False
@@ -696,7 +707,7 @@ class CDP2(Sensor):
                                 # await self.interface_send_data(data={"data": start_command})
                                 # await self.interface_send_data(data={"data": "\n"})
                                 await asyncio.sleep(2)
-                                continue
+                                # continue
                         # else:
                         #     if self.collecting:
                         #         # await self.interface_send_data(data={"data": stop_command})
@@ -704,6 +715,8 @@ class CDP2(Sensor):
                         #             self.polling_task.cancel()
                         #         await asyncio.sleep(2)
                         #         self.collecting = False
+
+                    self.logger.debug("sampling_monitor - end", extra={"run state": self.scan_run_state})
 
                 await asyncio.sleep(0.1)
 
@@ -732,13 +745,13 @@ class CDP2(Sensor):
     def start(self):
         super().start()
 
-        self.cdp_power_switch(power=True)
+        # self.cdp_power_switch(power=True)
         self.scan_run_state = 'CONFIGURE'
 
     def stop(self):
         super().stop()
 
-        self.cdp_power_switch(power=False)
+        # self.cdp_power_switch(power=False)
         self.scan_run_state = 'STOPPED'
 
     async def polling_loop(self):
@@ -791,6 +804,7 @@ class CDP2(Sensor):
             await asyncio.sleep(0.1)
 
     def default_parse(self, data):
+        self.logger.debug("default_parse", extra={"parse data": data})
         if data:
             try:
                 # variables = [
@@ -802,19 +816,21 @@ class CDP2(Sensor):
                 #     "wind_direction",
                 # ]
                 # variables = list(self.config.variables.keys())
-
+                packet = binascii.unhexlify(data.data["data"].encode())
+                self.logger.debug("default_parse", extra={"run state": self.scan_run_state})
                 if self.scan_run_state == 'CONFIGURING':
-                    packet = data.data["data"]
+                    self.logger.debug("default_parse", extra={"packet": packet})
                     ack_fmt = '<4B'
                     try:
                         result = unpack(ack_fmt, packet)
+                        self.logger.debug("default_parse", extra={"result": result})
                         if result[0] == 6:
                             print('ACK received')
                             self.scan_run_state = 'RUN'
                         else:
                             self.scan_run_state = 'CONFIGURE'
                     except structerror:
-                        print(f' bad config packet: {packet}')
+                        # print(f' bad config packet: {packet}')
                         self.scan_run_state = 'CONFIGURE'
                     return None
 
@@ -845,36 +861,46 @@ class CDP2(Sensor):
                         val = result[0]*0.061
                         # print(f'val0={val}')
                         record["variables"]["laser_current"]["data"] = round(val, 2)
-
+                        print(val)
                         val = 5*result[1]/4095
                         record["variables"]["dump_spot_monitor"]["data"] = round(val, 2)
+                        print(val)
 
                         v = 5*result[2]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["wingboard_temperature"]["data"] = round(degC, 2)
+                            tmp_t = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["wingboard_temp"]["data"] = degC
+                        print(degC)
 
                         v = 5*result[3]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["laser_temperature"]["data"] = round(degC, 2)
+                            tmp_t = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["laser_temp"]["data"] = degC
+                        print(degC)
 
                         val = 5*result[4]/4095
                         record["variables"]["sizer_baseline"]["data"] = round(val, 3)
+                        print(val)
 
                         val = 5*result[5]/4095
                         record["variables"]["qualifier_baseline"]["data"] = round(val, 3)
+                        print(val)
 
                         val = (5*result[6]/4095)*2
                         record["variables"]["5v_monitor"]["data"] = round(val, 3)
+                        print(val)
 
                         v = 5*result[7]/4095
                         degC = None
                         if v!=0:
-                            degC = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
-                        record["variables"]["control_board_temperature"]["data"] = round(degC, 2)
+                            tmp_T = 1 / (((math.log((5/v) - 1))/3750) + 1/298) - 273
+                            degC = round(tmp_t,2)
+                        record["variables"]["control_board_t"]["data"] = degC
+                        print(degC)
 
                         # Reject DOF U32
                         # recode = pack('<I', result[8])
@@ -883,21 +909,27 @@ class CDP2(Sensor):
                         rej_dof = (result[8] << 16) + result[9]
                         # print(f'rej_dof: {rej_dof}')
                         record["variables"]["reject_dof"]["data"] = rej_dof
+                        print(rej_dof)
 
                         # print(f'val10={result[10]}')
-                        record["variables"]["average_transit"]["data"] = result[10]
+                        record["variables"]["reject_average_transit"]["data"] = result[10]
+                        print(result[10])
 
                         record["variables"]["qual_bandwidth"]["data"] = result[11]
+                        print(result[11])
 
                         record["variables"]["qual_threshold"]["data"] = result[12]
+                        print(result[12])
 
                         record["variables"]["dt_bandwidth"]["data"] = result[13]
+                        print(result[13])
 
-                        record["variables"]["dynamic_threshold"]["data"] = result[14]
+                        record["variables"]["dt_threshold"]["data"] = result[14]
+                        print(result[14])
 
                         adc_over = (result[15] << 16) + result[16]
                         record["variables"]["adc_overflow"]["data"] = adc_over
-
+                        self.logger.debug("default_parse", extra={"rec": record})
                         bc = []
                         # dp = []
                         # intN = 0
@@ -905,14 +937,15 @@ class CDP2(Sensor):
                             # bin_count U32 - reorder bytes
                             # recode = pack('<I', data[15+i])
                             # count = unpack('>I', pack('>2H', *unpack('<2H', recode)))[0]
-                            # print(f"i={i}, {data[17+i]}, {data[18+i]}")
-                            count = (data[17+i] << 16) + data[18+i]
+                            print(f"parse: len {len(result)}")
+                            print(f"i={i}, {result[17+i]}, {result[18+i]}")
+                            count = (result[17+i] << 16) + result[18+i]
                             # print(f"count={count}")
                             # bc.append(data[15+i])
                             bc.append(count)
                             # intN += data[15+i]
                             # intN += count
-
+                        self.logger.debug("default_parse", extra={"bc": bc})
                         record["variables"]["bin_count"]["data"] = bc
 
                         lb = []
@@ -921,14 +954,15 @@ class CDP2(Sensor):
                         for lower, upper in zip(self.lower_dp_bnd, self.uppder_dp_bnd):
                             lb.append(float(lower))
                             ub.append(float(upper))
-                            dp.append(math.sqrt(float(lower)*float(upper)))
+                            dp.append(round(math.sqrt(float(lower)*float(upper)),2))
 
                         record["variables"]["diameter"]["data"] = dp
                         record["variables"]["diameter_bnd_lower"]["data"] = lb
                         record["variables"]["diameter_bnd_upper"]["data"] = ub
-
+                        self.logger.debug("default_parse", extra={"rec": record})
                         return record
-                    except (KeyError,ValueError):
+                    except (KeyError,ValueError) as e:
+                        print(f"default parse error inner {e}")
                         pass
             except Exception as e:
                 print(f"default_parse error: {e}")

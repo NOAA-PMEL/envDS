@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: aerosoldynamics-magic250-143
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "143"

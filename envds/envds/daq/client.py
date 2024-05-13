@@ -1,4 +1,5 @@
 import abc
+import binascii
 from collections import deque
 import importlib
 import os
@@ -705,9 +706,14 @@ class _StreamClient(_BaseClient):
             return msg.decode(errors=decode_errors)
 
     async def readbinary(self, num_bytes=1, decode_errors="strict"):
+        print(f"readbinary: {num_bytes}, {decode_errors}")
         if self.reader:
-            msg = await self.reader.read(num_bytes=num_bytes)
-            return msg
+            print(f"readbinary: {self.reader}")
+            msg = await self.reader.read(num_bytes)
+            print(f"readbinary: {msg}")
+            binmsg = binascii.hexlify(msg).decode()
+            print(f"readbinary: {binmsg}")
+            return binmsg
 
     async def write(self, msg):
         if self.writer:
@@ -716,9 +722,16 @@ class _StreamClient(_BaseClient):
             await self.writer.drain()
 
     async def writebinary(self, msg):
+        print(f"writebinary: {msg}")
         if self.writer:
-            sent_bytes = self.writer.write(msg)
+            print(f"writebinary: {self.writer}")
+            binmsg = binascii.unhexlify(msg.encode())
+            print(f"writebinary: {binmsg}")
+            # sent_bytes = self.writer.write(msg)
+            sent_bytes = self.writer.write(binmsg)
+            print(f"writebinary: {sent_bytes}")
             await self.writer.drain()
+            print(f"writebinary:")
 
     async def get_return_packet_size(self):
 

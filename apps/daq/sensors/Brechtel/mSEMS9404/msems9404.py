@@ -66,18 +66,26 @@ class mSEMS9404(Sensor):
                 "shape": ["time"],
                 "attributes": {"long_name": {"type": "string", "data": "Time"}},
             },
-            "msems_ymd": {
+            "scan_date": {
                 "type": "str",
                 "shape": ["time"],
                 "attributes": {
                     "long_name": {"type": "string", "data": "Internal date - Year/Month/Day"}
                 },
             },
-            "msems_hms": {
+            "scan_time": {
                 "type": "str",
                 "shape": ["time"],
                 "attributes": {
                     "long_name": {"type": "string", "data": "Internal time - Hour/Minute/Second"}
+                },
+            },
+            "scan_num": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "Scan Number"},
+                    "units": {"type": "char", "data": "count"},
                 },
             },
             "scan_direction": {
@@ -104,7 +112,7 @@ class mSEMS9404(Sensor):
                     "units": {"type": "char", "data": "v"},
                 },
             },
-            "scan_max_volts": {
+            "scan_min_volts": {
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
@@ -192,8 +200,84 @@ class mSEMS9404(Sensor):
                     "units": {"type": "char", "data": "nm"},
                 },
             },
+            "msems_errs": {
+                "type": "str",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "mSEMS Errors"},
+                    # "units": {"type": "char", "data": "count"},
+                },
+            },
+            "mcpc_smpf": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC Sample Flow"},
+                    "units": {"type": "char", "data": "l min-1"},
+                },
+            },
+            "mcpc_satf": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC Saturator Flow"},
+                    "units": {"type": "char", "data": "l min-1"},
+                },
+            },
+            "mcpc_cndt": {
+                "type": "float",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC Condenser Temperature"},
+                    "units": {"type": "char", "data": "degrees_C"},
+                },
+            },
+            "mcpc_errs": {
+                "type": "str",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC Errors"},
+                    # "units": {"type": "char", "data": "count"},
+                },
+            },
         },
         "settings": {
+            "mcpcpwr": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC A Power"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 1},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
+                },
+            },
+            "mcpcpmp": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "MCPC A Pump Power"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 1},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
+                },
+            },
+            "msems_mode": {
+                "type": "int",
+                "shape": ["time"],
+                "attributes": {
+                    "long_name": {"type": "char", "data": "mSEMS Mode of operation"},
+                    "units": {"type": "char", "data": "count"},
+                    "valid_min": {"type": "int", "data": 0},
+                    "valid_max": {"type": "int", "data": 2},
+                    "step_increment": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 2},
+                },
+            },
             "mcpc_a_yn": {
                 "type": "int",
                 "shape": ["time"],
@@ -407,7 +491,7 @@ class mSEMS9404(Sensor):
                     "valid_min": {"type": "float", "data": 0.},
                     "valid_max": {"type": "float", "data": 5.0},
                     "step_increment": {"type": "float", "data": .5},
-                    "default_value": {"type": "float", "data": 2.5},
+                    "default_value": {"type": "float", "data": 2.0},
                 },
             },
             "scan_type": {
@@ -431,7 +515,7 @@ class mSEMS9404(Sensor):
                     "valid_min": {"type": "int", "data": 10},
                     "valid_max": {"type": "int", "data": 500},
                     "step_increment": {"type": "int", "data": 10},
-                    "default_value": {"type": "int", "data": 300},
+                    "default_value": {"type": "int", "data": 360},
                 },
             },
             "scan_min_dia": {
@@ -455,7 +539,7 @@ class mSEMS9404(Sensor):
                     "valid_min": {"type": "int", "data": 5},
                     "valid_max": {"type": "int", "data": 120},
                     "step_increment": {"type": "int", "data": 10},
-                    "default_value": {"type": "int", "data": 60},
+                    "default_value": {"type": "int", "data": 30},
                 },
             },
             "bin_time": {
@@ -636,6 +720,18 @@ class mSEMS9404(Sensor):
             for name in self.settings.get_settings().keys():
                 if not self.settings.get_health_setting(name):
                     self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
+                    await self.set_settings(name)
+
+
+    async def set_settings(self, name: str):
+        setting = self.settings.get_setting(name)
+        if setting:
+            # if name == "new_pos":
+            requested = setting["requested"]
+            # in non-mock, send command to set the proper parameter
+            await self.interface_send_data(data={"data": f"{name}={requested}\r"})
+            
+            self.settings.set_setting(name, actual=requested, requested=requested)
 
 
     async def sampling_monitor(self):
@@ -648,7 +744,7 @@ class mSEMS9404(Sensor):
         # wait to see if data is already streaming
         await asyncio.sleep(2)
         # # if self.collecting:
-        # await self.interface_send_data(data={"data": stop_command})
+        await self.interface_send_data(data={"data": start_command})
         # await asyncio.sleep(2)
         # self.collecting = False
         # init to stopped
@@ -672,12 +768,12 @@ class mSEMS9404(Sensor):
 
                     if need_start:
                         if self.collecting:
-                            await self.interface_send_data(data={"data": stop_command})
+                            # await self.interface_send_data(data={"data": stop_command})
                             await asyncio.sleep(2)
                             self.collecting = False
                             continue
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             need_start = False
                             start_requested = True
@@ -687,13 +783,13 @@ class mSEMS9404(Sensor):
                         if self.collecting:
                             start_requested = False
                         else:
-                            await self.interface_send_data(data={"data": start_command})
+                            # await self.interface_send_data(data={"data": start_command})
                             # await self.interface_send_data(data={"data": "\n"})
                             await asyncio.sleep(2)
                             continue
                 else:
                     if self.collecting:
-                        await self.interface_send_data(data={"data": stop_command})
+                        # await self.interface_send_data(data={"data": stop_command})
                         await asyncio.sleep(2)
                         self.collecting = False
                             
@@ -729,14 +825,17 @@ class mSEMS9404(Sensor):
                 data = await self.default_data_buffer.get()
                 # self.collecting = True
                 self.logger.debug("default_data_loop", extra={"data": data})
-                continue
+                # continue
                 record = self.default_parse(data)
                 if record:
                     self.collecting = True
 
-                # print(record)
-                # print(self.sampling())
-                if self.scan_ready and self.current_record and self.sampling():
+               # print(self.sampling())
+                # if self.scan_ready and self.current_record and self.sampling():
+                print(f"default_data: scan_ready: {self.scan_ready}, sampling: {self.sampling()}")
+                if self.scan_ready and record and self.sampling():
+                    print(f"default_data: record: {self.current_record}")
+                    self.scan_ready = False
 
                     # calc diameters
                     # try:
@@ -746,10 +845,13 @@ class mSEMS9404(Sensor):
                     min_dp = 10
 
                     try:
-                        max_dp = self.current_record["actual max dia"]["data"]
+                        max_dp = self.current_record["variables"]["actual_max_dia"]["data"]
+                        # max_dp = record["variables"]["actual_max_dia"]["data"]
                     except KeyError:
-                        max_dp = 300
+                        max_dp = 360
 
+                    if max_dp is None:
+                        max_dp = 360
                     dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
                     # dlogdp = dlogdp / (30-1)
                     diam = []
@@ -761,12 +863,25 @@ class mSEMS9404(Sensor):
                         diam.append(dp)
                         # diam_um.append(round(dp / 1000, 3))
 
-                    self.current_record["actual max dia"]["data"] = diam
+                    self.current_record["variables"]["actual_max_dia"]["data"] = diam[-1]
+                    # record["variables"]["actual_max_dia"]["data"] = diam[-1]
+
+                    # # try:
+                    # #     tot_cnt = 0
+                    # #     # for cnt in self.current_record["variables"]["bin_count"]["data"]:
+                    # #     for cnt in record["variables"]["bin_count"]["data"]:
+                    # #         tot_cnt += cnt
+                    # #     # self.current_record["variables"]["press_stdev"]["data"] = tot_cnt
+                    # #     self.current_record["variables"]["press_stdev"]["data"] = tot_cnt
+                    
+                    # except Exception as e:
+                    #     pass
 
                     event = DAQEvent.create_data_update(
                         # source="sensor.mockco-mock1-1234", data=record
                         source=self.get_id_as_source(),
                         data=self.current_record,
+                        # data=record,
                     )
                     dest_path = f"/{self.get_id_as_topic()}/data/update"
                     self.logger.debug(
@@ -794,10 +909,10 @@ class mSEMS9404(Sensor):
                 # ]
                 # variables = list(self.config.variables.keys())
                 variables = list(self.config.metadata.variables.keys())
-                # print(f"variables: \n{variables}\n{variables2}")
+                print(f"variables: {variables}")
                 variables.remove("time")
                 # variables2.remove("time")
-                # print(f"variables: \n{variables}\n{variables2}")
+                print(f"variables: {variables}")
 
                 # print(f"include metadata: {self.include_metadata}")
                 # record = self.build_data_record(meta=self.include_metadata)
@@ -808,9 +923,13 @@ class mSEMS9404(Sensor):
                     # record["timestamp"] = data.data["timestamp"]
                     # record["variables"]["time"]["data"] = data.data["timestamp"]
 
-                    line = data.data["data"].rstrip().split()
+                    line = data.data["data"].strip()#.split()
+                    print(f"default_parse: line: {line}")
                     if "=" in line:
                         parts = line.split("=")
+                    else:
+                        return None
+                    
                     if len(parts) < 2:
                         return None
 
@@ -826,10 +945,10 @@ class mSEMS9404(Sensor):
                             self.reading_scan = True
                             self.scan_ready = False
 
-                        else:
-                            if self.reading_scan:
-                                self.scan_ready = True
-                            self.reading_scan = False
+                        # else:
+                        #     if self.reading_scan:
+                        #         self.scan_ready = True
+                        #     self.reading_scan = False
 
                     name = parts[0]
                     value = parts[1]
@@ -839,6 +958,7 @@ class mSEMS9404(Sensor):
                             vartype = instvar.type
                             if instvar.type == "string":
                                 vartype = "str"
+                            self.logger.debug("default_parse", extra={"param_name": name, "param_value": value})
                             try:
                                 # print(f"default_parse: {record['variables'][name]} - {parts[index].strip()}")
                                 self.current_record["variables"][name]["data"] = eval(vartype)(
@@ -854,8 +974,12 @@ class mSEMS9404(Sensor):
                                 self.current_record["variables"]["bin_count"]["data"] = [int(value)]
                             else:
                                 self.current_record["variables"]["bin_count"]["data"].append(int(value))
-
-                    return self.current_record
+                        self.logger.debug("default_parse", extra={"current_record": self.current_record})
+                        if name == "mcpc_errs": # last parameter sent
+                            print(f"default_parse: end of record")
+                            self.scan_ready = True
+                            self.reading_scan = False
+                            return self.current_record
                 except KeyError:
                     pass
             except Exception as e:

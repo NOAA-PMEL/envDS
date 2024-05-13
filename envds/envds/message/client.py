@@ -238,12 +238,12 @@ class MQTTMessageClient(MessageClient):
     async def publisher(self):
         reconnect_interval = 5
         while self.do_run:
-            # print(f"publish: {self.do_run}, {self.connected}")
+            print(f"publish: {self.do_run}, {self.connected}")
             if self.connected:
                 msg = await self.pub_data.get()
                 # print(f"msg = {msg}")
                 # print(f"publisher:msg: {msg}")
-                # print(f"msg: {msg.dest_path}")#, {to_json(msg.data)}")
+                print(f"msg: {msg.dest_path}")#, {to_json(msg.data)}")
                 # print(f"msg: {msg.dest_path}, {to_json(msg.data)}")
                 # print(msg.keys())
                 # print(f"msg type: {type(msg.data)}")

@@ -394,7 +394,7 @@ class SPLite2(Sensor):
                     # nominal value of 80
                     record["variables"]["sensitivity"]["data"] = 80.0
 
-                    uvolts = record["variables"]["volts"]["data"] / 1000000.0
+                    uvolts = record["variables"]["volts"]["data"] * 1000000.0
                     E = uvolts / record["variables"]["sensitivity"]["data"]
                     record["variables"]["irradiance"]["data"] = E
                     return record

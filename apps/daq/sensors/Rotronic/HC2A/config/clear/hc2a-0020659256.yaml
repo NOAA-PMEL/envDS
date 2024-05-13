@@ -5,6 +5,7 @@ metadata:
   namespace: envds
   labels:
     app: rotronic-hc2a-0020659256
+    app-group: envds-sensor-clear
 data:
   sensor.conf: |
     serial_number: "0020659256"

@@ -140,7 +140,7 @@ class FILT9401(Sensor):
             },
         },
         "settings": {
-            "cltmode": {
+            "ctlmode": {
                 "type": "int",
                 "shape": ["time"],
                 "attributes": {
@@ -149,7 +149,7 @@ class FILT9401(Sensor):
                     "valid_min": {"type": "int", "data": 0},
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
-                    "default_value": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
                 },
             },
             "intrvl": {
@@ -197,7 +197,7 @@ class FILT9401(Sensor):
                     "valid_min": {"type": "float", "data": 1.0},
                     "valid_max": {"type": "float", "data": 4.0},
                     "step_increment": {"type": "float", "data": 0.5},
-                    "default_value": {"type": "float", "data": 21.0},
+                    "default_value": {"type": "float", "data": 3.0},
                 },
             },
             "sd_save": {
@@ -367,6 +367,22 @@ class FILT9401(Sensor):
             for name in self.settings.get_settings().keys():
                 if not self.settings.get_health_setting(name):
                     self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
+                    await self.set_settings(name)
+
+
+    async def set_settings(self, name: str):
+        setting = self.settings.get_setting(name)
+        if setting:
+            # if name == "new_pos":
+            requested = setting["requested"]
+            if name == "flow_sp":
+                val = hex(int(requested*100))
+                await self.interface_send_data(data={"data": f"{name}={val}\r"})
+            else:
+                # in non-mock, send command to set the proper parameter
+                await self.interface_send_data(data={"data": f"{name}={requested}\r"})
+            
+            self.settings.set_setting(name, actual=requested, requested=requested)
 
 
     async def sampling_monitor(self):

@@ -260,7 +260,7 @@ class SB70LC(Interface):
         pass
 
     async def send_data(self, event: DAQEvent):
-
+            print(f"here:1 {event}")
             try:
                 print(f"send_data:1 - {event}")
                 client_id = event["path_id"]

@@ -1,6 +1,7 @@
 import asyncio
 import math
 import signal
+import struct
 
 # import uvicorn
 # from uvicorn.config import LOGGING_CONFIG
@@ -241,7 +242,7 @@ class STAP9406(Sensor):
                     "valid_min": {"type": "int", "data": 0},
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
-                    "default_value": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
                 },
             },
             "flt_typ": {
@@ -253,7 +254,7 @@ class STAP9406(Sensor):
                     "valid_min": {"type": "int", "data": 0},
                     "valid_max": {"type": "int", "data": 2},
                     "step_increment": {"type": "int", "data": 1},
-                    "default_value": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 2},
                 },
             },
             "fltstat": {
@@ -263,9 +264,9 @@ class STAP9406(Sensor):
                     "long_name": {"type": "char", "data": "Sets filter status, used for filter initialization (see manual for details)"},
                     "units": {"type": "char", "data": "count"},
                     "valid_min": {"type": "int", "data": 0},
-                    "valid_max": {"type": "int", "data": 1},
+                    "valid_max": {"type": "int", "data": 7},
                     "step_increment": {"type": "int", "data": 1},
-                    "default_value": {"type": "int", "data": 1},
+                    "default_value": {"type": "int", "data": 0},
                 },
             },
             "flow_sp": {
@@ -447,6 +448,35 @@ class STAP9406(Sensor):
             for name in self.settings.get_settings().keys():
                 if not self.settings.get_health_setting(name):
                     self.logger.debug("settings_check - set setting", extra={"setting-name": name, "setting": self.settings.get_setting(name)})
+                    await self.set_settings(name)
+
+
+    async def set_settings(self, name: str):
+        setting = self.settings.get_setting(name)
+        if setting:
+            # if name == "new_pos":
+            requested = setting["requested"]
+            # in non-mock, send command to set the proper parameter
+            if name == "flow_sp":
+                requested = float(requested)
+                print(f"flow_sp: {name}, {requested}")
+                val = hex(int(requested*100))
+                val = struct.pack(">I", (int(requested*100)))
+                print(f"flow_sp: {val}")
+                await self.interface_send_data(data={"data": f"{name}={val}\r"})
+            # elif name == "fltstat":
+            #     requested = float(requested)
+            #     print(f"fltstat: {name}, {requested}")
+            #     val = hex(int(requested))
+            #     # val = struct.pack(">i", (int(requested)))
+            #     print(f"fltstat: {val}")
+            #     await self.interface_send_data(data={"data": f"{name}={val}\r"})
+            else:
+                # in non-mock, send command to set the proper parameter
+                await self.interface_send_data(data={"data": f"{name}={requested}\r"})
+            # await self.interface_send_data(data={"data": f"{name}={requested}\r"})
+            
+            self.settings.set_setting(name, actual=requested, requested=requested)
 
 
     async def sampling_monitor(self):

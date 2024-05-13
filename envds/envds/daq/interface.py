@@ -510,7 +510,9 @@ class Interface(envdsBase):
                 "interface_data_send",
                 extra={"data": message.data.data},
             )
+            self.logger.debug("handle_data", extra={"md": message.data})
             await self.send_data(message.data)
+            self.logger.debug("handle_data sent", extra={"md": message.data})
             # send data to appropriate client
 
     # async def registry_monitor(self):

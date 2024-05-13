@@ -396,6 +396,7 @@ class PlotManager(object):
 
     app_map = {"sensor": {}}
     server_map = {"sensor": {}}
+    port_map = {}
 
     def __new__(cls):
         if not hasattr(cls, "instance"):
@@ -444,10 +445,11 @@ class PlotManager(object):
                 server = self.server_map[type][make][model][serial_number]
                 # print(f"PlotManager app: {app.get_server_url()}")
             except KeyError:
-
+                # self.logger.debug("get_server")
                 server = self._create(
                     type, make=make, model=model, serial_number=serial_number
                 )
+                # self.logger.debug("get_server", extra={"server": server})
                 # self.server_map[type][make][model][serial_number] = server
         print(f"server_map: {self.server_map}")
         # print(f"PlotManager.get: app={app} - {make}, {model}, {serial_number}")
@@ -456,69 +458,91 @@ class PlotManager(object):
     def _create(self, type: str, **kwargs):
 
         if type == "sensor":
-
             try:
-                make = kwargs["make"]
-                model = kwargs["model"]
-                serial_number = kwargs["serial_number"]
-            except KeyError:
-                return None
-
-            try:
-                data = PlotDataManager().get(
-                    type="sensor", make=make, model=model, serial_number=serial_number
-                )
-                if data is None:
+                # self.logger.debug("_create")
+                try:
+                    make = kwargs["make"]
+                    model = kwargs["model"]
+                    serial_number = kwargs["serial_number"]
+                except KeyError:
                     return None
 
-                data_pipe = data.pipe
-                # Don't create the server until there is enough data to create a plot
-                if "time" not in data_pipe.data or data_pipe.data["time"].size < 2:
-                    return None
+                try:
+                    # self.logger.debug("_create2")
+                    data = PlotDataManager().get(
+                        type="sensor", make=make, model=model, serial_number=serial_number
+                    )
+                    if data is None:
+                        return None
 
-                url = "/".join([type, make, model, serial_number])
+                    data_pipe = data.pipe
+                    # self.logger.debug("_create", extra={"data_pipe": data_pipe})
 
-                settings.resources = "inline"
+                    # Don't create the server until there is enough data to create a plot
+                    if "time" not in data_pipe.data or data_pipe.data["time"].size < 2:
+                        print("_create not ready")
+                        return None
 
-                port = 5004
-                server = pn.serve(
-                    # {self.url: self.app.servable()},
-                    {
-                        url: SensorPlotApp(
-                            data_pipe=data_pipe,
-                            make=make,
-                            model=model,
-                            serial_number=serial_number,
+                    url = "/".join([type, make, model, serial_number])
+
+                    settings.resources = "inline"
+
+                    # get free port
+                    port = 0
+                    for p in range(5000,5021):
+                        if p in self.port_map:
+                            continue
+                        else:
+                            port = p
+                            break
+
+                    # TODO allow host to be passed as arg or env variable
+                    print(f"_create: port= {port}")
+                    # port = 5004
+                    if port >= 5000 and port <=5020:
+                        server = pn.serve(
+                            # {self.url: self.app.servable()},
+                            {
+                                url: SensorPlotApp(
+                                    port=port,
+                                    data_pipe=data_pipe,
+                                    make=make,
+                                    model=model,
+                                    serial_number=serial_number,
+                                )
+                                .create_plots()
+                                # .servable()
+                            },
+                            # {key: self.app.servable()},
+                            port=port,
+                            allow_websocket_origin=["*"],
+                            address="0.0.0.0",
+                            prefix=f"/plots/envds/daq/{port}",
+                            host="127.0.0.1:8090",
+                            show=False,
+                            log_level="debug",
                         )
-                        .create_plots()
-                        # .servable()
-                    },
-                    # {key: self.app.servable()},
-                    port=port,
-                    allow_websocket_origin=["*"],
-                    address="0.0.0.0",
-                    prefix="/plots/envds/daq/5004",
-                    host="127.0.0.1:8090",
-                    show=False,
-                    log_level="debug",
-                )
 
-                # app = SensorPlotApp(
-                #     make=make,
-                #     model=model,
-                #     serial_number=serial_number,
-                # )
-                # print(f"_create: {type}, {make}, {model}, {serial_number}, {app}")
-                if make not in self.server_map[type]:
-                    self.server_map[type][make] = dict()
-                if model not in self.server_map[type][make]:
-                    self.server_map[type][make][model] = dict()
-                self.server_map[type][make][model][serial_number] = server
-                # print(f"app_map: {self.app_map}")
-                return server
-            except KeyError:
-                return None
+                        self.port_map[port] = server
+                        print(f"_create: server: {server}, port_map: {self.port_map}")
 
+                        # app = SensorPlotApp(
+                        #     make=make,
+                        #     model=model,
+                        #     serial_number=serial_number,
+                        # )
+                        # print(f"_create: {type}, {make}, {model}, {serial_number}, {app}")
+                        if make not in self.server_map[type]:
+                            self.server_map[type][make] = dict()
+                        if model not in self.server_map[type][make]:
+                            self.server_map[type][make][model] = dict()
+                        self.server_map[type][make][model][serial_number] = server
+                        # print(f"app_map: {self.app_map}")
+                        return server
+                except KeyError:
+                    return None
+            except Exception as e:
+                print(f"_create error: {e}")
         return None
 
     # async def update(self, type, data, **kwargs):
@@ -545,6 +569,7 @@ class PlotManager(object):
                 return ""
 
             server = self.get_server(type, **kwargs)
+            # self.logger.debug("get_server_document", extra={"server": server})
             if server:
                 prefix = server.prefix
                 url = "/".join([prefix, type, make, model, serial_number])
@@ -673,9 +698,10 @@ class PlotApp(object):
 class SensorPlotApp(PlotApp):
     """docstring for SensorPlotApp."""
 
-    def __init__(self, data_pipe: Pipe, make: str, model: str, serial_number: str):
+    def __init__(self, port: int, data_pipe: Pipe, make: str, model: str, serial_number: str):
         super(SensorPlotApp, self).__init__()
 
+        self.port = port
         self.pipe = data_pipe
         self.make = make
         self.model = model
@@ -865,9 +891,9 @@ class SensorPlotApp(PlotApp):
         new_ds = self.ds_from_tmpl(new_data)
         if new_ds:
             self.source.emit(new_ds)
-            if self.pipe.data["time"].size >= 2 and self.server is None:
-                # self.app = self.create_plots()
-                self.create_server()
+            # if self.pipe.data["time"].size >= 2 and self.server is None:
+            #     # self.app = self.create_plots()
+            #     self.create_server()
 
         # # if housekeeping from above is done, update stream
         # new_ds = self.ds_from_tmpl(new_data)
@@ -939,7 +965,7 @@ class SensorPlotApp(PlotApp):
             ("time",): {"name": "timeseries-1d", "var-list": [], "plot-container": None}
         }
         # print(f"create_plots:1")
-
+        print(f"create_plots clist: {clist}, vlist: {vlist}")
         for name in vlist:
             # print(f"shape: {self.pipe.data[name].coords.keys()}")
             shape = tuple(list(self.pipe.data[name].coords.keys()))
@@ -982,7 +1008,26 @@ class SensorPlotApp(PlotApp):
 
                 # print(f"create_plots:4")
             elif name == ("time", "diameter"):  # size dist plots
-                pass
+                section_card = pn.Card(
+                    title="Size Distribution", sizing_mode="stretch_width"
+                )
+                # print(section_card)
+                add_button = pn.widgets.Button(
+                    name="+", button_type="primary", width=30
+                )
+                # print(add_button)
+                add_button.on_click(self.add_size_dist)
+                # print(add_button)
+                section_card.append(pn.Row(pn.layout.HSpacer(), add_button))
+                # print(section_card)
+                # print(section)
+                section["plot-container"] = section_card
+                print(f"section: {section}")
+                self.add_size_dist()
+                print(f"app1: {app}")
+                app.append(section_card)
+                print(f"app2: {app}")
+
             else:
                 pass
 
@@ -1032,8 +1077,61 @@ class SensorPlotApp(PlotApp):
             xformatter=self.get_dt_formatter(), shared_axes=False
         )  # , ylim=(data[variable].values.min(),data[variable].values.max()) )
 
-    def timeseries_size_dist_plot(self):
-        pass
+    def add_size_dist(self, event=None):
+        print(f"event: {event}")
+        section_name = ("time",)
+        # print(section_name)
+        # ts1d = self.timeseries_1d(section_name)
+        size_dist = self.size_dist_2d(section_name)
+        # print(f"ts1d: {ts1d}")
+        # self.plot_map[section_name]["plot-container"].append(self.timeseries_1d(section_name))
+        self.plot_map[section_name]["plot-container"].append(size_dist)
+        # print(f"section: {self.plot_map[section_name]['plot-container']}")
 
-    def size_dist_scan_plot(self):
-        pass
+    def size_dist_2d(self, section_name):
+        # print(f"timeseries_1d:1")
+        vlist = self.plot_map[section_name]["var-list"]
+        # vlist = list(self.pipe.data.keys())
+        # print(f"vlist: {vlist}")
+        # clist,vlist = self.get_var_list()
+        # print(f"timeseries_1d:2")
+        # var_select = pn.widgets.Select(name="variable", value=vlist[0], options=vlist)
+        var_select = pn.widgets.Select(name="variable", options=vlist)
+        # print(f"var_select: {var_select}")
+        # print(f"timeseries_1d:3")
+        plot_ts = pn.bind(self.timeseries_size_dist_plot, x="time", y="diameter", variable=var_select)
+        # print(f"plot: {var_select}, {plot}")
+        # print(f"timeseries_1d:4")
+        dmap_ts = hv.DynamicMap(plot_ts, streams=[self.pipe]).opts(
+            xformatter=self.get_dt_formatter(), logy=True
+        )
+
+        plot_scan = pn.bind(self.scan_size_dist_plot, x="diameter", variable=var_select)
+        # print(f"plot: {var_select}, {plot}")
+        # print(f"timeseries_1d:4")
+        dmap_scan = hv.DynamicMap(plot_scan, streams=[self.pipe]).opts(
+            logx=True
+        )
+
+        # print(f"dmap: {dmap.vdims}")
+        # print(f"timeseries_1d:5")
+        # card = pn.Card(var_select, dmap)
+        card = pn.Card(var_select, pn.Row(dmap_ts,dmap_scan), sizing_mode="stretch_width")
+        # print(f"card: {card.objects}")
+        return card
+
+
+    def timeseries_size_dist_plot(self, data, *args, x="time", y="diameter", variable=""):
+        # da = data[variable]
+        # print(f"ts-1d: {da.values}, {da.values.min()}")
+        return data.hvplot.quadmesh(x=x, y=y, z=variable, responsive=True, height=250).opts(
+            xformatter=self.get_dt_formatter(), shared_axes=False, ylog=True
+        )  # , ylim=(data[variable].values.min(),data[variable].values.max()) )
+
+    def scan_size_dist_plot(self, data, *args, x="diameter", variable=""):
+        y = data[variable].values[-1]
+        x = data[x].values
+        # print(f"ts-1d: {da.values}, {da.values.min()}")
+        return data.hvplot(x=x, y=y, responsive=True, height=250).opts(
+            xformatter=self.get_dt_formatter(), shared_axes=False, logy=True
+        )  # , ylim=(data[variable].values.min(),data[variable].values.max()) )
