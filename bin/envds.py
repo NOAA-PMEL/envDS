@@ -731,6 +731,122 @@ def stop_service(service: str = None, app_group: str = None):
     cfg.namespace = "default"
     delete(cfg)
 
+def startup_services(services_file: str):
+    if services_file is None:
+        return
+    print(f"services_file: {services_file}")
+    with open(services_file, "r") as f:
+        for service in f:
+            print(f"service: {service}")
+            start_service(service=service.strip())
+            sleep(1)
+
+def startup_interfaces(interfaces_file: str):
+    if interfaces_file is None:
+        return
+    with open(interfaces_file, "r") as f:
+        for interface in f:
+            # parts = interface.strip().split("/")
+            # start_interface(type=parts[0], name=parts[1])
+            # sleep(1)
+
+            filename = os.path.join(
+                ".",
+                "apps",
+                "daq",
+                "interfaces",
+                interface.strip(),
+                "config",
+                get_cluster_id()
+            )
+
+            cfg = ApplyConfig(file=filename)
+            cfg.namespace = "default"
+            apply(cfg)
+            sleep(1)
+
+def startup_sensors(sensors_file: str):
+    if sensors_file is None:
+        return
+    with open(sensors_file, "r") as f:
+        for sensor in f:
+            # parts = interface.strip().split("/")
+            # start_interface(type=parts[0], name=parts[1])
+            # sleep(1)
+
+            filename = os.path.join(
+                ".",
+                "apps",
+                "daq",
+                "sensors",
+                sensor.strip(),
+                "config",
+                get_cluster_id()
+            )
+
+            cfg = ApplyConfig(file=filename)
+            cfg.namespace = "default"
+            apply(cfg)
+            sleep(1)
+
+def shutdown_services(services_file: str):
+    if services_file is None:
+        return
+    print(f"services_file: {services_file}")
+    with open(services_file, "r") as f:
+        for service in f:
+            print(f"service: {service}")
+            stop_service(service=service.strip())
+            sleep(1)
+
+def shutdown_interfaces(interfaces_file: str):
+    if interfaces_file is None:
+        return
+    with open(interfaces_file, "r") as f:
+        for interface in f:
+            # parts = interface.strip().split("/")
+            # start_interface(type=parts[0], name=parts[1])
+            # sleep(1)
+
+            filename = os.path.join(
+                ".",
+                "apps",
+                "daq",
+                "interfaces",
+                interface.strip(),
+                "config",
+                get_cluster_id()
+            )
+
+            cfg = ApplyConfig(file=filename)
+            cfg.namespace = "default"
+            delete(cfg)
+            sleep(1)
+
+def shutdown_sensors(sensors_file: str):
+    if sensors_file is None:
+        return
+    with open(sensors_file, "r") as f:
+        for sensor in f:
+            # parts = interface.strip().split("/")
+            # start_interface(type=parts[0], name=parts[1])
+            # sleep(1)
+
+            filename = os.path.join(
+                ".",
+                "apps",
+                "daq",
+                "sensors",
+                sensor.strip(),
+                "config",
+                get_cluster_id()
+            )
+
+            cfg = ApplyConfig(file=filename)
+            cfg.namespace = "default"
+            delete(cfg)
+            sleep(1)
+
 # add_instrument(make=cl_args.make, model=cl_args.model, serial_number=cl_args.serial_number)
 def create_sensor(make: str, model: str, serial_number: str):
 
@@ -1490,6 +1606,49 @@ def run(args):
     )
     delete_system_parser = delete_target_sp.add_parser("system", parents=[id_parent])
 
+    # run options
+    startup_parser = command_sp.add_parser("startup", help="operations: startup command")
+    startup_target_sp = startup_parser.add_subparsers(
+        dest="target", help="startup <target>"
+    )
+    # startup_system_parser = startup_target_sp.add_parser(
+    #     "system", parents=[id_parent, file_parent, system_parent]
+    # )
+    startup_services_parser = startup_target_sp.add_parser(
+        "services", parents=[id_parent, file_parent] #, service_parent]
+    )
+    startup_dataserver_parser = startup_target_sp.add_parser(
+        "dataserver", parents=[id_parent, file_parent] #, dataserver_parent]
+    )
+    startup_interfaces_parser = startup_target_sp.add_parser(
+        "interfaces", parents=[id_parent, file_parent] #, interface_parent]
+    )
+    startup_sensors_parser = startup_target_sp.add_parser(
+        "sensors", parents=[id_parent, file_parent] #, sensor_parent]
+    )
+
+    shutdown_parser = command_sp.add_parser("shutdown", help="operations: shutdown command")
+    shutdown_target_sp = shutdown_parser.add_subparsers(
+        dest="target", help="shutdown <target>"
+    )
+    # shutdown_system_parser = shutdown_target_sp.add_parser(
+    #     "system", parents=[id_parent, file_parent, system_parent]
+    # )
+    shutdown_services_parser = shutdown_target_sp.add_parser(
+        "services", parents=[id_parent, file_parent] #, service_parent]
+    )
+    shutdown_dataserver_parser = shutdown_target_sp.add_parser(
+        "dataserver", parents=[id_parent, file_parent] #, dataserver_parent]
+    )
+    shutdown_interfaces_parser = shutdown_target_sp.add_parser(
+        "interfaces", parents=[id_parent, file_parent] #, interface_parent]
+    )
+    shutdown_sensors_parser = shutdown_target_sp.add_parser(
+        "sensors", parents=[id_parent, file_parent] #, sensor_parent]
+    )
+
+
+
     # subparsers = parser.add_subparsers(dest="command", help="sub-command help")
     # init_parser = subparsers.add_parser("init", help="init envds instance")
     # init_parser.add_argument(
@@ -1719,6 +1878,46 @@ def run(args):
 
         elif cl_args.target == "dataserver":
             create_dataserver()
+            # pass
+    elif cl_args.command == "startup":
+
+        # if cl_args.target == "system":
+        #     if create_cluster(cl_args):
+        #         print("cluster created")
+        #         create_envds()
+                
+        if cl_args.target == "services":
+            print(cl_args.file)
+            startup_services(services_file=cl_args.file)
+
+        elif cl_args.target == "interfaces":
+            startup_interfaces(interfaces_file=cl_args.file)
+
+        elif cl_args.target == "sensors":
+            startup_sensors(sensors_file=cl_args.file)
+
+        # elif cl_args.target == "sensor":
+        #     create_sensor(make=cl_args.make, model=cl_args.model, serial_number=cl_args.serial_number)
+
+    elif cl_args.command == "shutdown":
+
+        # if cl_args.target == "system":
+        #     if create_cluster(cl_args):
+        #         print("cluster created")
+        #         create_envds()
+                
+        if cl_args.target == "services":
+            print(cl_args.file)
+            shutdown_services(services_file=cl_args.file)
+
+        elif cl_args.target == "interfaces":
+            shutdown_interfaces(interfaces_file=cl_args.file)
+
+        elif cl_args.target == "sensors":
+            shutdown_sensors(sensors_file=cl_args.file)
+
+        # elif cl_args.target == "dataserver":
+        #     create_dataserver()
             # pass
 
     # elif cl_args.command == "init":
