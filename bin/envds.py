@@ -763,7 +763,7 @@ def startup_interfaces(interfaces_file: str):
             cfg = ApplyConfig(file=filename)
             cfg.namespace = "default"
             apply(cfg)
-            sleep(1)
+            sleep(2)
 
 def startup_sensors(sensors_file: str):
     if sensors_file is None:
@@ -787,7 +787,7 @@ def startup_sensors(sensors_file: str):
             cfg = ApplyConfig(file=filename)
             cfg.namespace = "default"
             apply(cfg)
-            sleep(1)
+            sleep(2)
 
 def shutdown_services(services_file: str):
     if services_file is None:
@@ -797,7 +797,7 @@ def shutdown_services(services_file: str):
         for service in f:
             print(f"service: {service}")
             stop_service(service=service.strip())
-            sleep(1)
+            sleep(.5)
 
 def shutdown_interfaces(interfaces_file: str):
     if interfaces_file is None:
@@ -821,7 +821,7 @@ def shutdown_interfaces(interfaces_file: str):
             cfg = ApplyConfig(file=filename)
             cfg.namespace = "default"
             delete(cfg)
-            sleep(1)
+            sleep(.5)
 
 def shutdown_sensors(sensors_file: str):
     if sensors_file is None:
@@ -845,7 +845,7 @@ def shutdown_sensors(sensors_file: str):
             cfg = ApplyConfig(file=filename)
             cfg.namespace = "default"
             delete(cfg)
-            sleep(1)
+            sleep(.5)
 
 # add_instrument(make=cl_args.make, model=cl_args.model, serial_number=cl_args.serial_number)
 def create_sensor(make: str, model: str, serial_number: str):
