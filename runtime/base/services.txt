@@ -1,0 +1,6 @@
+message_bus/mqtt
+db/redis
+envds-manage
+envds-registrar
+envds-files
+envds-daq

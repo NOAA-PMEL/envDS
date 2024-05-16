@@ -1,0 +1,12 @@
+AerosolDynamics/MAGIC250
+Handix/POPS1100
+InterMet/XFMainBoard
+InterMet/HYT271
+InterMet/NTC
+InterMet/UBloxGPS
+KippZonen/SPLite2
+Rotronic/HC2A
+Sensiron/SHT35
+Brechtel/mSEMS9404
+Brechtel/FILT9401
+Brechtel/STAP9406
