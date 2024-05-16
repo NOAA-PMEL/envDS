@@ -50,7 +50,7 @@ from envds.daq.db import (
     get_sensor_type_metadata,
 )
 
-from plots import PlotManager, PlotDataManager
+# from plots import PlotManager, PlotDataManager
 
 from aredis_om import (
     # EmbeddedJsonModel,
@@ -186,8 +186,8 @@ class envdsDAQ(envdsBase):
             "interface": {},
         }
 
-        self.plot_manager = PlotManager()
-        self.plot_data_manager = PlotDataManager()
+        # self.plot_manager = PlotManager()
+        # self.plot_data_manager = PlotDataManager()
 
         self.update_buffer = asyncio.Queue(maxsize=1000)
 
@@ -420,6 +420,7 @@ class envdsDAQ(envdsBase):
                     uri = "/".join(
                         [
                             # "ws://localhost:8080/ws/envds/daq/ws",
+                            # "ws://10.55.169.40:8080/ws/envds/daq/ws",
                             "ws://localhost:9080/ws",
                             source_type,
                             id_parts[0],
@@ -449,21 +450,23 @@ class envdsDAQ(envdsBase):
                 #         )
                 #         print("update_monitor:5")
                         # self.logger.debug("update_monitor", extra={"plot_app": self.daq_map})
+
+
                 print(f"daq_map: {self.daq_map}")
-                if self.daq_map[source_type][source_id]["plot_data"] is None:
-                    print("update_monitor:2")
-                    if source_type == "sensor":
-                        print("update_monitor:3")
-                        # self.plot_manager = PlotManager()
-                        print("update_monitor:4")
-                        self.daq_map[source_type][source_id]["plot_data"] = self.plot_data_manager.get(
-                            type=source_type,
-                            make=id_parts[0],
-                            model=id_parts[1],
-                            serial_number=id_parts[2],
-                        )
-                        print(f"update_monitor:5 {self.daq_map}")
-                        # self.logger.debug("update_monitor", extra={"plot_app": self.daq_map})
+                # if self.daq_map[source_type][source_id]["plot_data"] is None:
+                #     print("update_monitor:2")
+                #     if source_type == "sensor":
+                #         print("update_monitor:3")
+                #         # self.plot_manager = PlotManager()
+                #         print("update_monitor:4")
+                #         self.daq_map[source_type][source_id]["plot_data"] = self.plot_data_manager.get(
+                #             type=source_type,
+                #             make=id_parts[0],
+                #             model=id_parts[1],
+                #             serial_number=id_parts[2],
+                #         )
+                #         print(f"update_monitor:5 {self.daq_map}")
+                #         # self.logger.debug("update_monitor", extra={"plot_app": self.daq_map})
                 update = data.data
                 print("update_monitor:6")
 
@@ -477,10 +480,10 @@ class envdsDAQ(envdsBase):
                     # await self.daq_map[source_type][source_id]["plot_app"].update(
                     #     {"variables": update["variables"]}
                     # )
-                    print("update_monitor:9")
-                    await self.daq_map[source_type][source_id]["plot_data"].update(
-                        {"variables": update["variables"]}
-                    )
+                    # print("update_monitor:9")
+                    # await self.daq_map[source_type][source_id]["plot_data"].update(
+                    #     {"variables": update["variables"]}
+                    # )
                     print("update_monitor:10")
 
 

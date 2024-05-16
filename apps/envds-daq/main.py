@@ -36,7 +36,7 @@ from envds.daq.db import (
     get_sensor_type_metadata,
 )
 
-from plots import PlotManager
+# from plots import PlotManager
 
 app = FastAPI()
 
@@ -81,7 +81,10 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, source_type: str, source_id: str):
         print(f"{source_type}: {source_id}")
+        # try:
         await websocket.accept()
+        # except Exception as e:
+        #     print(f"accept: {e}")
         if source_type not in self.active_connections:
             self.active_connections[source_type] = dict()
         if source_id not in self.active_connections[source_type]:
@@ -153,7 +156,7 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
     title = f"sensor::{make}::{model}"
 
     # get plot app
-    plots = PlotManager().get_server_document(type="sensor", make=make, model=model, serial_number=serial_number)
+    # plots = PlotManager().get_server_document(type="sensor", make=make, model=model, serial_number=serial_number)
     # print(f"main.sensor.get: {plots}")
     # plots = {}
     return templates.TemplateResponse(
@@ -165,7 +168,8 @@ async def sensor(request: Request, make: str, model: str, serial_number: str):
             "ws_ip": host_ip,
             "sensor_meta": meta,
             "sensor_reg": reg.dict(),
-            "plots": plots
+            # "plots": plots
+            "plots": {}
         },
     )
 
@@ -179,17 +183,19 @@ async def websocket_endpoint(
 #     websocket: WebSocket,
 #     client_id: int
 # ):
-    # try:
-    #     print(f"websocket: {websocket}")
-    source_id = get_id(make=make, model=model, serial_number=serial_number)
-    await manager.connect(websocket, source_type="sensor", source_id=source_id)
-    print(f"websocket_endpoint: {websocket}")
+    try:
+        print(f"***websocket: {make}, {model}, {serial_number}")
+        print(f"websocket: {websocket}")
+
+        source_id = get_id(make=make, model=model, serial_number=serial_number)
+        await manager.connect(websocket, source_type="sensor", source_id=source_id)
+        print(f"websocket_endpoint: {websocket}")
     #     await websocket.accept()
     #     while True:
     #         data = await websocket.receive_text()
     #         print(data)
-    # except Exception as e:
-    #     print(f"error: {e}")
+    except Exception as e:
+        print(f"error: {e}")
     try:
         while True:
             data = await websocket.receive_text()

@@ -7,7 +7,8 @@ import asyncio
 import httpx
 from logfmter.formatter import Logfmter
 from pydantic import BaseSettings, Field
-from asyncio_mqtt import Client, MqttError
+# from asyncio_mqtt import Client, MqttError
+from aiomqtt import Client, MqttError
 from cloudevents.http import CloudEvent, from_dict, from_json, to_structured
 from cloudevents.conversion import to_json  # , from_dict, from_json#, to_structured
 from cloudevents.exceptions import InvalidStructuredJSON
@@ -185,42 +186,43 @@ class MQTTMessageClient(MessageClient):
                     await self._subscribe_all()
 
                     # async with self.client.unfiltered_messages() as messages:
-                    async with self.client.messages() as messages:
+                    # async with self.client.messages() as messages:
+                    async for message in self.client.messages: #() as messages:
                         # print(f"messages: {messages}")
                         self.connected = True
-                        async for message in messages:
+                        # async for message in messages:
                             # self.logger.debug(
                             #     "MQTT Client - recv message",
                             #     extra={"topic": message.topic},
                             # )
-                            if self.do_run:
-                                # print(f"listen: {self.do_run}, {self.connected}")
-                                msg = Message(
-                                    data=from_json(message.payload),
-                                    source_path=message.topic,
-                                )
-                                # self.logger.debug(
-                                #     "mqtt receive message:", extra={"data": msg.data}
-                                # )
-                                await self.sub_data.put(msg)
-                                self.logger.debug(
-                                    "MQTT Client - recv message",
-                                    extra={
-                                        "q": self.sub_data.qsize(),
-                                        "payload": message.topic,
-                                    },
-                                )
-                                # print(
-                                #     f"message received: {msg.data}"
-                                #     # f"topic: {message.topic}, message: {message.payload.decode()}"
-                                # )
-                            else:
-                                # print("close messages")
-                                self.connected = False
-                                await messages.aclose()
+                        if self.do_run:
+                            # print(f"listen: {self.do_run}, {self.connected}")
+                            msg = Message(
+                                data=from_json(message.payload),
+                                source_path=message.topic,
+                            )
+                            # self.logger.debug(
+                            #     "mqtt receive message:", extra={"data": msg.data}
+                            # )
+                            await self.sub_data.put(msg)
+                            self.logger.debug(
+                                "MQTT Client - recv message",
+                                extra={
+                                    "q": self.sub_data.qsize(),
+                                    "payload": message.topic,
+                                },
+                            )
+                            # print(
+                            #     f"message received: {msg.data}"
+                            #     # f"topic: {message.topic}, message: {message.payload.decode()}"
+                            # )
+                        else:
+                            # print("close messages")
+                            self.connected = False
+                            # await messages.aclose()
 
-                            # print(message.payload.decode())
-                            # test_count += 1
+                        # print(message.payload.decode())
+                        # test_count += 1
             except MqttError as error:
                 self.connected = False
                 self.logger.error("MQTT Client MqttError", extra={"error": error})
