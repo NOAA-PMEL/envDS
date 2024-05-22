@@ -22,6 +22,11 @@ from cloudevents.exceptions import InvalidStructuredJSON
 # from typing import Union
 from pydantic import BaseModel
 
+try:
+    import RPi.GPIO as GPIO
+except ModuleNotFoundError:
+    print("error GPIO - might need sudo")
+
 global cluster_id
 
 
@@ -62,6 +67,13 @@ class SystemConfig(BaseModel):
     added_services: list | None = []
     user_services: list | None = []
     namespace: str | None = "envds"
+
+class GPIOConfig(BaseModel):
+    # based on BOARD numbers and GPIO_A
+    cdp_enable_pin: int = 31
+    power_bus_28v_pin: int = 29
+    power_bus_12v_pin: int = 11
+    dryer_pump_pin: int = 16
 
 
 # utils
@@ -1375,6 +1387,21 @@ def delete(apply_config: ApplyConfig):
     except Exception as e:
         print(e)
 
+def gpio_power_switch(pin, power=False, cleanup=False):
+    
+    if 'RPi.GPIO' in sys.modules:
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+
+        if power:
+            GPIO.output(pin, GPIO.HIGH)
+        else:
+            GPIO.output(pin, GPIO.LOW)
+
+        if cleanup:
+            GPIO.cleanup(pin)
+    else:
+        pass
 
 # def start_mqtt():
 #     # args = [
@@ -1402,6 +1429,9 @@ def run(args):
 
     file_parent = argparse.ArgumentParser(add_help=False)
     file_parent.add_argument("-f", "--file", type=str, help="file")
+
+    power_state_parent = argparse.ArgumentParser(add_help=False)
+    power_state_parent.add_argument("-s", "--state", type=str, help="file")
 
     system_parent = argparse.ArgumentParser(add_help=False)
     system_parent.add_argument(
@@ -1647,7 +1677,29 @@ def run(args):
         "sensors", parents=[id_parent, file_parent] #, sensor_parent]
     )
 
+    power_parser = command_sp.add_parser("power", help="operations: power command")
+    power_target_sp = power_parser.add_subparsers(
+        dest="target", help="power <target>"
+    )
+    # power_system_parser = power_target_sp.add_parser(
+    #     "system", parents=[id_parent, file_parent, system_parent]
+    # )
 
+    power_cdp_parser = power_target_sp.add_parser(
+        "cdp_enable", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_28v_parser = power_target_sp.add_parser(
+        "28v", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_12v_1_parser = power_target_sp.add_parser(
+        "12v", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_12v_2_parser = power_target_sp.add_parser(
+        "dryer_pump", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
 
     # subparsers = parser.add_subparsers(dest="command", help="sub-command help")
     # init_parser = subparsers.add_parser("init", help="init envds instance")
@@ -1839,7 +1891,7 @@ def run(args):
     # os.chdir("..")
     # print(wd, os.getcwd())
 
-    if cl_args.envds_id:
+    if "envds_id" in cl_args and cl_args.envds_id:
         cluster_id = cl_args.envds_id
 
     if cl_args.command == "create":
@@ -1915,6 +1967,33 @@ def run(args):
 
         elif cl_args.target == "sensors":
             shutdown_sensors(sensors_file=cl_args.file)
+
+    elif cl_args.command == "power":
+
+        # if cl_args.target == "system":
+        #     if create_cluster(cl_args):
+        #         print("cluster created")
+        #         create_envds()
+                
+        gpioconfig = GPIOConfig()
+
+        power_state = False    
+        if cl_args.state.lower() == "on" or cl_args.state.lower() == "true":
+            power_state = True
+
+        if cl_args.target == "cdp_enable":
+            print(cl_args.state, power_state)
+            gpio_power_switch(pin=gpioconfig.cdp_enable_pin, power=power_state)
+        elif cl_args.target == "28v":
+            print(cl_args.state)
+            gpio_power_switch(pin=gpioconfig.power_bus_28v_pin, power=power_state)
+        elif cl_args.target == "12v":
+            print(cl_args.state)
+            gpio_power_switch(pin=gpioconfig.power_bus_12v_pin, power=power_state)
+        elif cl_args.target == "dryer_pump":
+            print(cl_args.state)
+            gpio_power_switch(pin=gpioconfig.dryer_pump_pin, power=power_state)
+
 
         # elif cl_args.target == "dataserver":
         #     create_dataserver()
