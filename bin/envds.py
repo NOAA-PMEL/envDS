@@ -72,8 +72,9 @@ class GPIOConfig(BaseModel):
     # based on BOARD numbers and GPIO_B
     cdp_enable_pin: int = 31
     power_bus_28v_pin: int = 13
-    power_bus_12v_pin: int = 22
-    dryer_pump_pin: int = 16
+    power_bus_12v_1_pin: int = 22
+    power_bus_12v_2_pin: int = 16
+    pitot_tube_pin: int = 29
 
 
 # utils
@@ -1694,11 +1695,23 @@ def run(args):
     )
 
     power_12v_1_parser = power_target_sp.add_parser(
-        "12v", parents=[power_state_parent] #, file_parent] #, service_parent]
+        "12v-1", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_12v_msems_parser = power_target_sp.add_parser(
+        "12v-msems", parents=[power_state_parent] #, file_parent] #, service_parent]
     )
 
     power_12v_2_parser = power_target_sp.add_parser(
-        "dryer_pump", parents=[power_state_parent] #, file_parent] #, service_parent]
+        "12v-2", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_12v_other_parser = power_target_sp.add_parser(
+        "12v-other", parents=[power_state_parent] #, file_parent] #, service_parent]
+    )
+
+    power_pitot_tube_parser = power_target_sp.add_parser(
+        "pitot_tube_enable", parents=[power_state_parent] #, file_parent] #, service_parent]
     )
 
     # subparsers = parser.add_subparsers(dest="command", help="sub-command help")
@@ -1987,12 +2000,18 @@ def run(args):
         elif cl_args.target == "28v":
             print(cl_args.state)
             gpio_power_switch(pin=gpioconfig.power_bus_28v_pin, power=power_state)
-        elif cl_args.target == "12v":
+        elif cl_args.target == "12v-1" or cl_args.target == "12v-other":
             print(cl_args.state)
-            gpio_power_switch(pin=gpioconfig.power_bus_12v_pin, power=power_state)
-        elif cl_args.target == "dryer_pump":
+            gpio_power_switch(pin=gpioconfig.power_bus_12v_1_pin, power=power_state)
+        elif cl_args.target == "12v-2" or cl_args.target == "12v-msems":
             print(cl_args.state)
-            gpio_power_switch(pin=gpioconfig.dryer_pump_pin, power=power_state)
+            gpio_power_switch(pin=gpioconfig.power_bus_12v_2_pin, power=power_state)
+        elif cl_args.target == "pitot_tube_enable":
+            # power_state = True    
+            # if cl_args.state.lower() == "on" or cl_args.state.lower() == "true":
+            #     power_state = False
+            print(cl_args.state)
+            gpio_power_switch(pin=gpioconfig.pitot_tube_pin, power=power_state)
 
 
         # elif cl_args.target == "dataserver":
