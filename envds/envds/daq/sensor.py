@@ -919,12 +919,18 @@ class Sensor(envdsBase):
             record["variables"] = self.config.metadata.dict()["variables"]
             # print(record)
             for name,_ in record["variables"].items():
-                record["variables"][name]["data"] = None
+                if "variable_type" in record["variables"][name]["attributes"] and record["variables"][name]["attributes"]["data"] == "setting":
+                    record["variables"][name]["data"] = self.settings[name]["actual"]
+                else:
+                    record["variables"][name]["data"] = None
             # print(record)
         else:
             record["variables"] = dict()
             for name,_ in self.config.metadata.variables.items():
-                record["variables"][name] = {"data": None}
+                if "variable_type" in record["variables"][name]["attributes"] and record["variables"][name]["attributes"]["data"] == "setting":
+                    record["variables"][name] = {"data": self.settings[name]["actual"]}
+                else:
+                    record["variables"][name] = {"data": None}
         # # print(record)
         # for name, var in self.config.variables.items():
         #     # print(f"name: {name}, var: {var}")

@@ -300,7 +300,7 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
                     "default_value": {"type": "int", "data": 1},
-                    "variable_type": "settings",
+                    "variable_type": "setting",
                 },
             },
             "q_target": {
@@ -313,7 +313,7 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 360},
                     "step_increment": {"type": "int", "data": 10},
                     "default_value": {"type": "int", "data": 300},
-                    "variable_type": "settings",
+                    "variable_type": "setting",
                 },
             },
         },
@@ -419,8 +419,17 @@ class MAGIC250(Sensor):
                 "magcic250.configure", extra={"interfaces": conf["interfaces"]}
             )
 
-        for name, setting in MAGIC250.metadata["settings"].items():
+        setting_variables = {}
+        for for name, var in MAGIC250.metadata["variables"].items():
+            if "variable_type" in var["attributes"] and var["attributes"]["variable_type"] == "setting":
+                setting_variables[name] = var
+
+
+        # for name, setting in MAGIC250.metadata["settings"].items():
+        for name, setting in setting_variables.items():
             requested = setting["attributes"]["default_value"]["data"]
+
+            #TODO how does this work? Where is config defined?
             if "settings" in config and name in config["settings"]:
                 requested = config["settings"][name]
 
@@ -429,7 +438,8 @@ class MAGIC250(Sensor):
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
             variables=MAGIC250.metadata["variables"],
-            settings=MAGIC250.metadata["settings"],
+            # settings=MAGIC250.metadata["settings"],
+            settings=setting_variables,
         )
 
         self.config = SensorConfig(
