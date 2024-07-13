@@ -420,7 +420,7 @@ class MAGIC250(Sensor):
             )
 
         setting_variables = {}
-        for for name, var in MAGIC250.metadata["variables"].items():
+        for name, var in MAGIC250.metadata["variables"].items():
             if "variable_type" in var["attributes"] and var["attributes"]["variable_type"] == "setting":
                 setting_variables[name] = var
 
