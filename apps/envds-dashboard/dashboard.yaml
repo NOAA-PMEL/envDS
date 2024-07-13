@@ -1,0 +1,259 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: default
+  labels:
+    app: dashboard
+spec:
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+      - name: dashboard
+        # image: uasbase2.pmel.noaa.gov:448/test/dashboard@sha256:1efee0c698b3037b822d00237114e25aacad59942c9dd9199168cc2631143d8d
+        image: uasbase2.pmel.noaa.gov:448/test/dashboard:v1.0.3
+        imagePullPolicy: "Always"
+        env:
+        - name: DASHBOARD_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard
+              key: port
+        - name: DASHBOARD_KNATIVE_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: db-manager
+              key: knative_broker
+        - name: DASHBOARD_MONGODB_DATA_USER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: db-manager
+              key: mongodb_data_user_name
+        - name: DASHBOARD_MONGODB_REGISTRY_USER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: db-manager
+              key: mongodb_registry_user_name
+        - name: DASHBOARD_MONGODB_DATA_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-manager-data-user-password
+              key: password
+        - name: DASHBOARD_MONGODB_REGISTRY_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-manager-registry-user-password
+              key: password
+        - name: DASHBOARD_MONGODB_DATA_CONNECTION
+          valueFrom:
+            configMapKeyRef:
+              name: db-manager
+              key: mongodb_data_connection
+        - name: DASHBOARD_MONGODB_REGISTRY_CONNECTION
+          valueFrom:
+            configMapKeyRef:
+              name: db-manager
+              key: mongodb_registry_connection
+        # - name: DASHBOARD_ERDDAP_HTTP_CONNECTION
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: dashboard
+        #       key: erddap_http_connection
+        # - name: DASHBOARD_ERDDAP_HTTPS_CONNECTION
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: dashboard
+        #       key: erddap_https_connection
+        # - name: DASHBOARD_ERDDAP_AUTHOR
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: uasdaq-registry-erddap-author
+        #       key: author
+        # - name: DASHBOARD_BACKLOG_MAX_TRIES
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: dashboard
+        #       key: backlog_max_tries
+        resources:
+          requests:
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        ports:
+        - name: http
+          # containerPort: 8000
+          containerPort: 80
+          protocol: TCP
+      #   volumeMounts:
+      #     - name: erddap-datasetd-storage
+      #       mountPath: /datasets.d
+      #       # subPath: datasets.d
+      #     - name: erddap-content-storage
+      #       mountPath: /usr/local/tomcat/content/erddap
+      #       # subPath: erddap
+      #     - name: erddap-data-pv-storage
+      #       mountPath: /erddapData
+      #       # subPath: erddapData
+      # volumes:
+      #   - name: erddap-datasetd-storage
+      #     persistentVolumeClaim:
+      #       claimName: dataserver-erddap-datasetsd-pvc
+      #   - name: erddap-content-storage
+      #     persistentVolumeClaim:
+      #       claimName: dataserver-erddap-content-pvc
+      #   - name: erddap-data-pv-storage
+      #     persistentVolumeClaim:
+      #       claimName: dataserver-erddap-data-pvc
+---
+# apiVersion: serving.knative.dev/v1
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: default
+  labels:
+    app: dashboard
+spec:
+  selector:
+    app: dashboard
+  ports:
+  - name: http
+    protocol: TCP
+    # port: 8000
+    port: 80
+    # targetPort: 8000
+    targetPort: 80
+  type: ClusterIP  
+
+  # namespace: default
+# spec:
+#   template:
+#     metadata:
+#       annotations:
+#         autoscaling.knative.dev/min-scale: "1"
+#     spec:
+#       containers:
+#       - image: uasbase2.pmel.noaa.gov:448/test/archiver@sha256:48b92e56c749546333462c9fbdddb2c26fbf4552f4c841dfce80dfe374b4cd2f
+#       # - image: uasbase2.pmel.noaa.gov:448/test/verify@sha256:24f211dd56469e80bc6b618ac89b3a2e034be9741921996ae6ce53659dfb46fb
+#       # - image: uasbase2.pmel.noaa.gov:448/test/verify:v1.0.6
+#         # env:
+#         #   - name: IOT_ERDDAP_INSERT_URL
+#         #     # value: "http://erddap:8080/erddap/tabledap"
+#         #     value: "https://34.69.109.152:8443/erddap/tabledap"
+#         #   - name: IOT_ERDDAP_INSERT_AUTHOR
+#         #     value: "super_secret_author"
+#         # securityContext:
+#         #   allowPrivilegeEscalation: false
+#         volumeMounts:
+#             - mountPath: /data
+#               name: archive-data
+#               readOnly: false
+#       volumes:
+#         - name: archive-data
+#           persistentVolumeClaim:
+#             claimName: dashboard-pv-claim
+#             readOnly: false
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: erddap-util-sensor-reg-update
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: sensor.registry.update
+#   subscriber:
+#     ref:
+#       apiVersion: v1
+#       kind: Service
+#       name: erddap-util
+#     uri: /dataset/sensor/add
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: erddap-util-sensor-reg-backlog
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: sensor.registry.backlog
+#   subscriber:
+#     ref:
+#       apiVersion: v1
+#       kind: Service
+#       name: erddap-util
+#     uri: /dataset/sensor/backlog
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: dashboard-stripprefix
+  namespace: default
+  # labels:
+  #   app: envds
+spec:
+  stripPrefix:
+    prefixes:
+      - /uasdaq/dashboard
+---
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: erddap-rewrite
+#   namespace: default
+# spec:
+#   replacePathRegex:
+#     regex: /erddap/(.*)
+#     replacement: /envds/dataserver/erddap/$1
+# ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-ingress
+  namespace: default
+  # labels:
+  #   app: envds
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    traefik.ingress.kubernetes.io/router.middlewares:
+      default-dashboard-stripprefix@kubernetescrd
+      # default-erddap-rewrite@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      # - path: /erddap
+      - path: /uasdaq/dashboard
+        pathType: Prefix
+        # pathType: Exact
+        backend:
+          service:
+            name: dashboard
+            port:
+              # number: 8000
+              number: 80
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: dashboard-sensor-data-update
+spec:
+  broker: default
+  filter:
+    attributes:
+      type: sensor.data.update
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: dashboard
+    uri: /sensor/data/update

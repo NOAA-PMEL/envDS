@@ -1,0 +1,131 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: default
+spec:
+  template:
+    # metadata:
+    #   annotations:
+    #     autoscaling.knative.dev/max-scale: "3"
+    spec:
+      containers:
+      - image: uasbase2.pmel.noaa.gov:448/test/dashboard@sha256:3f2d5f7fb6191fb1fd0c2cdd8a02d575d9c7b7046ff781a91e6d5ae39026f25f  
+      # - image: uasbase2.pmel.noaa.gov:448/test/verify:v1.0.6
+        env:
+        - name: DB_MANAGER_KNATIVE_BROKER
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard
+              key: knative_broker
+        - name: DB_MANAGER_MONGODB_USER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard
+              key: mongodb_data_user_name
+        - name: DB_MANAGER_MONGODB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: uasdaq-data-user-password
+              key: password
+        - name: DB_MANAGER_MONGODB_CONNECTION
+          valueFrom:
+            configMapKeyRef:
+              name: dashboard
+              key: mongodb_connection
+        # - name: DB_MANAGER_ERDDAP_HTTP_CONNECTION
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: dashboard
+        #       key: erddap_http_connection
+        # - name: DB_MANAGER_ERDDAP_HTTPS_CONNECTION
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: dashboard
+        #       key: erddap_https_connection
+        # - name: DB_MANAGER_ERDDAP_AUTHOR
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: uasdaq-registry-erddap-author
+        #       key: author
+        securityContext:
+          allowPrivilegeEscalation: false
+      #   volumeMounts:
+      #       - mountPath: /datasets.d
+      #         name: erddap-datasetd-storage
+      #         readOnly: false
+      #       - mountPath: /erddap_content
+      #         name: erddap-content-storage
+      #         readOnly: false
+      # volumes:
+      #   - name: erddap-datasetd-storage
+      #     persistentVolumeClaim:
+      #       claimName: dataserver-erddap-datasetsd-pvc
+      #       readOnly: false
+      #   - name: erddap-content-storage
+      #     persistentVolumeClaim:
+      #       claimName: dataserver-erddap-content-pvc
+      #       readOnly: false
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: dashboard-sensor-update
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: sensor.data.update
+#   subscriber:
+#     ref:
+#       apiVersion: serving.knative.dev/v1
+#       kind: Service
+#       name: dashboard
+#     uri: /sensor/data/update
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: dashboard-manage-init
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: manage.data-db.init
+#   subscriber:
+#     ref:
+#       apiVersion: serving.knative.dev/v1
+#       kind: Service
+#       name: dashboard
+#     uri: /data-db/init
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: register-sensor-sync
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: sensor.registry.sync
+#   subscriber:
+#     ref:
+#       apiVersion: serving.knative.dev/v1
+#       kind: Service
+#       name: db-manager
+#     uri: /register/sensor/sync
+# ---
+# apiVersion: eventing.knative.dev/v1
+# kind: Trigger
+# metadata:
+#   name: erddap-insert-qc
+# spec:
+#   broker: default
+#   filter:
+#     attributes:
+#       type: gov.noaa.pmel.acg.data.insert.envds.v2.qc
+#   subscriber:
+#     ref:
+#       apiVersion: v1
+#       kind: Service
+#       name: erddap-insert
