@@ -429,7 +429,7 @@ class MAGIC250(Sensor):
         for name, setting in setting_variables.items():
             requested = setting["attributes"]["default_value"]["data"]
 
-            #TODO how does this work? Where is config defined??
+            #TODO how does this work? Where is config defined?
             if "settings" in config and name in config["settings"]:
                 requested = config["settings"][name]
 
