@@ -59,8 +59,7 @@ class MAGIC250(Sensor):
                 "type": "char",
                 "data": "aerosol, cpc, particles, concentration, sensor",
             },
-            "format_version": {"type": "char", "data": "2.0.0"},
-            "format_version_changes": {"type": "string", "data": "1.0.0 to 2.0.0: moved settings into varialbes and add attribute 'variable_type': 'settings'"}
+            "format_version": {"type": "char", "data": "1.0.0"},
         },
         "variables": {
             "time": {
@@ -290,6 +289,8 @@ class MAGIC250(Sensor):
                     },
                 },
             },
+        },
+        "settings": {
             "pump_power": {
                 "type": "int",
                 "shape": ["time"],
@@ -300,8 +301,7 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
                     "default_value": {"type": "int", "data": 1},
-                    "variable_type": {"type": "string", "data": "setting"},
-                 },
+                },
             },
             "q_target": {
                 "type": "int",
@@ -313,36 +313,9 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 360},
                     "step_increment": {"type": "int", "data": 10},
                     "default_value": {"type": "int", "data": 300},
-                    "variable_type": {"type": "string", "data": "setting"},
                 },
             },
         },
-        # "settings": {
-        #     "pump_power": {
-        #         "type": "int",
-        #         "shape": ["time"],
-        #         "attributes": {
-        #             "long_name": {"type": "char", "data": "Pump Power"},
-        #             "units": {"type": "char", "data": "count"},
-        #             "valid_min": {"type": "int", "data": 0},
-        #             "valid_max": {"type": "int", "data": 1},
-        #             "step_increment": {"type": "int", "data": 1},
-        #             "default_value": {"type": "int", "data": 1},
-        #         },
-        #     },
-        #     "q_target": {
-        #         "type": "int",
-        #         "shape": ["time"],
-        #         "attributes": {
-        #             "long_name": {"type": "char", "data": "Target Volumetric Flow Rate"},
-        #             "units": {"type": "char", "data": "cm3 min-1"},
-        #             "valid_min": {"type": "int", "data": 240},
-        #             "valid_max": {"type": "int", "data": 360},
-        #             "step_increment": {"type": "int", "data": 10},
-        #             "default_value": {"type": "int", "data": 300},
-        #         },
-        #     },
-        # },
     }
 
     def __init__(self, config=None, **kwargs):
@@ -419,17 +392,8 @@ class MAGIC250(Sensor):
                 "magic250.configure", extra={"interfaces": conf["interfaces"]}
             )
 
-        setting_variables = {}
-        for name, var in MAGIC250.metadata["variables"].items():
-            if "variable_type" in var["attributes"] and var["attributes"]["variable_type"] == "setting":
-                setting_variables[name] = var
-
-
-        # for name, setting in MAGIC250.metadata["settings"].items():
-        for name, setting in setting_variables.items():
+        for name, setting in MAGIC250.metadata["settings"].items():
             requested = setting["attributes"]["default_value"]["data"]
-
-            #TODO how does this work? Where is config defined??
             if "settings" in config and name in config["settings"]:
                 requested = config["settings"][name]
 
@@ -439,8 +403,7 @@ class MAGIC250(Sensor):
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
             variables=MAGIC250.metadata["variables"],
-            # settings=MAGIC250.metadata["settings"],
-            settings=setting_variables,
+            settings=MAGIC250.metadata["settings"],
         )
 
         self.config = SensorConfig(
