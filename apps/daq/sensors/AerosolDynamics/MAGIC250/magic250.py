@@ -300,8 +300,8 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 1},
                     "step_increment": {"type": "int", "data": 1},
                     "default_value": {"type": "int", "data": 1},
-                    "variable_type": "setting",
-                },
+                    "variable_type": {"type": "string", "data": "setting"},
+                 },
             },
             "q_target": {
                 "type": "int",
@@ -313,7 +313,7 @@ class MAGIC250(Sensor):
                     "valid_max": {"type": "int", "data": 360},
                     "step_increment": {"type": "int", "data": 10},
                     "default_value": {"type": "int", "data": 300},
-                    "variable_type": "setting",
+                    "variable_type": {"type": "string", "data": "setting"},
                 },
             },
         },
@@ -416,7 +416,7 @@ class MAGIC250(Sensor):
                         iface[propname] = prop
 
             self.logger.debug(
-                "magcic250.configure", extra={"interfaces": conf["interfaces"]}
+                "magic250.configure", extra={"interfaces": conf["interfaces"]}
             )
 
         setting_variables = {}
@@ -435,6 +435,7 @@ class MAGIC250(Sensor):
 
             self.settings.set_setting(name, requested=requested)
 
+        print(f"setting_variables: {setting_variables}")
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
             variables=MAGIC250.metadata["variables"],

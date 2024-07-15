@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
       - name: aerosoldynamics-magic250-142
-        image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.0
+        image: envds-registry-cloudy:5000/envds/sensor/aerosoldynamics-magic250:0.1.1
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID

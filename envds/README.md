@@ -1,0 +1,1 @@
+pip wheel -e  . -w lib
