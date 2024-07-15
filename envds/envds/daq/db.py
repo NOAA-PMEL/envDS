@@ -70,7 +70,7 @@ async def init_sensor_registration():
     await init_model_type(SensorRegistration)
 
 
-# async def register_sensor_type_as_sensor(sensor: Sensor, version: str = "2.0.0"):
+# async def register_sensor_type_as_sensor(sensor: Sensor, version: str = "1.0.0"):
 #     await register_sensor_type(
 #         make=sensor.get_make(),
 #         model=sensor.get_model(),
@@ -80,7 +80,7 @@ async def init_sensor_registration():
 
 
 async def register_sensor_type(
-    make: str, model: str, version: str = "2.0.0", creation_date: str = None, metadata: dict = {}
+    make: str, model: str, version: str = "1.0.0", creation_date: str = None, metadata: dict = {}
 ):
     print(f'redis url: {os.getenv("REDIS_OM_URL")}')
     try:
@@ -132,7 +132,7 @@ async def register_sensor_type(
 
 # TODO: abstract the find method?
 async def get_sensor_type_registration(
-    make: str, model: str, version: str = "2.0.0"
+    make: str, model: str, version: str = "1.0.0"
 ) -> SensorTypeRegistration:
     try:
         reg = await SensorTypeRegistration.find(
@@ -147,7 +147,7 @@ async def get_sensor_type_registration(
         return None
 
 
-async def get_sensor_type_metadata(make: str, model: str, version: str = "2.0.0") -> dict:
+async def get_sensor_type_metadata(make: str, model: str, version: str = "1.0.0") -> dict:
     reg = await get_sensor_type_registration(make=make, model=model, version=version)
     if reg:
         return reg.metadata

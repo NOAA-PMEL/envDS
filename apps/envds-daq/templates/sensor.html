@@ -190,12 +190,6 @@
         
         for (var variable in sensor_meta["variables"]) {
             // console.log(variable)
-
-            if ("variable_type" in sensor_meta["variables"][variable]["attributes"] && sensor_meta["variables"][variable]["attributes"]["data"] != "data") {
-                continue
-            }
-
-
             var use_2d = false
             if (variable == "time") {
                 continue
@@ -325,9 +319,6 @@
         cell.setAttribute('id', table_id + '-setbuttoncol');
 
         for (var setting in sensor_meta["settings"]) {
-            if ("variable_type" in sensor_meta["variables"][setting]["attributes"] && sensor_meta["variables"][setting]["attributes"]["data"] != "setting") {
-                continue
-            }
             console.log(setting)
 
             try {
@@ -488,7 +479,6 @@
         if (keys.includes("variables")) {
             // console.log("update data table")
             for (var meas in data['variables']) {
-
                 var cell_value = ''
                 if (data['variables'][meas]['data'] == null) {
                     continue
@@ -502,12 +492,10 @@
                 } else {
                     cell_id = (meas+"-value")
                 }
-                if (document.getElementById(cell_id)) {
-                    try {
-                        document.getElementById(cell_id).innerHTML = data['variables'][meas]['data']
-                    }
-                    catch (TypeError) {}
+                try {
+                    document.getElementById(cell_id).innerHTML = data['variables'][meas]['data']
                 }
+                catch (TypeError) {}
             }   
         }
 
