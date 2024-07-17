@@ -365,7 +365,7 @@ class UBloxGPS(Sensor):
                     record["variables"]["time"]["data"] = data.data["timestamp"]
                     
                     parts = data.data["data"].strip().split(",")
-                    # print(f"parts: {parts}, {variables}")
+                    print(f"parts: {parts}, {variables}")
                     if len(parts) == 7 and parts[0] == self.sensor_id:
 
                         record["variables"]["gps_date"]["data"] = parts[1]

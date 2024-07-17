@@ -145,7 +145,7 @@ class TCPClient(DAQClient):
             try:
                 print(f"recv_from_client:1 props {self.config.properties}")
                 props = self.config.properties["sensor-interface-properties"]["read-properties"]
- 
+                        
                 print(f"recv_from_client:1.1 - sip {self.config.properties['sensor-interface-properties']}")
                 print(f"recv_from_client:1.2 - rp {self.config.properties['sensor-interface-properties']['read-properties']}")
                 print(f"recv_from_client:1.3 - rm {self.config.properties['sensor-interface-properties']['read-properties']['read-method']}")
