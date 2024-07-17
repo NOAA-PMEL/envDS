@@ -1,0 +1,7 @@
+InterMet/XFMainBoard
+InterMet/HYT271
+InterMet/NTC
+InterMet/UBloxGPS
+KippZonen/SPLite2
+Rotronic/HC2A
+Sensiron/SHT35
