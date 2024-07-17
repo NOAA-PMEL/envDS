@@ -304,7 +304,7 @@ class Interface(envdsBase):
 
     async def client_registry_monitor(self):
 
-        registry_expiration = 10  # if no activity in 5 minutes, expire the connection
+        registry_expiration = 60  # if no activity in 5 minutes, expire the connection
         while True:
             try:
                 for id, client in self.client_registry.items():
@@ -398,7 +398,7 @@ class Interface(envdsBase):
                 self.client_map[client_id]["client"].set_sensor_interface_properties(
                     iface_props=sensor_interface_properties
                 )
-
+                self.logger.debug("handle_config", extra={"client_map": self.client_map})
             except KeyError:
                 self.logger.error("handle_config error", extra={"data": message.data})
 

@@ -155,9 +155,10 @@ class MQTTMessageClient(MessageClient):
         #     await asyncio.sleep(1)  # wait for client to be ready
         if self.client:
             try:
+                self.logger.debug(f"subscribe topic: {topic}")
                 await self.client.subscribe(topic)
             except MqttError as error:
-                self.logger.warn("MQTT Client _subscribe: {error}")
+                self.logger.warn(f"MQTT Client _subscribe: {error}")
 
     async def _unsubscribe_all(self):
         for sub in self.subscriptions:
@@ -177,19 +178,24 @@ class MQTTMessageClient(MessageClient):
                 self.logger.warn("MQTT Client _unsubscribe: {error}")
 
     async def run(self):
-
+        # self.client = Client(hostname=self.mqtt_config["hostname"])
         while self.do_run:
             try:
                 # async with Client(hostname=self.mqtt_config["hostname"], client_id=self.client_id) as self.client:
                 async with Client(hostname=self.mqtt_config["hostname"]) as self.client:
-
+                    self.logger.debug("mqtt client:", extra={"client": self.client})
+                # async with self.client:
                     await self._subscribe_all()
-
+                    self.logger.debug("mqtt client:", extra={"client": self.client})
                     # async with self.client.unfiltered_messages() as messages:
                     # async with self.client.messages() as messages:
+                    self.connected = True
                     async for message in self.client.messages: #() as messages:
+                        self.logger.debug("mqtt client:", extra={"payload": message})
                         # print(f"messages: {messages}")
-                        self.connected = True
+
+                        # self.connected = True
+                        
                         # async for message in messages:
                             # self.logger.debug(
                             #     "MQTT Client - recv message",
@@ -197,6 +203,7 @@ class MQTTMessageClient(MessageClient):
                             # )
                         if self.do_run:
                             # print(f"listen: {self.do_run}, {self.connected}")
+                            self.logger.debug("mqtt client:", extra={"payload": from_json(message.payload)})
                             msg = Message(
                                 data=from_json(message.payload),
                                 source_path=message.topic,

@@ -559,7 +559,7 @@ class _BaseClient(abc.ABC):
         else:
             log_level = default_log_level
         envdsLogger(level=log_level).init_logger()
-        print("logger?")
+        # print("logger?")
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"Starting {self.__class__.__name__}")
 

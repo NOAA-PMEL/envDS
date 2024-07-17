@@ -386,7 +386,10 @@ class MAGIC250(Sensor):
             for name, iface in conf["interfaces"].items():
                 if name in sensor_iface_properties:
                     for propname, prop in sensor_iface_properties[name].items():
-                        iface[propname] = prop
+                    
+                        # add local if not in user config
+                        if propname not in iface:
+                            iface[propname] = prop
 
             self.logger.debug(
                 "magic250.configure", extra={"interfaces": conf["interfaces"]}
@@ -399,7 +402,7 @@ class MAGIC250(Sensor):
 
             self.settings.set_setting(name, requested=requested)
 
-        print(f"setting_variables: {setting_variables}")
+        # print(f"setting_variables: {setting_variables}")
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
             variables=MAGIC250.metadata["variables"],

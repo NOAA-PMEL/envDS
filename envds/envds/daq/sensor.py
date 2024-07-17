@@ -294,7 +294,7 @@ class Sensor(envdsBase):
 
 
         # dest_path = f"/envds/{iface_envds_env_id}/interface/{iface['interface_id']}/{iface['path']}/connect/request"
-        # print(f"name:1 {name}, iface: {interface}")
+        print(f"name:1 {name}, iface: {interface}")
         if name and interface:
 
             try:
@@ -302,30 +302,30 @@ class Sensor(envdsBase):
             except KeyError:
                 interface["interface_env_id"] = self.id.app_env_id
 
-            # print(f"name:2 {name}, iface: {interface}")
+            print(f"name:2 {name}, iface: {interface}")
             if name not in self.iface_map or update:
                 self.iface_map[name] = {
                     "interface": interface,
                     "status": envdsStatus()
                 }
-                # print(f"name:3 {name}, iface: {interface}")
+                print(f"name:3 {name}, iface: {interface}")
                 self.iface_map[name]["status"].set_state_param(
                     envdsStatus.RUNNING,
                     requested=envdsStatus.TRUE,
                     actual=envdsStatus.TRUE,
                 )
-                # print(f"name:4 {name}, iface: {interface}")
+                print(f"name:4 {name}, iface: {interface}")
                 env_id = interface["interface_env_id"]
                 id = interface["interface_id"]
                 path = interface["path"]
 
-                # print(f"name:5 {name}, iface: {interface}")
+                print(f"name:5 {name}, iface: {interface}")
                 self.set_route(
                     subscription=f"/envds/{env_id}/interface/{id}/{path}/status/update",
                     route_key=det.interface_status_update(),
                     route=self.handle_interface_status
                 )
-                # print(f"name:6 {name}, iface: {interface}")
+                print(f"name:6 {name}, iface: {interface}")
 
  
         # if enable:
@@ -399,10 +399,10 @@ class Sensor(envdsBase):
             try:
                 client_id = message.data["path_id"]
                 for name, interface in self.iface_map.items():
-                    # self.logger.debug("handle_interface_status", extra={"iface": interface})
+                    self.logger.debug("handle_interface_status", extra={"iface": interface})
                     if interface["interface"]["path"] == client_id:
                         # self.logger.debug("handle_interface_status", extra={"status": interface["status"].get_status()})
-                        # self.logger.debug("handle_interface_status", extra={"data": message.data.data["state"]})
+                        self.logger.debug("handle_interface_status", extra={"data": message.data.data["state"]})
                         
                         interface["status"].set_state(message.data.data["state"])
 
@@ -507,6 +507,7 @@ class Sensor(envdsBase):
             if send_config:
 
                 for name, iface in self.iface_map.items():
+                    self.logger.debug("interface_config_monitor", extra={"n": name, "iface": iface})
                     # status = iface["status"]
                     # self.logger.debug("interface_check", extra={"status": status.get_status()})
                     # if not status.get_health():
