@@ -205,15 +205,22 @@ task_list = []
 #                 self.save_now = True
 #                 await asyncio.sleep(1)
 
-class MQTTClient():
+class MQTTRelayClient():
     """docstring for MQTTClient."""
     def __init__(self, config):
-        super(MQTTClient, self).__init__()
+        super(MQTTRelayClient, self).__init__()
         self.logger = logging.getLogger(__name__)
     
         self.client_id = str(ulid.ULID())
         self.client = None
         self.config = config
+
+        self.pub_data = asyncio.Queue()
+        self.sub_data = asyncio.Queue()
+        self.subscriptions = []
+
+        self.run_task_list = []
+        self.do_run = False
 
     async def sender(sensor_config, start_time, end_time):
 
@@ -469,6 +476,7 @@ class envdsRelay(envdsBase):
                     # close/delete relay client
                 self.target_map[name] = target
                 # create relay client
+                # add queues for pub/sub
 
     def run_setup(self):
         super().run_setup()
