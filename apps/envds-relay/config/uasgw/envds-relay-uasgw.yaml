@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envds-relay-uasgw-config
+  namespace: envds
+  labels:
+    app: envds-relay-uasgw
+data:
+  relay.conf: |
+    # daq_id: cloudysky
+    targets:
+      uasbase1:
+        uri: 10.55.169.91
+        mqtt-port: 1883
+        target-namespace: uasdaq
+        datasystem-id-prefix: uas-uasgw
+        # topic-base: <namespace>/<datasytem-id-prefix::datasystem-id>/<dataformat>
+        # topic-base: /uasdaq/
+        # mqtt-auth-secret: mqtt-auth-uasbase1
+      # aws:
+      #   uri: <endpoint>
+      #   mqtt-port: 8883
+      #   mqtt-auth-secret: mqtt-auth-aws
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envds-relay-uasgw
+  namespace: envds
+  labels:
+    app: envds-relay-uasgw
+spec:
+  selector:
+    matchLabels:
+      app: envds-relay-uasgw
+  template:
+    metadata:
+      labels:
+        app: envds-relay-uasgw
+    spec:
+      containers:
+      - name: envds-relay-uasgw
+        image: envds-registry-uasgw:5000/envds/envds-relay:0.1.0
+        imagePullPolicy: "Always"
+        env:
+          - name: ENVDS_ENV_ID
+            value: uasgw
+          # - name: REDIS_OM_URL
+          #   value: redis://redis.default
+          - name: LOG_LEVEL
+            value: DEBUG
+          # - name: ENVDS_RELAY_mqtt-auth-uasbase1-username
+          #   valueFrom:
+          #     secretKeyRef:
+          #       name: mqtt-auth-uasbase1
+          #       key: username
+          # - name: ENVDS_RELAY_mqtt-auth-uasbase1-password
+          #   valueFrom:
+          #     secretKeyRef:
+          #       name: mqtt-auth-uasbase1
+          #       key: password
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 9080
+          protocol: TCP
+        volumeMounts:
+          - name: envds-relay-uasgw-config
+            mountPath: /app/config/relay.conf
+            subPath: relay.conf
+      volumes:
+        - name: envds-relay-uasgw-config
+          configMap:
+            name: envds-relay-uasgw-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envds-relay-uasgw
+  namespace: envds
+  labels:
+    app: envds-relay-uasgw
+spec:
+  selector:
+    app: envds-relay-uasgw
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9080
+    targetPort: 9080
+  # - name: https
+  #   port: 8883
+  #   targetPort: 8883
+  # type: LoadBalancer
+  type: ClusterIP

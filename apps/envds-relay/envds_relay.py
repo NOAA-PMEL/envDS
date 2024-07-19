@@ -213,106 +213,117 @@ class MQTTRelayClient():
     
         self.client_id = str(ulid.ULID())
         self.client = None
-        self.config = config
 
-        self.pub_data = asyncio.Queue()
-        self.sub_data = asyncio.Queue()
+        self.config = config
+        self.pub_data = self.config.get("pub-data-buffer", None)
+        self.sub_data = self.config.get("sub-data-buffer", None)
+
         self.subscriptions = []
 
         self.run_task_list = []
-        self.do_run = False
+        self.run_task_list.append(asyncio.create_task(self.relay_publisher()))
+        self.run_task_list.append(asyncio.create_task(self.run()))
+        self.do_run = True
 
-    async def sender(sensor_config, start_time, end_time):
+    async def relay_publisher(self):
+        reconnect_interval = 5
+        while self.do_run:
+            print(f"relay_publisher: {self.do_run}, {self.connected}")
+            if self.connected:
+                msg = await self.pub_data.get()
+                self.logger.debug("relay_publisher", extra={"paylaod": msg})
+                await asyncio.sleep(.1)
+    # async def sender(sensor_config, start_time, end_time):
 
-        parts = sensor_config["sensor-id"].split("::")
-        mfg = parts[0]
-        model = parts[1]
-        serial_number = parts[2]
-        send_freq = sensor_config["send-frequency"]
+    #     parts = sensor_config["sensor-id"].split("::")
+    #     mfg = parts[0]
+    #     model = parts[1]
+    #     serial_number = parts[2]
+    #     send_freq = sensor_config["send-frequency"]
 
-        data_dir = os.path.join(base_data_dir, mfg, model, serial_number)
-        fname = f"{start_time.split('T')[0]}.jsonl"
-        file = os.path.join(data_dir, fname)
-        if not os.path.isfile(file):
-            print(f"sensor not in flight: {sensor_config['sensor-id']}")
-            return
+    #     data_dir = os.path.join(base_data_dir, mfg, model, serial_number)
+    #     fname = f"{start_time.split('T')[0]}.jsonl"
+    #     file = os.path.join(data_dir, fname)
+    #     if not os.path.isfile(file):
+    #         print(f"sensor not in flight: {sensor_config['sensor-id']}")
+    #         return
         
-        files = glob.glob(f"{data_dir}/*.jsonl")
+    #     files = glob.glob(f"{data_dir}/*.jsonl")
 
-        topic = "/".join(
-            [
-                config.mqtt_topic_prefix,
-                "sensor",
-                sensor_config["sensor-id"],
-                "data",
-                "update",
-            ]
-        )
+    #     topic = "/".join(
+    #         [
+    #             config.mqtt_topic_prefix,
+    #             "sensor",
+    #             sensor_config["sensor-id"],
+    #             "data",
+    #             "update",
+    #         ]
+    #     )
 
-        # add dimensions if necessary
-        dimensions = {"time": 1}
+    #     # add dimensions if necessary
+    #     dimensions = {"time": 1}
 
-        try:
-            async with Client(config.mqtt_broker) as client:
-                print(f"client: {client}, topic: {topic}")
+    #     try:
+    #         async with Client(config.mqtt_broker) as client:
+    #             print(f"client: {client}, topic: {topic}")
 
-                # for file in files:
-                    # if os.path.basename(file) < "2023-07-18.jsonl":
-                    #     continue
-                with open(file, "r") as f:
-                    for line in f:
-                        try:
-                            record = json.loads(line)
-                        except Exception as e:
-                            print(f"error: {e}, line={line}")
-                            continue
+    #             # for file in files:
+    #                 # if os.path.basename(file) < "2023-07-18.jsonl":
+    #                 #     continue
+    #             with open(file, "r") as f:
+    #                 for line in f:
+    #                     try:
+    #                         record = json.loads(line)
+    #                     except Exception as e:
+    #                         print(f"error: {e}, line={line}")
+    #                         continue
                         
-                        if record["variables"]["time"]["data"] < start_time:
-                            continue
-                        if record["variables"]["time"]["data"] >= end_time:
-                            return
+    #                     if record["variables"]["time"]["data"] < start_time:
+    #                         continue
+    #                     if record["variables"]["time"]["data"] >= end_time:
+    #                         return
 
-                        if "diameter" in record["variables"]:
-                            if record["variables"]["diameter"]["data"] is None:
-                                #    print(f"missing diameter: {record}")
-                                continue
-                            dp_dim = len(record["variables"]["diameter"]["data"])
-                            if dp_dim > 0:
-                                dimensions["diameter"] = dp_dim
-                            else:
-                                continue
-                        # for n, v in record["variables"].items():
-                        #     print(n,v)
-                        #     if "shape" in v and len(v["shape"]) > 1:
-                        #         for shape in v["shape"]:
-                        #             print(shape, dimensions)
-                        #             if shape not in dimensions:
-                        #                 print(shape)
-                        #                 if isinstance(v["data"], list):
-                        #                     dimensions[shape] = len(v["data"])
-                        #                     print(dimensions)
-                        if isinstance(record["variables"]["time"], list):
-                            dimensions["time"] = len(record["variables"]["time"])
-                        record["dimensions"] = dimensions
-                        # print(f"record: {record}")
-                        # print(f"client: {client}, topic: {topic}")
+    #                     if "diameter" in record["variables"]:
+    #                         if record["variables"]["diameter"]["data"] is None:
+    #                             #    print(f"missing diameter: {record}")
+    #                             continue
+    #                         dp_dim = len(record["variables"]["diameter"]["data"])
+    #                         if dp_dim > 0:
+    #                             dimensions["diameter"] = dp_dim
+    #                         else:
+    #                             continue
+    #                     # for n, v in record["variables"].items():
+    #                     #     print(n,v)
+    #                     #     if "shape" in v and len(v["shape"]) > 1:
+    #                     #         for shape in v["shape"]:
+    #                     #             print(shape, dimensions)
+    #                     #             if shape not in dimensions:
+    #                     #                 print(shape)
+    #                     #                 if isinstance(v["data"], list):
+    #                     #                     dimensions[shape] = len(v["data"])
+    #                     #                     print(dimensions)
+    #                     if isinstance(record["variables"]["time"], list):
+    #                         dimensions["time"] = len(record["variables"]["time"])
+    #                     record["dimensions"] = dimensions
+    #                     # print(f"record: {record}")
+    #                     # print(f"client: {client}, topic: {topic}")
 
-                        msg_type = "sensor.data.update"
-                        msg_source = "test-account.uas-test.envds"
-                        attributes = {
-                            "type": msg_type,
-                            "source": msg_source,
-                            "id": str(ULID()),
-                            "datacontenttype": "application/json; charset=utf-8",
-                        }
-                        ce = CloudEvent(attributes=attributes, data=record)
-                        # print(f"ce: {to_json(ce)}")
-                        # await client.publish(topic, payload=json.dumps(record))
-                        await client.publish(topic, payload=to_json(ce))  # , qos=2)
-                        await asyncio.sleep(time_to_next(send_freq))
-        except Exception as e:
-            print(e)
-            pass
+    #                     msg_type = "sensor.data.update"
+    #                     msg_source = "test-account.uas-test.envds"
+    #                     attributes = {
+    #                         "type": msg_type,
+    #                         "source": msg_source,
+    #                         "id": str(ULID()),
+    #                         "datacontenttype": "application/json; charset=utf-8",
+    #                     }
+    #                     ce = CloudEvent(attributes=attributes, data=record)
+    #                     # print(f"ce: {to_json(ce)}")
+    #                     # await client.publish(topic, payload=json.dumps(record))
+    #                     await client.publish(topic, payload=to_json(ce))  # , qos=2)
+    #                     await asyncio.sleep(time_to_next(send_freq))
+    #     except Exception as e:
+    #         print(e)
+    #         pass
 
 
     async def run(self):
@@ -320,10 +331,10 @@ class MQTTRelayClient():
         while self.do_run:
             try:
                 # async with Client(hostname=self.mqtt_config["hostname"], client_id=self.client_id) as self.client:
-                async with Client(hostname=self.mqtt_config["hostname"]) as self.client:
+                async with Client(hostname=self.config["hostname"], port=self.config["port"]) as self.client:
                     self.logger.debug("relay client:", extra={"client": self.client})
                 # async with self.client:
-                    await self._subscribe_all()
+                    # await self._subscribe_all()
                     self.logger.debug("relay client:", extra={"client": self.client})
                     # async with self.client.unfiltered_messages() as messages:
                     # async with self.client.messages() as messages:
@@ -349,7 +360,7 @@ class MQTTRelayClient():
                             # self.logger.debug(
                             #     "mqtt receive message:", extra={"data": msg.data}
                             # )
-                            await self.sub_data.put(msg)
+                           # await self.sub_data.put(msg)
                             self.logger.debug(
                                 "relay client - recv message",
                                 extra={
@@ -459,7 +470,7 @@ class envdsRelay(envdsBase):
 
     def configure(self):
         super(envdsRelay, self).configure()
-
+        print("***here***")
         # get config from file
         try:
             with open("/app/config/relay.conf", "r") as f:
@@ -467,17 +478,35 @@ class envdsRelay(envdsBase):
         except FileNotFoundError:
             conf = {}
 
+        self.logger.debug("configure", extra={"self.conf": conf} )
       
         # TODO for target in conf, add to target_map and create relay client
         if "targets" in conf:
             for name, target in conf["targets"].items():
                 if name in self.target_map:
-                    pass
+                    if "client" in self.target_map and self.target_map["client"]:
+                        del self.target_map["client"]
+                        del self.target_map["config"]
+
+                self.target_map[name]= {"config": dict()}
+                self.target_map[name]["config"] = {
+                    "hostname": target.get("uri", "localhost"),
+                    "port": target.get("mqtt-port", 1883),
+                    "target-namespace": target.get("target-namespace", "uasdaq"),
+                    "datasystem-id-prefix": target.get("datasystem-id-prefix", "uas-base"),
+                    "pub-data-buffer": asyncio.Queue(),
+                    "sub-data-buffer": asyncio.Queue()
+                }
+                self.target_map[name]["client"] = MQTTRelayClient(
+                    config=self.target_map[name]["config"]
+                )
+
+
                     # close/delete relay client
                 # self.target_map[name] = target
                 # create relay client
                 # add queues for pub/sub
-        self.logger.debug("configure", extra={"self.conf": conf} )
+        self.logger.debug("configure", extra={"self.target_map": self.target_map} )
 
     def run_setup(self):
         super().run_setup()
@@ -487,7 +516,7 @@ class envdsRelay(envdsBase):
 
     def build_app_uid(self):
         parts = [
-            "envds-files",
+            "envds-relay",
             self.id.app_env_id,
         ]
         return (envdsRelay.ID_DELIM).join(parts)
@@ -518,6 +547,12 @@ class envdsRelay(envdsBase):
                 # await asyncio.sleep(1)
             # print(self.file_map[src].base_path)
             # await self.file_map[src].write_message(message)
+            for name,target in self.target_map.items():
+                try:
+                    await target["config"]["pub-data-buffer"].put(message)
+                except [KeyError, Exception]:
+                    continue
+
             self.logger.debug("handle_data", extra={"payload": message})
             
     def set_routes(self, enable: bool=True):
@@ -588,11 +623,11 @@ async def main(server_config: ServerConfig = None):
     envdsLogger(level=logging.DEBUG).init_logger()
     logger = logging.getLogger("envds-relay")
 
-    # print("main:1")
-    # files = envdsRelay()
-    # print("main:2")
-    # files.run()
-    # print("main:3")
+    print("main:1")
+    relay = envdsRelay()
+    print("main:2")
+    relay.run()
+    print("main:3")
     # await asyncio.sleep(2)
     # files.enable()
     # task_list.append(asyncio.create_task(files.run()))
