@@ -41,7 +41,7 @@ spec:
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
-            value: cloudy
+            value: base
           # - name: REDIS_OM_URL
           #   value: redis://redis.default
           - name: LOG_LEVEL

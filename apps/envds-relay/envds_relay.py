@@ -474,9 +474,10 @@ class envdsRelay(envdsBase):
                 if name in self.target_map:
                     pass
                     # close/delete relay client
-                self.target_map[name] = target
+                # self.target_map[name] = target
                 # create relay client
                 # add queues for pub/sub
+        self.logger.debug("configure", extra={"self.conf": conf} )
 
     def run_setup(self):
         super().run_setup()
@@ -508,16 +509,17 @@ class envdsRelay(envdsBase):
             if src not in self.file_map:
                 parts = src.split(".")
                 sensor_name = parts[-1].split(self.ID_DELIM)
-                file_path = os.path.join("/data", "sensor", *sensor_name)
+                # file_path = os.path.join("/data", "sensor", *sensor_name)
 
-                self.file_map[src] = DataFile(base_path=file_path)
+                # self.file_map[src] = DataFile(base_path=file_path)
                 # await asyncio.sleep(1)
                 # if self.file_map[src]:
                 #     self.file_map[src].open()
                 # await asyncio.sleep(1)
             # print(self.file_map[src].base_path)
-            await self.file_map[src].write_message(message)
-
+            # await self.file_map[src].write_message(message)
+            self.logger.debug("handle_data", extra={"payload": message})
+            
     def set_routes(self, enable: bool=True):
         super(envdsRelay, self).set_routes(enable)
 
