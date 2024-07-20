@@ -328,6 +328,7 @@ class MQTTRelayClient():
 
     async def run(self):
         # self.client = Client(hostname=self.mqtt_config["hostname"])
+        self.reconnect_interval = 1
         while self.do_run:
             try:
                 # async with Client(hostname=self.mqtt_config["hostname"], client_id=self.client_id) as self.client:
