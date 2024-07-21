@@ -220,19 +220,48 @@ class MQTTRelayClient():
 
         self.subscriptions = []
 
+        self.do_run = True
+        self.connected = False
+
         self.run_task_list = []
         self.run_task_list.append(asyncio.create_task(self.relay_publisher()))
         self.run_task_list.append(asyncio.create_task(self.run()))
-        self.do_run = True
+        # self.do_run = True
 
     async def relay_publisher(self):
         reconnect_interval = 5
+        self.logger.debug("relay_publisher", extra={"do_run": self.do_run})
         while self.do_run:
-            print(f"relay_publisher: {self.do_run}, {self.connected}")
+            self.logger.debug("relay_publisher", extra={"do_run": self.do_run, "connected": self.connected})
             if self.connected:
                 msg = await self.pub_data.get()
-                self.logger.debug("relay_publisher", extra={"paylaod": msg})
-                await asyncio.sleep(.1)
+                self.logger.debug("relay_publisher", extra={"payload": msg.data})
+                try:
+                    sensor_id = msg.data["source"].split(".")[-1]
+                    # topic = /uasdaq/uas-uasgw/envds/sensor/make::model::sn/data/update
+                    topic = "/".join([
+                        self.config["target-namespace"],
+                        self.config["datasystem-id-prefix"],
+                        "envds",
+                        "sensor",
+                        sensor_id,
+                        "data",
+                        "update"
+                    ])
+                    self.logger.debug("relay_publisher", extra={"client": self.client, "topic": topic})
+                    
+                    # this is the message type for uasdaq
+                    msg_type = "sensor.data.update"
+
+                    # update ce.attributes
+                    msg.data["type"] = msg_type
+
+                    # self.logger.debug(f"rp: {type(msg.data)}")
+                    await self.client.publish(topic, payload=to_json(msg.data))  # , qos=2)
+                
+                except [KeyError, Exception] as e:
+                    self.logger.error("relay_publisher", extra={"e": e})
+            await asyncio.sleep(1)
     # async def sender(sensor_config, start_time, end_time):
 
     #     parts = sensor_config["sensor-id"].split("::")
@@ -390,63 +419,65 @@ class MQTTRelayClient():
             except Exception as e:
                 self.logger.error("relay client - Exception", extra={"error": e})
                 # print(e)
+
+            await asyncio.sleep(1)
         # self.logger.info("relay client - done")
         # print("done with run")
         self.run_state = "SHUTDOWN"
 
-    async def publisher(self):
-        reconnect_interval = 5
-        while self.do_run:
-            print(f"publish: {self.do_run}, {self.connected}")
-            if self.connected:
-                msg = await self.pub_data.get()
-                # print(f"msg = {msg}")
-                # print(f"publisher:msg: {msg}")
-                # print(f"msg: {msg.dest_path}")#, {to_json(msg.data)}")
-                # print(f"msg: {msg.dest_path}, {to_json(msg.data)}")
-                # print(msg.keys())
-                # print(f"msg type: {type(msg.data)}")
-                # bpayload = to_json(msg.data)
-                # print(f"bpayload = {bpayload}")
-                # payload = bpayload.decode()
-                # print(f"payload = {payload}")
-                try:
-                    dest_path = msg.dest_path
-                    if dest_path[0] != "/":
-                        dest_path = f"/{dest_path}"
-                    await self.client.publish(dest_path, payload=to_json(msg.data))
-                    self.logger.debug("MQTT.publisher", extra={"dest_path": dest_path, "payload": to_json(msg.data), "client": self.client})
-                    # await self.client.publish(msg.dest_path, payload=payload)
-                except MqttError as error:
-                    self.logger.error("relay client - MQTTError", extra={"error": error})
+    # async def publisher(self):
+    #     reconnect_interval = 5
+    #     while self.do_run:
+    #         print(f"publish: {self.do_run}, {self.connected}")
+    #         if self.connected:
+    #             msg = await self.pub_data.get()
+    #             # print(f"msg = {msg}")
+    #             # print(f"publisher:msg: {msg}")
+    #             # print(f"msg: {msg.dest_path}")#, {to_json(msg.data)}")
+    #             # print(f"msg: {msg.dest_path}, {to_json(msg.data)}")
+    #             # print(msg.keys())
+    #             # print(f"msg type: {type(msg.data)}")
+    #             # bpayload = to_json(msg.data)
+    #             # print(f"bpayload = {bpayload}")
+    #             # payload = bpayload.decode()
+    #             # print(f"payload = {payload}")
+    #             try:
+    #                 dest_path = msg.dest_path
+    #                 if dest_path[0] != "/":
+    #                     dest_path = f"/{dest_path}"
+    #                 await self.client.publish(dest_path, payload=to_json(msg.data))
+    #                 self.logger.debug("MQTT.publisher", extra={"dest_path": dest_path, "payload": to_json(msg.data), "client": self.client})
+    #                 # await self.client.publish(msg.dest_path, payload=payload)
+    #             except MqttError as error:
+    #                 self.logger.error("relay client - MQTTError", extra={"error": error})
                 
-                await asyncio.sleep(.1)
+    #             await asyncio.sleep(.1)
 
-            else:
-                self.logger.debug(
-                    "relay client",
-                    extra={
-                        "self.do_run": self.do_run,
-                        "self.connected": self.connected,
-                    },
-                )
-                await asyncio.sleep(1)
-            # try:
-            #     async with Client(self.mqtt_config["hostname"]) as client:
-            #         while self.do_run:
-            #             msg = await self.pub_data.get()
-            #             await client.publish(msg.dest_path, payload=to_json(msg.data))
-            #             # await self.client.publish(md.path, payload=to_json(md.payload))
-            #             # await client.publish("measurements/instrument/trh/humidity", payload=json.dumps({"data": 45.1, "units": "%"}))
-            #             # await client.publish("measurements/instrument/trh/temperature", payload=json.dumps({"data": 25.3, "units": "degC"}))
-            #             # await client.publish("measurements/instrument/trh/pressure", payload=json.dumps({"data": 10013, "units": "Pa"}))
-            #             # await client.publish("measurements/instruments/all", payload=json.dumps({"request": "status"}))
-            #             # await client.publish("measurements/instrumentgroup/trhgroup", payload=json.dumps({"request": "stop"}))
-            #             # await asyncio.sleep(1)
-            # except MqttError as error:
-            #     print(f'Error "{error}". Reconnecting pub in {reconnect_interval} seconds.')
-            #     await asyncio.sleep(reconnect_interval)
-        print("done with publisher")
+    #         else:
+    #             self.logger.debug(
+    #                 "relay client",
+    #                 extra={
+    #                     "self.do_run": self.do_run,
+    #                     "self.connected": self.connected,
+    #                 },
+    #             )
+    #             await asyncio.sleep(1)
+    #         # try:
+    #         #     async with Client(self.mqtt_config["hostname"]) as client:
+    #         #         while self.do_run:
+    #         #             msg = await self.pub_data.get()
+    #         #             await client.publish(msg.dest_path, payload=to_json(msg.data))
+    #         #             # await self.client.publish(md.path, payload=to_json(md.payload))
+    #         #             # await client.publish("measurements/instrument/trh/humidity", payload=json.dumps({"data": 45.1, "units": "%"}))
+    #         #             # await client.publish("measurements/instrument/trh/temperature", payload=json.dumps({"data": 25.3, "units": "degC"}))
+    #         #             # await client.publish("measurements/instrument/trh/pressure", payload=json.dumps({"data": 10013, "units": "Pa"}))
+    #         #             # await client.publish("measurements/instruments/all", payload=json.dumps({"request": "status"}))
+    #         #             # await client.publish("measurements/instrumentgroup/trhgroup", payload=json.dumps({"request": "stop"}))
+    #         #             # await asyncio.sleep(1)
+    #         # except MqttError as error:
+    #         #     print(f'Error "{error}". Reconnecting pub in {reconnect_interval} seconds.')
+    #         #     await asyncio.sleep(reconnect_interval)
+    #     print("done with publisher")
 
     async def shutdown(self):
         self.do_run = False
@@ -535,10 +566,10 @@ class envdsRelay(envdsBase):
                 },
             )
 
-            src = message.data["source"]
-            if src not in self.file_map:
-                parts = src.split(".")
-                sensor_name = parts[-1].split(self.ID_DELIM)
+            # src = message.data["source"]
+            # if src not in self.file_map:
+            #     parts = src.split(".")
+            #     sensor_name = parts[-1].split(self.ID_DELIM)
                 # file_path = os.path.join("/data", "sensor", *sensor_name)
 
                 # self.file_map[src] = DataFile(base_path=file_path)
@@ -551,7 +582,8 @@ class envdsRelay(envdsBase):
             for name,target in self.target_map.items():
                 try:
                     await target["config"]["pub-data-buffer"].put(message)
-                except [KeyError, Exception]:
+                except [KeyError, Exception] as e:
+                    self.logger.error("handle_data error", extra={"e": e})
                     continue
 
             self.logger.debug("handle_data", extra={"payload": message})
