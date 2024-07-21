@@ -22,8 +22,8 @@ from cloudevents.exceptions import InvalidStructuredJSON
 import httpx
 from logfmter import Logfmter
 from pydantic import BaseModel, BaseSettings
-import pymongo
-from motor.motor_asyncio import AsyncIOMotorClient
+# import pymongo
+# from motor.motor_asyncio import AsyncIOMotorClient
 from ulid import ULID
 
 from dashapp import app as dash_app
@@ -72,123 +72,123 @@ config = Settings()
 # TODO: add readOnly user for this connection
 
 # combine secrets to get complete connection string
-if "<username>" in config.mongodb_data_connection:
-    mongodb_data_conn = config.mongodb_data_connection.replace(
-        "<username>", config.mongodb_data_user_name
-    )
-    config = config.copy(update={"mongodb_data_connection": mongodb_data_conn})
+# if "<username>" in config.mongodb_data_connection:
+#     mongodb_data_conn = config.mongodb_data_connection.replace(
+#         "<username>", config.mongodb_data_user_name
+#     )
+#     config = config.copy(update={"mongodb_data_connection": mongodb_data_conn})
 
-if "<password>" in config.mongodb_data_connection:
-    mongodb_data_conn = config.mongodb_data_connection.replace(
-        "<password>", config.mongodb_data_user_password
-    )
-    config = config.copy(update={"mongodb_data_connection": mongodb_data_conn})
+# if "<password>" in config.mongodb_data_connection:
+#     mongodb_data_conn = config.mongodb_data_connection.replace(
+#         "<password>", config.mongodb_data_user_password
+#     )
+#     config = config.copy(update={"mongodb_data_connection": mongodb_data_conn})
 
-if "<username>" in config.mongodb_registry_connection:
-    mongodb_registry_conn = config.mongodb_registry_connection.replace(
-        "<username>", config.mongodb_registry_user_name
-    )
-    config = config.copy(update={"mongodb_registry_connection": mongodb_registry_conn})
+# if "<username>" in config.mongodb_registry_connection:
+#     mongodb_registry_conn = config.mongodb_registry_connection.replace(
+#         "<username>", config.mongodb_registry_user_name
+#     )
+#     config = config.copy(update={"mongodb_registry_connection": mongodb_registry_conn})
 
-if "<password>" in config.mongodb_registry_connection:
-    mongodb_registry_conn = config.mongodb_registry_connection.replace(
-        "<password>", config.mongodb_registry_user_password
-    )
-    config = config.copy(update={"mongodb_registry_connection": mongodb_registry_conn})
-print(mongodb_registry_conn)
+# if "<password>" in config.mongodb_registry_connection:
+#     mongodb_registry_conn = config.mongodb_registry_connection.replace(
+#         "<password>", config.mongodb_registry_user_password
+#     )
+#     config = config.copy(update={"mongodb_registry_connection": mongodb_registry_conn})
+# print(mongodb_registry_conn)
 
-class DBClient:
-    def __init__(self, connection: str, db_type: str = "mongodb") -> None:
-        self.db_type = db_type
-        self.client = None
-        self.connection = connection
+# class DBClient:
+#     def __init__(self, connection: str, db_type: str = "mongodb") -> None:
+#         self.db_type = db_type
+#         self.client = None
+#         self.connection = connection
 
-    def connect(self):
-        if self.db_type == "mongodb":
-            self.connect_mongo()
-        # return self.client
+#     def connect(self):
+#         if self.db_type == "mongodb":
+#             self.connect_mongo()
+#         # return self.client
 
-    def connect_mongo(self):
-        if not self.client:
-            try:
-                # self.client = pymongo.MongoClient(
-                self.client = AsyncIOMotorClient(
-                    self.connection,
-                    connect=True,
-                    # tls=True,
-                    # tlsAllowInvalidCertificates=True
-                )
-            except pymongo.errors.ConnectionError:
-                self.client = None
-            L.info("mongo client", extra={"connection": self.connection, "client": self.client})
-            # L.info(await self.client.server_info())
-        # return self.client
+#     def connect_mongo(self):
+#         if not self.client:
+#             try:
+#                 # self.client = pymongo.MongoClient(
+#                 self.client = AsyncIOMotorClient(
+#                     self.connection,
+#                     connect=True,
+#                     # tls=True,
+#                     # tlsAllowInvalidCertificates=True
+#                 )
+#             except pymongo.errors.ConnectionError:
+#                 self.client = None
+#             L.info("mongo client", extra={"connection": self.connection, "client": self.client})
+#             # L.info(await self.client.server_info())
+#         # return self.client
 
-    def get_db(self, database: str):
-        self.connect()
-        if self.client:
-            return self.client[database]
-        return None
+#     def get_db(self, database: str):
+#         self.connect()
+#         if self.client:
+#             return self.client[database]
+#         return None
     
-    def get_collection(self, database: str, collection: str):
-        L.info("get_collection")
-        db = self.get_db(database)
-        L.info(f"get_collection:db = {db}")
-        if db is not None:
-            try:
-                db_coll = db[collection]
-                L.info(f"get_collection:db:collection = {db_coll}")
-                return db_coll
-            except Exception as e:
-                L.error(f"get_collection error: {e}")
-        return None
+#     def get_collection(self, database: str, collection: str):
+#         L.info("get_collection")
+#         db = self.get_db(database)
+#         L.info(f"get_collection:db = {db}")
+#         if db is not None:
+#             try:
+#                 db_coll = db[collection]
+#                 L.info(f"get_collection:db:collection = {db_coll}")
+#                 return db_coll
+#             except Exception as e:
+#                 L.error(f"get_collection error: {e}")
+#         return None
  
-    async def find_one(self, database: str, collection: str, query: dict):
-        self.connect()
-        if self.client:
-            db = self.client[database]
-            db_collection = db[collection]
-            result = await db_collection.find_one(query)
-            if result:
-                update = {"last_update": datetime.now(tz=timezone.utc)}
-                await db_data_client.update_one(database, collection, result, update)
-            return result
-        return None
+#     async def find_one(self, database: str, collection: str, query: dict):
+#         self.connect()
+#         if self.client:
+#             db = self.client[database]
+#             db_collection = db[collection]
+#             result = await db_collection.find_one(query)
+#             if result:
+#                 update = {"last_update": datetime.now(tz=timezone.utc)}
+#                 await db_data_client.update_one(database, collection, result, update)
+#             return result
+#         return None
 
-    async def insert_one(self, database: str, collection: str, document: dict):
-        self.connect()
-        if self.client:
-            db = self.client[database]
-            sensor_defs = db[collection]
-            result = await sensor_defs.insert_one(document)
-            return result
-        return None
+#     async def insert_one(self, database: str, collection: str, document: dict):
+#         self.connect()
+#         if self.client:
+#             db = self.client[database]
+#             sensor_defs = db[collection]
+#             result = await sensor_defs.insert_one(document)
+#             return result
+#         return None
 
-    async def update_one(
-        self,
-        database: str,
-        collection: str,
-        document: dict,
-        update: dict,
-        filter: dict = None,
-        upsert=False,
-    ):
-        self.connect()
-        if self.client:
-            db = self.client[database]
-            sensor = db[collection]
-            if filter is None:
-                filter = document
-            set_update = {"$set": update}
-            if upsert:
-                set_update["$setOnInsert"] = document
-            result = await sensor.update_one(filter=filter, update=set_update, upsert=upsert)
-            return result
-        return None
+#     async def update_one(
+#         self,
+#         database: str,
+#         collection: str,
+#         document: dict,
+#         update: dict,
+#         filter: dict = None,
+#         upsert=False,
+#     ):
+#         self.connect()
+#         if self.client:
+#             db = self.client[database]
+#             sensor = db[collection]
+#             if filter is None:
+#                 filter = document
+#             set_update = {"$set": update}
+#             if upsert:
+#                 set_update["$setOnInsert"] = document
+#             result = await sensor.update_one(filter=filter, update=set_update, upsert=upsert)
+#             return result
+#         return None
 
 
-db_data_client = DBClient(connection=config.mongodb_data_connection)
-db_registry_client = DBClient(connection=config.mongodb_registry_connection)
+# db_data_client = DBClient(connection=config.mongodb_data_connection)
+# db_registry_client = DBClient(connection=config.mongodb_registry_connection)
 
 app = FastAPI()
 
@@ -393,7 +393,7 @@ async def test_task():
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World from UAS-DAQ Dashboard"}
+    return {"message": "Hello World from envDS Dashboard"}
 
 @app.websocket("/ws/sensor/{client_id}")
 # @app.websocket("/ws/{client_id}")

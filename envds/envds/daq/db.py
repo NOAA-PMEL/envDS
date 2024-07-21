@@ -237,3 +237,37 @@ async def get_all_sensor_type_registration() -> list[SensorTypeRegistration]:
     except NotFoundError as e:
         print(f"get_sensor_type error: {e}")
         return None
+
+async def save_sensor_data(
+    make: str, model: str, serial_number: str, source_id: str, timestamp: str, data: dict, expire: int = 300
+):
+
+    try:
+        record = SensorDataRecord(
+            make=make,
+            model=model,
+            serial_number=serial_number,
+            timestamp=timestamp,
+            source_id=source_id,
+            data=data
+        )
+        print(f"record: {record}")
+        await record.save()
+        await record.expire(expire)
+    except Exception as e:
+        print(f"save_sensor_data error: {e}")
+
+async def get_sensor_data(
+    make: str, model: str, serial_number: str, start_time: str = None, stop_time: str = None
+) -> list[SensorDataRecord]:
+    try:
+        data = await SensorDataRecord.find(
+            SensorDataRecord.make == make,
+            SensorDataRecord.model == model,
+            SensorDataRecord.serial_number == serial_number
+        ).sort_by("timestamp").all()
+        return data
+
+    except NotFoundError as e:
+        print(f"get_sensor_data error: {e}")
+        return None

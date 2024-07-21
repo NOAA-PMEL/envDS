@@ -34,6 +34,7 @@ from envds.daq.sensor import Sensor
 from envds.daq.db import (
     init_db_models,
     SensorDataRecord,
+    save_sensor_data,
 )
 
 from aredis_om import (
@@ -136,18 +137,28 @@ class envdsDataBuffer(envdsBase):
             try:
                 src = message.data["source"]
                 sensor_id = src.split(".")[-1].split("::")
-                record = SensorDataRecord(
+                # record = SensorDataRecord(
+                #     make=sensor_id[0],
+                #     model=sensor_id[1],
+                #     serial_number=sensor_id[2],
+                #     timestamp=string_to_datetime(message.data.data["timestamp"]),
+                #     source_id=src,
+                #     data=message.data.data
+
+                # )
+                # print(f"record: {record}")
+                # await record.save()
+                # await record.expire(self.expire_time)
+
+                await save_sensor_data(
                     make=sensor_id[0],
                     model=sensor_id[1],
                     serial_number=sensor_id[2],
                     timestamp=string_to_datetime(message.data.data["timestamp"]),
                     source_id=src,
-                    data=message.data.data
-
+                    data=message.data.data,
+                    expire=self.expire_time
                 )
-                print(f"record: {record}")
-                await record.save()
-                await record.expire(self.expire_time)
 
             except Exception as e:
                 self.logger.error("databuffer save error", extra={"error": e})
