@@ -59,7 +59,9 @@ class NTC(Sensor):
                 "data": "data hub, temperature, fast",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -172,6 +174,7 @@ class NTC(Sensor):
 
         meta = SensorMetadata(
             attributes=NTC.metadata["attributes"],
+            dimensions=NTC.metadata["dimensions"],
             variables=NTC.metadata["variables"],
             settings=NTC.metadata["settings"],
         )

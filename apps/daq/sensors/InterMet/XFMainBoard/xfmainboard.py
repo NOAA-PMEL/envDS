@@ -59,7 +59,9 @@ class XFMainBoard(Sensor):
                 "data": "data hub, temperature, rh, humidity",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -182,6 +184,7 @@ class XFMainBoard(Sensor):
 
         meta = SensorMetadata(
             attributes=XFMainBoard.metadata["attributes"],
+            dimensions=XFMainBoard.metadata["dimensions"],
             variables=XFMainBoard.metadata["variables"],
             settings=XFMainBoard.metadata["settings"],
         )

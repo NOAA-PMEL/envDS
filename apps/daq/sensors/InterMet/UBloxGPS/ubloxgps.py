@@ -59,7 +59,9 @@ class UBloxGPS(Sensor):
                 "data": "data hub, navigation, position, gps, latitude, longitude, altitude",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -194,6 +196,7 @@ class UBloxGPS(Sensor):
 
         meta = SensorMetadata(
             attributes=UBloxGPS.metadata["attributes"],
+            dimensions=UBloxGPS.metadata["dimensions"],
             variables=UBloxGPS.metadata["variables"],
             settings=UBloxGPS.metadata["settings"],
         )

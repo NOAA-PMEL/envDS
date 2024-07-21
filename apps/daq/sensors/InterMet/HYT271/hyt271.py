@@ -59,7 +59,9 @@ class HYT271(Sensor):
                 "data": "data hub, rh, temperature, fast",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
-        },
+            "serial_number": {"type": "string", "data": ""},
+         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -170,6 +172,7 @@ class HYT271(Sensor):
 
         meta = SensorMetadata(
             attributes=HYT271.metadata["attributes"],
+            dimensions=HYT271.metadata["dimensions"],
             variables=HYT271.metadata["variables"],
             settings=HYT271.metadata["settings"],
         )

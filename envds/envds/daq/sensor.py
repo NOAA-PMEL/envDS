@@ -110,6 +110,7 @@ class SensorSetting(BaseModel):
 class SensorMetadata(BaseModel):
     """docstring for SensorMetadata."""
     attributes: dict[str, SensorAttribute]
+    dimensions: dict
     variables: dict[str, SensorVariable]
     settings: dict[str, SensorSetting]
 
@@ -915,6 +916,7 @@ class Sensor(envdsBase):
         #     "variables": {},
         # }
 
+        record["dimensions"] = {"time": 1}
         # record["variables"] = dict()
         if meta:
             record["variables"] = self.config.metadata.dict()["variables"]
