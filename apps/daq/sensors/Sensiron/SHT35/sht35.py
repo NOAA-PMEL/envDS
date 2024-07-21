@@ -60,7 +60,9 @@ class SHT35(Sensor):
                 "data": "met, temperature, rh, sensor",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -161,6 +163,7 @@ class SHT35(Sensor):
 
         meta = SensorMetadata(
             attributes=SHT35.metadata["attributes"],
+            dimensions=SHT35.metadata["dimensions"],
             variables=SHT35.metadata["variables"],
             settings=SHT35.metadata["settings"],
         )

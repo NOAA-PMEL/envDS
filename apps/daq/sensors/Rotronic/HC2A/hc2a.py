@@ -59,7 +59,9 @@ class HC2A(Sensor):
                 "data": "meteorology, temperature, rh, humidity, hc2a-s3a",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -187,6 +189,7 @@ class HC2A(Sensor):
 
         meta = SensorMetadata(
             attributes=HC2A.metadata["attributes"],
+            dimensions=HC2A.metadata["dimensions"],
             variables=HC2A.metadata["variables"],
             settings=HC2A.metadata["settings"],
         )

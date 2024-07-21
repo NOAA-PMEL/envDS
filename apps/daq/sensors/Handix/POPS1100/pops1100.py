@@ -62,7 +62,9 @@ class POPS1100(Sensor):
                 "data": "aerosol, particles, concentration, sensor, sizing, size distribution",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None, "diameter": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -548,6 +550,7 @@ class POPS1100(Sensor):
 
         meta = SensorMetadata(
             attributes=POPS1100.metadata["attributes"],
+            dimensions=POPS1100.metadata["dimensions"],
             variables=POPS1100.metadata["variables"],
             settings=POPS1100.metadata["settings"],
         )

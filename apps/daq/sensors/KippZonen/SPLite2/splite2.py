@@ -60,7 +60,9 @@ class SPLite2(Sensor):
                 "data": "met, temperature, rh, sensor",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -169,6 +171,7 @@ class SPLite2(Sensor):
 
         meta = SensorMetadata(
             attributes=SPLite2.metadata["attributes"],
+            dimensions=SPLite2.metadata["dimensions"],
             variables=SPLite2.metadata["variables"],
             settings=SPLite2.metadata["settings"],
         )

@@ -60,7 +60,9 @@ class MAGIC250(Sensor):
                 "data": "aerosol, cpc, particles, concentration, sensor",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -405,6 +407,7 @@ class MAGIC250(Sensor):
         # print(f"setting_variables: {setting_variables}")
         meta = SensorMetadata(
             attributes=MAGIC250.metadata["attributes"],
+            dimensions=MAGIC250.metadata["dimensions"],
             variables=MAGIC250.metadata["variables"],
             settings=MAGIC250.metadata["settings"],
         )

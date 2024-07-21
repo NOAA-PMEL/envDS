@@ -59,7 +59,9 @@ class FILT9401(Sensor):
                 "data": "aerosol, particles, filter, sampler, chemistry",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -302,6 +304,7 @@ class FILT9401(Sensor):
 
         meta = SensorMetadata(
             attributes=FILT9401.metadata["attributes"],
+            dimensions=FILT9401.metadata["dimensions"],
             variables=FILT9401.metadata["variables"],
             settings=FILT9401.metadata["settings"],
         )

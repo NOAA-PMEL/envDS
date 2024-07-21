@@ -60,7 +60,9 @@ class STAP9406(Sensor):
                 "data": "aerosol, particles, absorption",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -383,6 +385,7 @@ class STAP9406(Sensor):
 
         meta = SensorMetadata(
             attributes=STAP9406.metadata["attributes"],
+            dimensions=STAP9406.metadata["dimensions"],
             variables=STAP9406.metadata["variables"],
             settings=STAP9406.metadata["settings"],
         )

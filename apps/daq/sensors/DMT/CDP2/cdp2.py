@@ -77,7 +77,9 @@ class CDP2(Sensor):
                 "data": "cloud, droplets, sizing, lwc, sensor",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None, "diameter": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -472,6 +474,7 @@ class CDP2(Sensor):
 
         meta = SensorMetadata(
             attributes=CDP2.metadata["attributes"],
+            dimensions=CDP2.metadata["dimensions"],
             variables=CDP2.metadata["variables"],
             settings=CDP2.metadata["settings"],
         )

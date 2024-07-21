@@ -59,7 +59,9 @@ class mSEMS9404(Sensor):
                 "data": "aerosol, cpc, particles, concentration, sizing, size distributionsensor",
             },
             "format_version": {"type": "char", "data": "1.0.0"},
+            "serial_number": {"type": "string", "data": ""},
         },
+        "dimensions": {"time": None, "diameter": None},
         "variables": {
             "time": {
                 "type": "str",
@@ -655,6 +657,7 @@ class mSEMS9404(Sensor):
 
         meta = SensorMetadata(
             attributes=mSEMS9404.metadata["attributes"],
+            dimensions=mSEMS9404.metadata["dimensions"],
             variables=mSEMS9404.metadata["variables"],
             settings=mSEMS9404.metadata["settings"],
         )
