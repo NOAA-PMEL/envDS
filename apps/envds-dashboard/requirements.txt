@@ -8,11 +8,11 @@ httpx
 logfmter
 aiomqtt
 python-ulid
-pymongo
 dash
 dash_extensions
 dash-bootstrap-components
 dash_ag_grid
 pandas
 websockets
-motor
+redis
+redis-om

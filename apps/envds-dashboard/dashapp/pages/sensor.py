@@ -865,6 +865,8 @@ def layout(sensor_id=None):
             dcc.Store(id="sensor-meta", data=sensor_meta),
             dcc.Store(id="graph-axes", data={}),
             dcc.Store(id="sensor-data-buffer", data={}),
+            dcc.Store(id="sensor-settings-buffer", data={}),
+            dcc.Store(id="sensor-statis-buffer", data={}),
             # dcc.Interval(id="test-interval", interval=(10*1000)),
             # dcc.Interval(
             #     id="table-update-interval", interval=(5 * 1000), n_intervals=0

@@ -12,16 +12,18 @@ WORKDIR $APP_HOME
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
-
+COPY lib/. /lib
+RUN pip3 install --no-index --find-links=/lib/envds envds
+#
 COPY VERSION .
 
 # COPY datasets.d.sh .
 # RUN chmod +x datasets.d.sh
 
 COPY dashapp ./dashapp
-COPY ./dashboard.py ./dashboard.py
+COPY ./envds_dashboard.py ./dashboard.py
 COPY ./main.py main.py
-
+#
 # run the same as tomcat so we can update the erddap datasets for now
 RUN chown -R dashboard:dashboard $APP_HOME
 USER dashboard
