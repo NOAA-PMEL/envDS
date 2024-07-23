@@ -12,7 +12,7 @@ app = Dash(
     __name__,
     server=server,
     use_pages=True,
-    requests_pathname_prefix="/uasdaq/dashboard/dash/",#sensor/",
+    requests_pathname_prefix="/envds/dashboard/dash/",#sensor/",
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
 )
@@ -67,7 +67,7 @@ sidebar = html.Div(
                 [
                     dbc.NavLink(
                         html.Div(page["name"], className="ms-2"),
-                        href=f'/uasdaq/dashboard/dash{page["path"]}',
+                        href=f'/envds/dashboard/dash{page["path"]}',
                         active="exact",
                     )
                     for page in dash.page_registry.values()

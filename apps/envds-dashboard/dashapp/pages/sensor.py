@@ -858,7 +858,7 @@ def layout(sensor_id=None):
             ),
             WebSocket(
                 id="ws-sensor-instance",
-                url=f"ws://uasdaq.pmel.noaa.gov/uasdaq/dashboard/ws/sensor/{sensor_id}",
+                url=f"ws://10.55.169.1/envds/dashboard/ws/sensor/{sensor_id}",
             ),
             ws_send_buffer,
             dcc.Store(id="sensor-definition", data=sensor_definition),

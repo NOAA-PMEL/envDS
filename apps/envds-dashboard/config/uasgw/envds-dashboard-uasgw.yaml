@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: envds-dashboard-uasgw
-        image: envds-registry-uasgw:5000/envds/envds-dashboard:1.0.3
+        image: envds-registry-uasgw:5000/envds/envds-dashboard:1.0.4
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
@@ -107,7 +107,7 @@ spec:
   stripPrefix:
     prefixes:
       - /envds/dashboard
-      - /ws/envds/dashboard
+      # - /ws/envds/dashboard
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -120,7 +120,7 @@ metadata:
     ingress.kubernetes.io/ssl-redirect: "false"
     traefik.ingress.kubernetes.io/router.middlewares:
       envds-envds-dashboard-stripprefix@kubernetescrd
-      default-erddap-rewrite@kubernetescrd
+      # default-erddap-rewrite@kubernetescrd
 spec:
   rules:
   - http:
@@ -134,14 +134,14 @@ spec:
             name: envds-dashboard-uasgw
             port:
               number: 9080
-      - path: /ws/envds/dashboard
-        pathType: Prefix
-        # pathType: Exact
-        backend:
-          service:
-            name: envds-dashboard-uasgw
-            port:
-              number: 9080
+      # - path: /ws/envds/dashboard
+      #   pathType: Prefix
+      #   # pathType: Exact
+      #   backend:
+      #     service:
+      #       name: envds-dashboard-uasgw
+      #       port:
+      #         number: 9080
 # # ---
 # # apiVersion: networking.k8s.io/v1
 # # kind: Ingress
@@ -223,4 +223,4 @@ spec:
 # #         # path: /envds(/|$)(.*)
 # #         #   service: 
 # #         #   serviceName: http-svc
-# #         #   servicePort: 80
+# #         #   servicePort: 9080

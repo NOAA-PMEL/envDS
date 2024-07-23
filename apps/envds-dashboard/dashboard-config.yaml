@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dashboard
-  namespace: default
+  namespace: envds
 data:
   # mqtt_broker: "0.0.0.0"
   # mqtt_port: "80"

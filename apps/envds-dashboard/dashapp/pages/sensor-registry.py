@@ -267,7 +267,7 @@ def get_layout():
             ),
             WebSocket(
                 id="ws-sensor-registry",
-                url=f"ws://uasdaq.pmel.noaa.gov/uasdaq/dashboard/ws/sensor-registry/main",
+                url=f"ws://10.55.169.1:8080/envds/dashboard/ws/sensor-registry/main",
             ),
             ws_send_buffer,
             dcc.Store(id="sensor-defs-changes", data=[]),
@@ -311,7 +311,7 @@ def update_sensor_definitions(count, table_data):
         #     sensor_def_registry = db_registry_client.get_collection(
         #         "registry", "sensor_definition"
         #     )
-        # reg_list = get_all_sensor_type_registration()
+        reg_list = get_all_sensor_type_registration()
         for doc in get_all_sensor_type_registration():
             if doc is not None:
                 # print(f"doc: {doc}")
@@ -385,11 +385,11 @@ def update_active_sensors(count, table_data):
                 sampling_system_id = "unknown::unknown::unknown"
 
                 sensor = {
-                    "sensor_id": f"[{sensor_id}](http://uasdaq.pmel.noaa.gov/uasdaq/dashboard/dash/sensor/{sensor_id})",
+                    "sensor_id": f"[{sensor_id}](http://10.55.169.1:8080/envds/dashboard/dash/sensor/{sensor_id})",
                     "make": make,
                     "model": model,
                     "serial_number": serial_number,
-                    "sampling_system_id": f"[{sampling_system_id}](http://uasdaq.pmel.noaa.gov/uasdaq/dashboard/dash/sampling-system/{sampling_system_id})",
+                    "sampling_system_id": f"[{sampling_system_id}](http://10.55.169.1:8080/envds/dashboard/dash/sampling-system/{sampling_system_id})",
                 }
                 if sensor not in table_data:
                     table_data.append(sensor)

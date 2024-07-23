@@ -171,7 +171,7 @@ class envdsDashboard(envdsBase):
     def __init__(self, config=None, **kwargs):
         super(envdsDashboard, self).__init__(config, **kwargs)
 
-        self.update_id("app_uid", "envds-dasgboard")
+        self.update_id("app_uid", "envds-dashboard")
         self.status.set_id_AppID(self.id)
 
         self.base_path = "/data"
@@ -421,11 +421,13 @@ class envdsDashboard(envdsBase):
                         [
                             # "ws://localhost:8080/ws/envds/daq/ws",
                             # "ws://10.55.169.40:8080/ws/envds/daq/ws",
-                            "ws://localhost:9080/ws",
+                            # "ws://localhost/ws",
+                            "ws://10.55.169.1:8080/envds/dashboard/ws",
                             source_type,
-                            id_parts[0],
-                            id_parts[1],
-                            id_parts[2],
+                            source_id
+                            # id_parts[0],
+                            # id_parts[1],
+                            # id_parts[2],
                         ]
                     )
                     self.logger.debug("update_monitor", extra={"uri": uri})
@@ -879,8 +881,10 @@ class envdsDashboard(envdsBase):
 
 
 class ServerConfig(BaseModel):
-    host: str = "localhost"
+    # host: str = "localhost"
+    host: str = "0.0.0.0"
     port: int = 9080
+    # port: int = 80
     log_level: str = "debug"
 
 
@@ -905,6 +909,7 @@ async def main(server_config: ServerConfig = None):
     daq = envdsDashboard()
     daq.run()
 
+    print(f"*** {server_config}")
     config = uvicorn.Config(
         "main:app",
         host=server_config.host,

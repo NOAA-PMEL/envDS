@@ -393,6 +393,7 @@ async def test_task():
 
 @app.get("/")
 async def root():
+    print("***HERE***")
     return {"message": "Hello World from envDS Dashboard"}
 
 @app.websocket("/ws/sensor/{client_id}")

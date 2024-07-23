@@ -20,7 +20,7 @@ def get_layout():
         # html.Div('This is our Home page content.'),
         dcc.Input(id="input", autoComplete="off", debounce=True),
         html.Div(id="message"),
-        WebSocket(id="ws", url=f"ws://uasdaq.pmel.noaa.gov/uasdaq/dashboard/ws/sensor/main")
+        WebSocket(id="ws", url=f"ws://10.55.169.1:8080/envds/dashboard/ws/sensor/main")
     # ], style=CONTENT_STYLE)
     ])
     # try:
