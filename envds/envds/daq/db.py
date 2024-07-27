@@ -9,6 +9,7 @@ from aredis_om import (
     # get_redis_connection,
     NotFoundError,
 )
+import redis_om as redis_om_sync
 from pydantic import ValidationError
 from envds.util.util import get_checksum
 
@@ -146,6 +147,20 @@ async def get_sensor_type_registration(
         print(f"get_sensor_type error: {e}")
         return None
 
+def get_sensor_type_registration_sync(
+    make: str, model: str, version: str = "1.0.0"
+) -> SensorTypeRegistration:
+    try:
+        reg = SensorTypeRegistration.find(
+            SensorTypeRegistration.make == make,
+            SensorTypeRegistration.model == model,
+            SensorTypeRegistration.version == version
+        ).first()
+        print(f"{make}-{model}-{version}: {reg}")
+        return reg
+    except NotFoundError as e:
+        print(f"get_sensor_type error: {e}")
+        return None
 
 async def get_sensor_type_metadata(make: str, model: str, version: str = "1.0.0") -> dict:
     reg = await get_sensor_type_registration(make=make, model=model, version=version)
@@ -206,6 +221,21 @@ async def get_sensor_registration(
         print(f"get_sensor error: {e}")
         return None
 
+def get_sensor_registration_sync(
+    make: str, model: str, serial_number: str
+) -> SensorRegistration:
+    try:
+        reg = SensorRegistration.find(
+            SensorRegistration.make == make,
+            SensorRegistration.model == model,
+            SensorRegistration.serial_number == serial_number
+        ).first()
+        return reg
+
+    except NotFoundError as e:
+        print(f"get_sensor error: {e}")
+        return None
+
 async def get_sensor_type_registration_by_pk(pk) -> SensorTypeRegistration:
     try:
         reg = SensorTypeRegistration.get(pk)
@@ -229,9 +259,27 @@ async def get_all_sensor_registration() -> list[SensorRegistration]:
         print(f"get_sensor error: {e}")
         return None
 
+def get_all_sensor_registration_sync() -> list[SensorRegistration]:
+    try:
+        regs = SensorRegistration.find().all()
+        return regs
+
+    except NotFoundError as e:
+        print(f"get_sensor error: {e}")
+        return None
+
 async def get_all_sensor_type_registration() -> list[SensorTypeRegistration]:
     try:
         regs = await SensorTypeRegistration.find().all()
+        return regs
+
+    except NotFoundError as e:
+        print(f"get_sensor_type error: {e}")
+        return None
+
+def get_all_sensor_type_registration_sync() -> list[SensorTypeRegistration]:
+    try:
+        regs = SensorTypeRegistration.find().all()
         return regs
 
     except NotFoundError as e:
@@ -262,6 +310,21 @@ async def get_sensor_data(
 ) -> list[SensorDataRecord]:
     try:
         data = await SensorDataRecord.find(
+            SensorDataRecord.make == make,
+            SensorDataRecord.model == model,
+            SensorDataRecord.serial_number == serial_number
+        ).sort_by("timestamp").all()
+        return data
+
+    except NotFoundError as e:
+        print(f"get_sensor_data error: {e}")
+        return None
+
+def get_sensor_data_sync(
+    make: str, model: str, serial_number: str, start_time: str = None, stop_time: str = None
+) -> list[SensorDataRecord]:
+    try:
+        data = SensorDataRecord.find(
             SensorDataRecord.make == make,
             SensorDataRecord.model == model,
             SensorDataRecord.serial_number == serial_number
