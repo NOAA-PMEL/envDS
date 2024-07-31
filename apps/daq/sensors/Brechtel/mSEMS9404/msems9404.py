@@ -11,6 +11,8 @@ import logging
 # from logfmter import Logfmter
 import logging.config
 
+import time
+
 # from pydantic import BaseSettings, Field
 # import json
 import yaml
@@ -340,150 +342,150 @@ class mSEMS9404(Sensor):
             #         "default_value": {"type": "int", "data": 0},
             #     },
             # },
-            "sheath_c2": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Sheath Flow coefficient 2"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.0},
-                    "valid_max": {"type": "float", "data": 5000.0},
-                    "step_increment": {"type": "float", "data": 10.0},
-                    "default_value": {"type": "float", "data": -4132.0},
-                },
-            },
-            "sheath_c1": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Sheath Flow coefficient 1"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 1347.0},
-                },
-            },
-            "sheath_c0": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Sheath Flow coefficient 0"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": -3801.0},
-                },
-            },
-            "cal_temp": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Sheath Flow coefficient 1"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": 0.},
-                    "valid_max": {"type": "float", "data": 50.},
-                    "step_increment": {"type": "float", "data": 1.},
-                    "default_value": {"type": "float", "data": 23.4},
-                },
-            },
-            "impct_slp": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Impactor cal slope"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 2329.0},
-                },
-            },
-            "impct_off": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Impactor cal offset"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": -878.8},
-                },
-            },
-            "press_slp": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Pressure cal slope"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 3879.0},
-                },
-            },
-            "press_off": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "Pressure cal offset"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": -1524.6},
-                },
-            },
-            "hv_slp": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "High voltage cal slope"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 1509.6},
-                },
-            },
-            "hv_off": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "High voltage cal offset"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 803.2},
-                },
-            },
-            "ext_volts_slp": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "External voltage cal slope"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": 4788.0},
-                },
-            },
-            "ext_volts_off": {
-                "type": "float",
-                "shape": ["time"],
-                "attributes": {
-                    "long_name": {"type": "char", "data": "External voltages cal offset"},
-                    "units": {"type": "char", "data": "count"},
-                    "valid_min": {"type": "float", "data": -5000.},
-                    "valid_max": {"type": "float", "data": 5000.},
-                    "step_increment": {"type": "float", "data": 10.},
-                    "default_value": {"type": "float", "data": -3862.0},
-                },
-            },
+            # "sheath_c2": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Sheath Flow coefficient 2"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.0},
+            #         "valid_max": {"type": "float", "data": 5000.0},
+            #         "step_increment": {"type": "float", "data": 10.0},
+            #         "default_value": {"type": "float", "data": -4132.0},
+            #     },
+            # },
+            # "sheath_c1": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Sheath Flow coefficient 1"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 1347.0},
+            #     },
+            # },
+            # "sheath_c0": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Sheath Flow coefficient 0"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": -3801.0},
+            #     },
+            # },
+            # "cal_temp": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Sheath Flow coefficient 1"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": 0.},
+            #         "valid_max": {"type": "float", "data": 50.},
+            #         "step_increment": {"type": "float", "data": 1.},
+            #         "default_value": {"type": "float", "data": 23.4},
+            #     },
+            # },
+            # "impct_slp": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Impactor cal slope"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 2329.0},
+            #     },
+            # },
+            # "impct_off": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Impactor cal offset"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": -878.8},
+            #     },
+            # },
+            # "press_slp": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Pressure cal slope"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 3879.0},
+            #     },
+            # },
+            # "press_off": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "Pressure cal offset"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": -1524.6},
+            #     },
+            # },
+            # "hv_slp": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "High voltage cal slope"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 1509.6},
+            #     },
+            # },
+            # "hv_off": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "High voltage cal offset"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 803.2},
+            #     },
+            # },
+            # "ext_volts_slp": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "External voltage cal slope"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": 4788.0},
+            #     },
+            # },
+            # "ext_volts_off": {
+            #     "type": "float",
+            #     "shape": ["time"],
+            #     "attributes": {
+            #         "long_name": {"type": "char", "data": "External voltages cal offset"},
+            #         "units": {"type": "char", "data": "count"},
+            #         "valid_min": {"type": "float", "data": -5000.},
+            #         "valid_max": {"type": "float", "data": 5000.},
+            #         "step_increment": {"type": "float", "data": 10.},
+            #         "default_value": {"type": "float", "data": -3862.0},
+            #     },
+            # },
             "sheath_sp": {
                 "type": "float",
                 "shape": ["time"],
@@ -517,7 +519,7 @@ class mSEMS9404(Sensor):
                     "valid_min": {"type": "int", "data": 10},
                     "valid_max": {"type": "int", "data": 500},
                     "step_increment": {"type": "int", "data": 10},
-                    "default_value": {"type": "int", "data": 360},
+                    "default_value": {"type": "int", "data": 420},
                 },
             },
             "scan_min_dia": {
@@ -652,7 +654,7 @@ class mSEMS9404(Sensor):
             requested = setting["attributes"]["default_value"]["data"]
             if "settings" in config and name in config["settings"]:
                 requested = config["settings"][name]
-
+            time.sleep(1)
             self.settings.set_setting(name, requested=requested)
 
         meta = SensorMetadata(
