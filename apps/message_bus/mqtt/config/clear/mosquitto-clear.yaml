@@ -37,9 +37,12 @@ data:
     # Bridge
     # connection 172.23.140.152
     # address 172.23.140.152:1884
-    connection uasbase1
+    connection uasgw
     # address 10.10.20.165:1883
-    address 10.55.169.40:1883
+    address 10.55.169.1:1883
+    # connection uasbase1
+    # # address 10.10.20.165:1883
+    # address 10.55.169.40:1883
     # address 10.55.169.164:1883
     topic /envds/clear/sensor/+/data/update out 0 "" ""
     topic /envds/clear/sensor/+/settings/update out 0 "" ""
@@ -113,7 +116,7 @@ spec:
         # image: envds-registry:36301/eclipse-mosquitto:2.0.14
         # image: envds-registry:5000/core/eclipse-mosquitto:2.0.14
         # image: envds-registry:5000/core/eclipse-mosquitto:2.0.15
-        image: envds-registry-clear:5000/envds/eclipse-mosquitto:2.0.15
+        image: envds-registry-clear:5000/envds/eclipse-mosquitto:2.0.18
         resources:
           requests:
             cpu: "50m"
