@@ -72,7 +72,7 @@ class FILT9401(Sensor):
                 "type": "float",
                 "shape": ["time"],
                 "attributes": {
-                    "long_name": {"type": "char", "data": "Absorption coefficent, red"},
+                    "long_name": {"type": "char", "data": "Current Position"},
                     "units": {"type": "char", "data": "Mm-1"},
                 },
             },
