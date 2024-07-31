@@ -38,6 +38,8 @@ data:
       scan_min_dia: 10
       num_bins: 30
       bin_time: 1
+      mcpcpwr: 0
+      msems_mode: 2
 ---
 apiVersion: apps/v1
 kind: Deployment
