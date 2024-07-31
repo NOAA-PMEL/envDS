@@ -1,0 +1,2 @@
+KippZonen/SPLite2
+Sensiron/SHT35
