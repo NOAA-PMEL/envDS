@@ -235,7 +235,7 @@ class MQTTRelayClient():
             self.logger.debug("relay_publisher", extra={"do_run": self.do_run, "connected": self.connected})
             if self.connected:
                 msg = await self.pub_data.get()
-                self.logger.debug("relay_publisher", extra={"payload": msg.data})
+                self.logger.debug("relay_publisher", extra={"payload": msg.data, "qsize": self.pub_data.qsize()})
                 try:
                     sensor_id = msg.data["source"].split(".")[-1]
                     # topic = /uasdaq/uas-uasgw/envds/sensor/make::model::sn/data/update
@@ -261,7 +261,9 @@ class MQTTRelayClient():
                 
                 except [KeyError, Exception] as e:
                     self.logger.error("relay_publisher", extra={"e": e})
-            await asyncio.sleep(1)
+            else:
+                self.logger.debug("relay_publisher: sleep")
+                await asyncio.sleep(1)
     # async def sender(sensor_config, start_time, end_time):
 
     #     parts = sensor_config["sensor-id"].split("::")
@@ -369,6 +371,7 @@ class MQTTRelayClient():
                     # async with self.client.unfiltered_messages() as messages:
                     # async with self.client.messages() as messages:
                     self.connected = True
+                    self.logger.debug(f"relay client: {self.connected}")
                     async for message in self.client.messages: #() as messages:
                         self.logger.debug("relay client:", extra={"payload": message})
                         # print(f"messages: {messages}")
@@ -415,11 +418,13 @@ class MQTTRelayClient():
                 # print(
                 #     f'Error "{error}". Reconnecting sub in {self.reconnect_interval} seconds.'
                 # )
+                self.logger.debug("relay_client: sleep")
                 await asyncio.sleep(self.reconnect_interval)
             except Exception as e:
                 self.logger.error("relay client - Exception", extra={"error": e})
                 # print(e)
 
+            self.logger.debug("relay_client:2 sleep")
             await asyncio.sleep(1)
         # self.logger.info("relay client - done")
         # print("done with run")

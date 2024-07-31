@@ -10,7 +10,7 @@ data:
     # daq_id: cloudysky
     targets:
       uasbase1:
-        uri: 10.55.169.91
+        uri: 10.55.169.92
         mqtt-port: 1883
         target-namespace: uasdaq
         datasystem-id-prefix: uas-uasgw
@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
       - name: envds-relay-uasgw
-        image: envds-registry-uasgw:5000/envds/envds-relay:0.1.0
+        image: envds-registry-uasgw:5000/envds/envds-relay:1.0.1
         imagePullPolicy: "Always"
         env:
           - name: ENVDS_ENV_ID
