@@ -406,11 +406,11 @@ class DAQClient(abc.ABC):
                     # self.logger.debug("client.recv_loop:4")
                 else:
                     # self.logger.debug("client.recv_loop:5")
-                    await asyncio.sleep(1)
-                await asyncio.sleep(self.min_recv_delay)
+                    # await asyncio.sleep(1)
+                    await asyncio.sleep(self.min_recv_delay)
             except Exception as e:
                 self.logger.error("client.recv_loop", extra={"error": e})
-                await asyncio.sleep(1)
+                await asyncio.sleep(self.min_recv_delay)
 
     async def send_to_client(self, data):
         pass
