@@ -10,11 +10,19 @@ data:
   sensor.conf: |
     serial_number: "347"
     daq_id: clearsky
+    # interfaces:
+    #   default:
+    #     interface_env_id: clear # if omitted, defaults to envds_id of sensor
+    #     interface_id: system::net::clearsky1
+    #     path: udp-10080
     interfaces:
+      # default: serial
       default:
         interface_env_id: clear # if omitted, defaults to envds_id of sensor
-        interface_id: system::net::clearsky1
-        path: udp-10080
+        interface_id: NetBurner::SB70LC::nb55
+        # interface_id: NetBurner::SB70LC::home38
+        # path: port, channel, etc
+        path: port-2
     
     # settings: # used to override defaults
     #   pump_power: 1
