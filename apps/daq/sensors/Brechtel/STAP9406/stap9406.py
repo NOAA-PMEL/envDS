@@ -578,7 +578,7 @@ class STAP9406(Sensor):
         while True:
             try:
                 self.logger.debug("polling_loop", extra={"poll_cmd": poll_cmd})
-                await self.interface_send_data(data={"data": poll_cmd})
+                # await self.interface_send_data(data={"data": poll_cmd})
                 await asyncio.sleep(time_to_next(self.data_rate/2.))
             except Exception as e:
                 self.logger.error("polling_loop", extra={"e": e})
@@ -590,7 +590,7 @@ class STAP9406(Sensor):
             try:
                 data = await self.default_data_buffer.get()
                 # self.collecting = True
-                self.logger.debug("default_data_loop", extra={"data": data})
+                self.logger.debug("default_data_loop", extra={"data": data, "qsize": self.default_data_buffer.qsize()})
                 # continue 
                 record = self.default_parse(data)
                 if record:
@@ -642,7 +642,7 @@ class STAP9406(Sensor):
                 # self.logger.debug("default_data_loop", extra={"record": record})
             except Exception as e:
                 print(f"default_data_loop error: {e}")
-            await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
 
     def default_parse(self, data):
         if data:
@@ -664,17 +664,17 @@ class STAP9406(Sensor):
 
                 # print(f"include metadata: {self.include_metadata}")
                 # record = self.build_data_record(meta=self.include_metadata)
-                # # print(f"default_parse: data: {data}, record: {record}")
+                # print(f"default_parse: data: {data}, record: {record}")
                 # self.include_metadata = False
                 try:
-
+                    # print(f"data.data: {data.data}")
                     # record["timestamp"] = data.data["timestamp"]
                     # record["variables"]["time"]["data"] = data.data["timestamp"]
 
                     # self.record_ready = False
 
                     line = data.data["data"].rstrip()#.split()
-                    print(f"***line: {line}")
+                    print(f"***line: {data.data['timestamp']}: {line}")
                     if "=" in line:
                         parts = line.split("=")
                     else:
@@ -684,11 +684,12 @@ class STAP9406(Sensor):
 
                     name = parts[0]
                     value = parts[1]
-                    # print(f"name, value: {name}, {value}")
+                    print(f"name, value: {name}, {value}")
                     if name == "invmm_r":
                         # self.scan_state = parts[1]
                         self.current_record = self.build_data_record(meta=self.include_metadata)
                         self.current_record["timestamp"] = data.data["timestamp"]
+                        print(f"data.data: {data.data}")
                         self.current_record["variables"]["time"]["data"] = data.data["timestamp"]
                         self.include_metadata = False
                         self.started_record = True
@@ -716,7 +717,8 @@ class STAP9406(Sensor):
                         return self.current_record
 
                     return None
-                except KeyError:
+                except KeyError as e:
+                    print(f"default_parse: KeyError {e}")
                     pass
             except Exception as e:
                 print(f"default_parse error: {e}")
