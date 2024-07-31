@@ -855,19 +855,28 @@ class mSEMS9404(Sensor):
 
                     if max_dp is None:
                         max_dp = 360
-                    dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
+                    
+                    number_of_bins=30
+                    try:
+                        number_of_bins = len(self.current_record["variables"]["bin_count"]["data"])
+                    except:
+                        pass
+
+                    # dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (30 - 1))
+                    dlogdp = math.pow(10, math.log10(max_dp / min_dp) / (number_of_bins - 1))
                     # dlogdp = dlogdp / (30-1)
                     diam = []
                     # diam_um = []
                     diam.append(10)
                     # diam_um.append(10 / 1000)
-                    for x in range(1, 30):
+                    for x in range(1, number_of_bins):
                         dp = round(diam[x - 1] * dlogdp, 2)
                         diam.append(dp)
                         # diam_um.append(round(dp / 1000, 3))
 
                     self.current_record["variables"]["actual_max_dia"]["data"] = diam[-1]
                     # record["variables"]["actual_max_dia"]["data"] = diam[-1]
+                    self.current_record["variables"]["diameter"]["data"] = diam
 
                     # # try:
                     # #     tot_cnt = 0
