@@ -342,7 +342,7 @@ class XFMainBoard(Sensor):
                 # self.logger.debug("default_data_loop", extra={"record": record})
             except Exception as e:
                 print(f"default_data_loop error: {e}")
-            await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
 
     def default_parse(self, data):
         if data:
