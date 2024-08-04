@@ -1,6 +1,3 @@
-AerosolDynamics/MAGIC250
-Handix/POPS1100
-DMT/CDP2
 InterMet/XFMainBoard
 InterMet/HYT271
 InterMet/NTC
@@ -8,4 +5,7 @@ InterMet/UBloxGPS
 KippZonen/SPLite2
 Rotronic/HC2A
 Sensiron/SHT35
+DMT/CDP2
+AerosolDynamics/MAGIC250
+Handix/POPS1100
 Brechtel/mSEMS9404
