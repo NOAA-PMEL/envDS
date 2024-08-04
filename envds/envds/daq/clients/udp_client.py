@@ -199,6 +199,10 @@ class UDPClient(DAQClient):
     async def recv_from_client(self):
         # print("recv_from_client:1")
         # if self.enabled():
+        # while not self.client.connected:
+        #     print("recv_from_client: waiting to connect")
+        #     await asyncio.sleep(1)
+        # await asyncio.sleep(2)
         if True:
             try:
                 print(f"recv_from_client:1 { self.client}")

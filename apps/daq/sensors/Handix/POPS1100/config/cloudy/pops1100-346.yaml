@@ -10,10 +10,17 @@ data:
     serial_number: "346"
     daq_id: cloudysky
     interfaces:
+      # default: serial
       default:
         interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
-        interface_id: system::net::cloudysky1
-        path: udp-10080
+        interface_id: NetBurner::SB70LC::nb43
+        # path: port, channel, etc
+        path: port-2
+    # interfaces:
+    #   default:
+    #     interface_env_id: cloudy # if omitted, defaults to envds_id of sensor
+    #     interface_id: system::net::cloudysky1
+    #     path: udp-10080
     
     # settings: # used to override defaults
     #   pump_power: 1
