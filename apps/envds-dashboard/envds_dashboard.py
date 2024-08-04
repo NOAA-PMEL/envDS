@@ -110,6 +110,7 @@ class WSClient(object):
         try:
             self.client = await websockets.connect(self.uri)
             self.connect_state = self.CONNECTED
+            print(f"WSClient: {self.client}")
         except ConnectionError:
             # print("not connected")
             self.client = None
@@ -134,8 +135,10 @@ class WSClient(object):
             try:
                 if self.connected():
                     data = await self.send_buffer.get()
+                    print(f"WSClient.send: {json.dumps(data)}")
                     await self.client.send(json.dumps(data))
             except ConnectionClosed:
+                print(f"WSClient.send error")
                 self.connect_state = self.DISCONNECTED
                 self.client = None
             await asyncio.sleep(0.1)
@@ -184,6 +187,7 @@ class envdsDashboard(envdsBase):
         self.daq_map = {
             "sensor": {},
             "interface": {},
+            "sensor-registry": {}
         }
 
         # self.plot_manager = PlotManager()
@@ -223,6 +227,7 @@ class envdsDashboard(envdsBase):
 
         # # this regsistry will persist on disk
         # self.sensor_definition_registry = {"sensors": dict()}
+        # self.run_task_list.append(self.get_sensor_registry())
         self.run_task_list.append(self.update_monitor())
         self.run_task_list.append(self.request_monitor())
 
@@ -283,6 +288,71 @@ class envdsDashboard(envdsBase):
     #     with open(fname, "w") as f:
     #         json.dump(self.sensor_definition_registry, f)
 
+    async def get_sensor_registry(self):
+
+        registry_update_interval = 5
+        while True:
+
+            registry_data = {"sensor-definition": [], "active-sensors": []}
+            results = await get_all_sensor_type_registration()
+            if results:
+                for result in results:
+                    # print(f"get_sensor_registry: {result}")
+                    print(f"get_sensor_registry: {dict(result)}")
+                    registry_data["sensor-definition"].append(dict(result))
+            
+            results = await get_all_sensor_registration()
+            if results:
+                for result in results:
+                    # print(f"get_sensor_registry: {result}")
+                    print(f"get_sensor_registry: {dict(result)}")
+                    registry_data["active-sensors"].append(dict(result))
+
+            self.logger.debug("get_sensor_registry", extra={"reg_data": registry_data})
+            
+            source_type = "sensor-registry"
+            source_id = "main"
+            try:
+                print(f"get_sensor_registry: {self.daq_map}")
+                if source_id not in self.daq_map[source_type]:
+                    self.daq_map[source_type][source_id] = {
+                        "ws_client": None,
+                        "plot_app": None, 
+                        "plot_data": None, 
+                        "source": f"{source_type}::{source_id}"
+                    }
+                print(f"get_sensor_registry: {self.daq_map}")
+                if self.daq_map[source_type][source_id]["ws_client"] is None:
+                    # create ws_client
+                    uri = "/".join(
+                        [
+                            # "ws://localhost:8080/ws/envds/daq/ws",
+                            # "ws://10.55.169.40:8080/ws/envds/daq/ws",
+                            "ws://localhost:9080/ws",
+                            # "ws://10.55.169.1:8080/envds/dashboard/ws",
+                            source_type,
+                            source_id
+                            # id_parts[0],
+                            # id_parts[1],
+                            # id_parts[2],
+                        ]
+                    )
+                    self.logger.debug("get_sensor_registry", extra={"uri": uri})
+                    self.daq_map[source_type][source_id]["ws_client"] = WSClient(uri)
+                    print(f"get_sensor_registry: {self.daq_map}")
+
+
+                await self.daq_map[source_type][source_id]["ws_client"].connect()
+
+                await self.daq_map[source_type][source_id]["ws_client"].send(
+                    {"registry": registry_data}
+                )
+            except Exception as e: 
+                self.logger.error("get_sensor_registry", extra={"e": e})
+            await asyncio.sleep(registry_update_interval)
+
+        # print(f"reg_list: {reg_list}")
+ 
     async def handle_data(self, message: Message):
         # print(f"handle_data: {message.data}")
         # self.logger.debug("handle_data", extra={"data": message.data})
