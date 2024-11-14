@@ -15,4 +15,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
-      run: docker build ./apps/envds-files --file Dockerfile --tag envds-files:$(date +%s)
+      with:
+        file: ./apps/envds-files/Dockerfile
+        context: ./apps/envds-files
+        push: false
+        tags: envds-files:$(date +%s)
+      # run: docker build ./apps/envds-files --file Dockerfile --tag envds-files:$(date +%s)
