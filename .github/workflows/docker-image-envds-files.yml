@@ -19,6 +19,6 @@ jobs:
       with:
         file: ./apps/envds-files/Dockerfile
         context: ./apps/envds-files
-        push: false
+        push: true
         tags: envds-files:$(date +%s)
       # run: docker build ./apps/envds-files --file Dockerfile --tag envds-files:$(date +%s)
